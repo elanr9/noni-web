@@ -49,8 +49,10 @@ export default function HomePage() {
               transition={{ duration: 0.6, delay: 0.12 }}
               className="mt-5 max-w-lg text-[17px] leading-relaxed text-muted md:text-[18px]"
             >
-              Trends fill the queue. Creators record. Admins approve once. Edit, post, and
-              track happen automatically.
+              Noni is a creator content application for brands. It fills creator queues from
+              trends, lets creators record video and photo posts in the mobile app, lets
+              admins approve once on the web, then edits, posts, and tracks the work
+              automatically.
             </motion.p>
 
             <motion.div

@@ -20,12 +20,14 @@ export const metadata: Metadata = {
     template: "%s · Noni",
   },
   description:
-    "Noni fills creator queues, creators record, admins approve once, and posting runs itself.",
-  metadataBase: new URL("https://noni.app"),
+    "Noni is a creator content application for brands. It assigns creator tasks, supports video and photo recording, admin approval, and automatic posting.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://noni-web.vercel.app",
+  ),
   openGraph: {
     title: "Noni",
     description:
-      "The creator OS for brands that ship content every week without drowning in group chats.",
+      "Noni is a creator content application for brands that fill queues, record, approve once, and ship posts automatically.",
     type: "website",
   },
 };
