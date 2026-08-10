@@ -5,7 +5,16 @@ export function Footer() {
     <footer className="border-t border-line bg-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.4fr_1fr_1fr] md:px-8">
         <div>
-          <div className="display text-3xl font-semibold text-ink">Noni</div>
+          <div className="display flex items-center gap-2.5 text-3xl font-semibold text-ink">
+            <img
+              src="/brand/marlin-blue.svg"
+              alt=""
+              width={32}
+              height={32}
+              className="h-8 w-8"
+            />
+            noni
+          </div>
           <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-muted">
             The creator OS for brands that ship content every week without drowning in
             group chats.

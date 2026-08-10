@@ -19,6 +19,10 @@ export const metadata: Metadata = {
     default: "Noni",
     template: "%s · Noni",
   },
+  icons: {
+    icon: "/icon.svg",
+    apple: "/brand/app-icon.svg",
+  },
   applicationName: "Noni",
   description:
     "The purpose of the Noni app is to help brands run creator content programs. Noni assigns creator tasks, supports video and photo recording, admin approval, and automatic posting.",

@@ -23,8 +23,18 @@ export function Navbar() {
       }`}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:h-[72px] md:px-8">
-        <Link href="/" className="display text-[28px] font-semibold text-ink">
-          Noni
+        <Link
+          href="/"
+          className="display flex items-center gap-2 text-[28px] font-semibold text-ink"
+        >
+          <img
+            src="/brand/marlin-blue.svg"
+            alt=""
+            width={30}
+            height={30}
+            className="h-[30px] w-[30px]"
+          />
+          noni
         </Link>
 
         <nav className="hidden items-center gap-8 text-[15px] font-medium text-ink-soft md:flex">

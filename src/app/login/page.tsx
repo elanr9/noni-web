@@ -52,8 +52,18 @@ function LoginForm() {
 
   return (
     <div className="mx-auto w-full max-w-md">
-      <Link href="/" className="display text-3xl font-semibold text-ink">
-        Noni
+      <Link
+        href="/"
+        className="display inline-flex items-center gap-2.5 text-3xl font-semibold text-ink"
+      >
+        <img
+          src="/brand/marlin-blue.svg"
+          alt=""
+          width={32}
+          height={32}
+          className="h-8 w-8"
+        />
+        noni
       </Link>
       <h1 className="display mt-8 text-4xl font-semibold text-ink">Welcome back</h1>
       <p className="mt-2 text-[15px] text-muted">
