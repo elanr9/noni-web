@@ -26,11 +26,6 @@ export function Footer() {
           </div>
           <ul className="mt-4 space-y-2.5 text-[15px] text-ink-soft">
             <li>
-              <a href="#how" className="hover:text-ink">
-                How it works
-              </a>
-            </li>
-            <li>
               <Link href="/login" className="hover:text-ink">
                 Login
               </Link>
@@ -38,6 +33,11 @@ export function Footer() {
             <li>
               <Link href="/admin" className="hover:text-ink">
                 Admin
+              </Link>
+            </li>
+            <li>
+              <Link href="/about" className="hover:text-ink">
+                About
               </Link>
             </li>
           </ul>

@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-const APP_STORE =
-  process.env.NEXT_PUBLIC_APP_STORE_URL ?? "https://apps.apple.com";
+type Audience = "creators" | "businesses";
 
-export function Navbar() {
+type NavbarProps = {
+  audience?: Audience;
+  onAudienceChange?: (audience: Audience) => void;
+};
+
+export function Navbar({ audience = "creators", onAudienceChange }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -15,6 +19,14 @@ export function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const go = (next: Audience) => {
+    if (onAudienceChange) {
+      onAudienceChange(next);
+      return;
+    }
+    window.location.href = "/";
+  };
 
   return (
     <header
@@ -37,37 +49,29 @@ export function Navbar() {
           noni
         </Link>
 
-        <nav className="hidden items-center gap-8 text-[15px] font-medium text-ink-soft md:flex">
-          <a href="#how" className="transition hover:text-ink">
-            How it works
-          </a>
-          <a href="#creators" className="transition hover:text-ink">
-            Creators
-          </a>
-          <a href="#brands" className="transition hover:text-ink">
-            Businesses
-          </a>
-          <Link href="/admin" className="transition hover:text-ink">
-            Admin
-          </Link>
-        </nav>
-
         <div className="flex shrink-0 items-center gap-1.5 md:gap-2.5">
-          <Link
-            href="/login"
-            className="rounded-full px-3 py-2 text-[13px] font-semibold text-ink transition hover:bg-black/5 md:px-5 md:py-2.5 md:text-[14px]"
+          <button
+            type="button"
+            onClick={() => go("creators")}
+            className={`rounded-full px-3.5 py-2 text-[13px] font-semibold transition md:px-5 md:py-2.5 md:text-[14px] ${
+              audience === "creators"
+                ? "bg-ink text-white"
+                : "border border-line bg-white text-ink hover:border-ink/20"
+            }`}
           >
-            Login
-          </Link>
-          <a
-            href={APP_STORE}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_10px_24px_rgba(15,23,32,0.18)] transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
+            Creators
+          </button>
+          <button
+            type="button"
+            onClick={() => go("businesses")}
+            className={`rounded-full px-3.5 py-2 text-[13px] font-semibold transition md:px-5 md:py-2.5 md:text-[14px] ${
+              audience === "businesses"
+                ? "bg-ink text-white"
+                : "border border-line bg-white text-ink hover:border-ink/20"
+            }`}
           >
-            <span className="md:hidden">Get app</span>
-            <span className="hidden md:inline">Download the app</span>
-          </a>
+            Businesses
+          </button>
         </div>
       </div>
     </header>
