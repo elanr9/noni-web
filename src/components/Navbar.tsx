@@ -45,7 +45,7 @@ export function Navbar() {
             Creators
           </a>
           <a href="#brands" className="transition hover:text-ink">
-            Brands
+            Businesses
           </a>
           <Link href="/admin" className="transition hover:text-ink">
             Admin

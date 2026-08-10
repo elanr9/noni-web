@@ -16,8 +16,8 @@ export function Footer() {
             noni
           </div>
           <p className="mt-3 max-w-sm text-[15px] leading-relaxed text-muted">
-            The creator OS for brands that ship content every week without drowning in
-            group chats.
+            Noni turns trends into queued posts, creators make them, businesses approve
+            once, and everything after that runs itself.
           </p>
         </div>
         <div>

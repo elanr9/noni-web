@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   applicationName: "Noni",
   description:
-    "The purpose of the Noni app is to help brands run creator content programs. Noni assigns creator tasks, supports video and photo recording, admin approval, and automatic posting.",
+    "Noni automates UGC end to end. Creators get paid to post what Noni tells them. Businesses approve once, then edit, post, track, and pay run automatically.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.usenoni.app",
   ),
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     title: "Noni",
     siteName: "Noni",
     description:
-      "The purpose of the Noni app is to help brands run creator content programs with queues, recording, approval, and automatic posting.",
+      "Noni automates UGC campaigns for creators and businesses: queued posts, in app creation, one approve, then auto post and pay.",
     type: "website",
   },
   appleWebApp: {

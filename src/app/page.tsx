@@ -20,24 +20,36 @@ const fade = {
 const STEPS = [
   {
     n: "01",
-    title: "Queues fill themselves",
-    body: "Noni scrapes trends and drafts hooks, scripts, and captions so nobody starts blank.",
+    title: "Find what works",
+    body: "Noni scrapes trends and turns winners into concrete briefs with hooks, scripts, captions, and slide copy.",
   },
   {
     n: "02",
-    title: "Creators just record",
-    body: "Open the app, see what to shoot, record with the teleprompter, or build a photo carousel.",
+    title: "Fill creator queues",
+    body: "Each creator gets a ready weekly queue of Reels and slideshows. No blank page, no strategy work.",
   },
   {
     n: "03",
-    title: "Approve once",
-    body: "Admins review finished pieces. After approve, edit, post, and track run alone.",
+    title: "Record, then approve",
+    body: "Creators record or build in app. Businesses approve once or request changes. Humans only show up here.",
   },
   {
     n: "04",
-    title: "It goes live",
-    body: "Approved content posts to each creator's own TikTok and Instagram, then performance rolls in.",
+    title: "Everything after runs",
+    body: "Edit, post to TikTok and Instagram, track views and revenue, and pay creators automatically.",
   },
+];
+
+const CREATOR_POINTS = [
+  "Know exactly what to post today",
+  "Record with a teleprompter or build photo carousels in app",
+  "Noni edits, posts to your TikTok and Instagram, and pays you",
+];
+
+const BUSINESS_POINTS = [
+  "Brand study, briefs, and weekly queues without a content ops team",
+  "One tap Approve, then edit, post, and attribution run alone",
+  "Review, Briefs, Library, Creators, and Analytics in one place",
 ];
 
 const POSTS = [
@@ -63,7 +75,7 @@ export default function HomePage() {
               transition={{ duration: 0.5 }}
               className="text-[13px] font-semibold uppercase tracking-[0.16em] text-accent-deep"
             >
-              Humans show up twice. Everything else runs.
+              Creators record. Businesses approve. Everything else runs.
             </motion.p>
 
             {/* Static hero copy so Google OAuth branding crawlers see name + purpose without opacity:0 */}
@@ -71,13 +83,14 @@ export default function HomePage() {
               noni
             </h1>
             <p className="display mt-3 max-w-xl text-[30px] font-semibold tracking-[-0.03em] text-ink-soft md:text-[42px]">
-              Creator content that ships itself.
+              The easiest way to run UGC campaigns.
             </p>
             <p className="mt-5 max-w-lg text-[17px] leading-relaxed text-muted md:text-[18px]">
-              The purpose of the Noni app is to help brands run creator content programs. Noni
-              fills creator queues from trends, lets creators record video and photo posts in
-              the mobile app, lets admins approve once, then edits, posts, and tracks the work
-              automatically.
+              The purpose of the Noni app is to automate UGC end to end. Noni finds what works,
+              turns it into concrete posts, fills creator queues, and after one business Approve
+              it edits, posts to TikTok and Instagram, tracks performance, and pays creators.
+              Creators get paid to post what Noni tells them. Businesses scale on brand UGC
+              without a content team.
             </p>
 
             <motion.div
@@ -92,14 +105,14 @@ export default function HomePage() {
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3.5 text-[15px] font-bold text-white shadow-[0_16px_40px_rgba(79,186,242,0.35)] transition hover:bg-accent-deep"
               >
-                Download the app
+                Download for creators
                 <ArrowRight className="h-4 w-4" />
               </a>
               <Link
                 href="/login?next=/admin"
                 className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-6 py-3.5 text-[15px] font-bold text-ink transition hover:border-ink/20"
               >
-                Admin login
+                Business login
               </Link>
             </motion.div>
           </div>
@@ -117,8 +130,13 @@ export default function HomePage() {
               How it works
             </p>
             <h2 className="display mt-3 text-4xl font-semibold text-ink md:text-5xl">
-              One loop. Almost no ops.
+              Trends become posts. Posts go live. Humans show up twice.
             </h2>
+            <p className="mt-4 max-w-xl text-[16px] leading-relaxed text-muted">
+              Scrape, ideate, fill queues, record, approve, then auto edit, auto post, and track.
+              Someone with zero content skill can ship several on brand pieces a day, video and
+              photo carousels included.
+            </p>
           </motion.div>
 
           <div className="mt-12 grid gap-8 md:grid-cols-4 md:gap-6">
@@ -139,18 +157,103 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section id="creators" className="bg-soft px-5 py-20 md:px-8 md:py-28">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
+          <motion.div {...fade} transition={{ duration: 0.55 }}>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-deep">
+              For creators
+            </p>
+            <h2 className="display mt-3 text-4xl font-semibold text-ink md:text-5xl">
+              The easiest way to do UGC campaigns and earn.
+            </h2>
+            <p className="mt-4 text-[16px] leading-relaxed text-muted">
+              Open Home, see exactly what to make, record or create in app, submit, and get paid.
+              No strategy, editing, or posting logistics. Noni tells you what to post.
+            </p>
+            <ul className="mt-8 space-y-3">
+              {CREATOR_POINTS.map((line) => (
+                <li
+                  key={line}
+                  className="rounded-2xl border border-line bg-white px-5 py-4 text-[15px] font-medium text-ink"
+                >
+                  {line}
+                </li>
+              ))}
+            </ul>
+            <a
+              href={APP_STORE}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-8 inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3.5 text-[15px] font-bold text-white"
+            >
+              Download the app
+              <ArrowRight className="h-4 w-4" />
+            </a>
+          </motion.div>
+          <PhoneMock
+            src="/brand/creator-home-hero.png"
+            alt="Noni creator Home screen with today posts and earnings"
+            priority={false}
+            delay={0.1}
+          />
+        </div>
+      </section>
+
+      <section id="brands" className="bg-white px-5 py-20 md:px-8 md:py-28">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
+          <div className="order-2 md:order-1">
+            <PhoneMock
+              src="/brand/admin-review-hero.png"
+              alt="Noni business Review screen for approving creator posts"
+              priority={false}
+              delay={0.1}
+            />
+          </div>
+          <motion.div {...fade} transition={{ duration: 0.55 }} className="order-1 md:order-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-deep">
+              For businesses
+            </p>
+            <h2 className="display mt-3 text-4xl font-semibold text-ink md:text-5xl">
+              The easiest way to automate and run UGC campaigns.
+            </h2>
+            <p className="mt-4 text-[16px] leading-relaxed text-muted">
+              A managed creator program without hiring a content ops team. Brand voice, briefs,
+              quality gate, posting, and attribution run through Noni. You set brand and cadence,
+              invite creators, and approve.
+            </p>
+            <ul className="mt-8 space-y-3">
+              {BUSINESS_POINTS.map((line) => (
+                <li
+                  key={line}
+                  className="rounded-2xl border border-line bg-soft px-5 py-4 text-[15px] font-medium text-ink"
+                >
+                  {line}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/login?next=/admin"
+              className="mt-8 inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3.5 text-[15px] font-bold text-white"
+            >
+              Open business admin
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
       <section id="product" className="overflow-hidden bg-soft px-5 py-20 md:px-8 md:py-28">
         <div className="mx-auto max-w-6xl">
           <motion.div {...fade} transition={{ duration: 0.55 }} className="mx-auto max-w-2xl text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-deep">
-              The product
+              Both sides
             </p>
             <h2 className="display mt-3 text-4xl font-semibold text-ink md:text-5xl">
-              Creators shoot. Admins approve once.
+              Open Home and earn. Approve once and it goes live.
             </h2>
             <p className="mt-4 text-[16px] leading-relaxed text-muted">
-              Phone for the field. Calm review when you need a quality gate. Everything after
-              that is automatic.
+              Noni turns trends into queued posts, creators make them, businesses approve once,
+              and everything after that runs itself.
             </p>
           </motion.div>
 
@@ -164,18 +267,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="creators" className="bg-white px-5 py-20 md:px-8 md:py-28">
+      <section className="bg-white px-5 py-20 md:px-8 md:py-28">
         <div className="mx-auto max-w-6xl">
           <motion.div {...fade} transition={{ duration: 0.55 }} className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-deep">
               What ships
             </p>
             <h2 className="display mt-3 text-4xl font-semibold text-ink md:text-5xl">
-              Real posts from real creators.
+              On brand UGC, video and carousels.
             </h2>
             <p className="mt-4 text-[16px] leading-relaxed text-muted">
-              Video talking heads and photo carousels, drafted from trends, recorded in app,
-              approved once, then posted natively.
+              Ready posts drafted from trends, made by creators in app, approved once, then
+              posted natively to their accounts.
             </p>
           </motion.div>
 
@@ -200,18 +303,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="brands" className="bg-ink px-5 py-20 text-white md:px-8 md:py-28">
+      <section className="bg-ink px-5 py-20 text-white md:px-8 md:py-28">
         <div className="mx-auto flex max-w-6xl flex-col items-start gap-8 md:flex-row md:items-end md:justify-between">
           <motion.div {...fade} transition={{ duration: 0.55 }} className="max-w-xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">
-              For brands
-            </p>
-            <h2 className="display mt-3 text-4xl font-semibold md:text-5xl">
-              Run your creator program without drowning in group chats.
+            <h2 className="display text-4xl font-semibold md:text-5xl">
+              Start a UGC campaign that runs itself.
             </h2>
             <p className="mt-4 text-[16px] leading-relaxed text-white/65">
-              Review submissions, brief campaigns, watch analytics, and manage creators in
-              Noni. Web for desks. App for the field.
+              Creators download Noni and earn. Businesses log in, invite creators, publish
+              briefs, and approve.
             </p>
           </motion.div>
           <motion.div
@@ -219,18 +319,20 @@ export default function HomePage() {
             transition={{ duration: 0.55, delay: 0.08 }}
             className="flex flex-wrap gap-3"
           >
-            <Link
-              href="/login?next=/admin"
+            <a
+              href={APP_STORE}
+              target="_blank"
+              rel="noreferrer"
               className="rounded-full bg-accent px-6 py-3.5 text-[15px] font-bold text-white"
             >
-              Open admin
-            </Link>
-            <a
-              href="mailto:founders@fieldvisionai.com"
+              Download the app
+            </a>
+            <Link
+              href="/login?next=/admin"
               className="rounded-full border border-white/20 px-6 py-3.5 text-[15px] font-bold text-white"
             >
-              Talk to us
-            </a>
+              Business login
+            </Link>
           </motion.div>
         </div>
       </section>
