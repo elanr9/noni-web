@@ -24,36 +24,24 @@ export default function HomePage() {
 
         <main className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-10 md:grid-cols-[1.1fr_0.9fr] md:gap-8 md:px-8 md:pb-28 md:pt-16">
           <div>
-            <motion.div
-              {...fade}
-              transition={{ duration: 0.55 }}
-              className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-white/70 px-3 py-1.5 text-[13px] font-semibold text-accent-deep shadow-sm"
-            >
+            <div className="inline-flex items-center gap-2 rounded-full border border-accent/20 bg-white/70 px-3 py-1.5 text-[13px] font-semibold text-accent-deep shadow-sm">
               <Sparkles className="h-3.5 w-3.5" />
               Humans show up twice. Everything else runs.
-            </motion.div>
+            </div>
 
-            <motion.h1
-              {...fade}
-              transition={{ duration: 0.6, delay: 0.05 }}
-              className="display mt-6 max-w-xl text-[48px] font-semibold leading-[0.98] text-ink md:text-[72px]"
-            >
+            {/* Static hero copy so Google OAuth branding crawlers see name + purpose without opacity:0 */}
+            <h1 className="display mt-6 max-w-xl text-[48px] font-semibold leading-[0.98] text-ink md:text-[72px]">
               Noni
-              <span className="mt-2 block text-[34px] font-semibold tracking-[-0.03em] text-ink-soft md:text-[44px]">
-                Creator content that ships itself.
-              </span>
-            </motion.h1>
-
-            <motion.p
-              {...fade}
-              transition={{ duration: 0.6, delay: 0.12 }}
-              className="mt-5 max-w-lg text-[17px] leading-relaxed text-muted md:text-[18px]"
-            >
-              Noni is a creator content application for brands. It fills creator queues from
-              trends, lets creators record video and photo posts in the mobile app, lets
-              admins approve once on the web, then edits, posts, and tracks the work
-              automatically.
-            </motion.p>
+            </h1>
+            <p className="display mt-2 max-w-xl text-[34px] font-semibold tracking-[-0.03em] text-ink-soft md:text-[44px]">
+              Creator content that ships itself.
+            </p>
+            <p className="mt-5 max-w-lg text-[17px] leading-relaxed text-muted md:text-[18px]">
+              The purpose of the Noni app is to help brands run creator content programs. Noni
+              fills creator queues from trends, lets creators record video and photo posts in
+              the mobile app, lets admins approve once on the web, then edits, posts, and
+              tracks the work automatically.
+            </p>
 
             <motion.div
               {...fade}
