@@ -72,6 +72,12 @@ export function Navbar({ audience = "creators", onAudienceChange }: NavbarProps)
           >
             Businesses
           </button>
+          <Link
+            href="/login"
+            className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
+          >
+            Login
+          </Link>
         </div>
       </div>
     </header>

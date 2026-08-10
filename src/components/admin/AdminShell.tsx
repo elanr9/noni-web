@@ -71,7 +71,7 @@ export function AdminShell({
   );
 
   return (
-    <div className="min-h-screen bg-[#f6f9fc] md:flex">
+    <div className="min-h-screen bg-white md:flex">
       <aside className="hidden w-[260px] shrink-0 flex-col border-r border-line bg-white md:flex">
         <div className="px-5 py-5">
           <Link href="/" className="display text-2xl font-semibold text-ink">
