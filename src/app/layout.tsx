@@ -16,19 +16,24 @@ const display = Syne({
 
 export const metadata: Metadata = {
   title: {
-    default: "Noni — Creator content that ships itself",
+    default: "Noni",
     template: "%s · Noni",
   },
+  applicationName: "Noni",
   description:
-    "Noni is a creator content application for brands. It assigns creator tasks, supports video and photo recording, admin approval, and automatic posting.",
+    "The purpose of the Noni app is to help brands run creator content programs. Noni assigns creator tasks, supports video and photo recording, admin approval, and automatic posting.",
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://noni-web.vercel.app",
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.usenoni.app",
   ),
   openGraph: {
     title: "Noni",
+    siteName: "Noni",
     description:
-      "Noni is a creator content application for brands that fill queues, record, approve once, and ship posts automatically.",
+      "The purpose of the Noni app is to help brands run creator content programs with queues, recording, approval, and automatic posting.",
     type: "website",
+  },
+  appleWebApp: {
+    title: "Noni",
   },
 };
 
