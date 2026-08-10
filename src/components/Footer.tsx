@@ -3,7 +3,7 @@ import Link from "next/link";
 export function Footer() {
   return (
     <footer className="border-t border-line bg-white">
-      <div className="mx-auto grid max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.4fr_1fr_1fr] md:px-8">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-[1.4fr_1fr_1fr] md:gap-10 md:px-8 md:py-14">
         <div>
           <div className="display flex items-center gap-2.5 text-3xl font-semibold text-ink">
             <img
@@ -66,9 +66,11 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-line">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-5 text-sm text-muted md:flex-row md:items-center md:justify-between md:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-sm text-muted md:flex-row md:items-center md:justify-between md:px-8">
           <span>© {new Date().getFullYear()} FieldVision AI. All rights reserved.</span>
-          <span>Built for creators and the brands that run them.</span>
+          <span className="hidden sm:inline">
+            Built for creators and the businesses that run them.
+          </span>
         </div>
       </div>
     </footer>

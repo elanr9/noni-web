@@ -11,7 +11,7 @@
   --accent-deep: #31a4f4;
   --accent-soft: #e8f6fe;
   --glow: rgba(79, 186, 242, 0.35);
-  --background: #f7fbfe;
+  --background: #ffffff;
   --foreground: #0f1720;
 }
 
@@ -36,6 +36,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -44,6 +45,15 @@ body {
   color: var(--foreground);
   font-family: var(--font-body), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 ::selection {
@@ -56,30 +66,7 @@ body {
   letter-spacing: -0.04em;
 }
 
-.hero-atmosphere {
-  background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(27, 166, 238, 0.28), transparent 55%),
-    radial-gradient(900px 500px at 10% 20%, rgba(79, 186, 242, 0.18), transparent 50%),
-    linear-gradient(180deg, #f7fbfe 0%, #eef7fd 45%, #ffffff 100%);
-}
-
-.phone-glow {
-  box-shadow:
-    0 30px 80px rgba(15, 23, 32, 0.18),
-    0 0 0 1px rgba(255, 255, 255, 0.5) inset,
-    0 0 60px var(--glow);
-}
-
 .glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(230, 238, 245, 0.9);
-}
-
-.grid-fade {
-  background-image:
-    linear-gradient(to right, rgba(15, 23, 32, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(15, 23, 32, 0.04) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+  background: #ffffff;
+  border: 1px solid var(--line);
 }

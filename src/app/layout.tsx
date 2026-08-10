@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   applicationName: "Noni",
   description:
-    "Noni automates UGC end to end. Creators get paid to post what Noni tells them. Businesses approve once, then edit, post, track, and pay run automatically.",
+    "The Noni app pays creators to post and lets businesses scale UGC without a content team.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.usenoni.app",
   ),

@@ -19,20 +19,20 @@ export function Navbar() {
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
-        scrolled ? "glass shadow-[0_8px_30px_rgba(15,23,32,0.06)]" : "bg-transparent"
+        scrolled ? "border-b border-line bg-white" : "bg-white"
       }`}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:h-[72px] md:px-8">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 md:h-[72px] md:px-8">
         <Link
           href="/"
-          className="display flex items-center gap-2 text-[28px] font-semibold text-ink"
+          className="display flex shrink-0 items-center gap-1.5 text-[24px] font-semibold text-ink md:gap-2 md:text-[28px]"
         >
           <img
             src="/brand/marlin-blue.svg"
             alt=""
-            width={30}
-            height={30}
-            className="h-[30px] w-[30px]"
+            width={28}
+            height={28}
+            className="h-7 w-7 md:h-[30px] md:w-[30px]"
           />
           noni
         </Link>
@@ -52,10 +52,10 @@ export function Navbar() {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex shrink-0 items-center gap-1.5 md:gap-2.5">
           <Link
             href="/login"
-            className="rounded-full px-4 py-2.5 text-[14px] font-semibold text-ink transition hover:bg-black/5 md:px-5"
+            className="rounded-full px-3 py-2 text-[13px] font-semibold text-ink transition hover:bg-black/5 md:px-5 md:py-2.5 md:text-[14px]"
           >
             Login
           </Link>
@@ -63,9 +63,10 @@ export function Navbar() {
             href={APP_STORE}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full bg-ink px-4 py-2.5 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(15,23,32,0.18)] transition hover:bg-ink-soft md:px-5"
+            className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white shadow-[0_10px_24px_rgba(15,23,32,0.18)] transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
           >
-            Download the app
+            <span className="md:hidden">Get app</span>
+            <span className="hidden md:inline">Download the app</span>
           </a>
         </div>
       </div>
