@@ -7,8 +7,7 @@ import { ArrowRight } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { PhoneMock } from "@/components/PhoneMock";
-
-const WAITLIST_EMAIL = "founders@fieldvisionai.com";
+import { WaitlistModal } from "@/components/WaitlistModal";
 
 type Audience = "creators" | "businesses";
 
@@ -34,9 +33,8 @@ const POSTS = [
 
 const CONTENT = {
   creators: {
-    eyebrow: "Open Home. Record. Get paid.",
-    tagline: "The easiest way to do UGC and earn.",
-    body: "Know what to post, record in app, and get paid.",
+    tagline: "Your new home for UGC.",
+    body: "Record, edit, post, and earn all in one place.",
     phoneSrc: "/brand/creator-home-hero.png",
     phoneAlt: "Noni creator Home screen with today posts and earnings",
     sectionLabel: "For creators",
@@ -46,9 +44,8 @@ const CONTENT = {
     points: CREATOR_POINTS,
   },
   businesses: {
-    eyebrow: "Approve once. Everything else runs.",
-    tagline: "The easiest way to run UGC campaigns.",
-    body: "Scale on brand UGC without a content team.",
+    tagline: "UGC Marketing made Easy.",
+    body: "Briefs, campaigns, creators, and analytics all in one place.",
     phoneSrc: "/brand/admin-review-hero.png",
     phoneAlt: "Noni business Review screen for approving creator posts",
     sectionLabel: "For businesses",
@@ -68,10 +65,8 @@ const panelMotion = {
 
 export default function HomePage() {
   const [audience, setAudience] = useState<Audience>("creators");
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
   const content = CONTENT[audience];
-  const waitlistHref = `mailto:${WAITLIST_EMAIL}?subject=${encodeURIComponent(
-    audience === "creators" ? "Noni waitlist Creators" : "Noni waitlist Businesses",
-  )}`;
 
   return (
     <div className="min-h-screen overflow-x-clip bg-white">
@@ -90,9 +85,6 @@ export default function HomePage() {
               {...panelMotion}
               className="mt-2"
             >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent-deep md:text-[13px] md:tracking-[0.16em]">
-                {content.eyebrow}
-              </p>
               <p className="display mx-auto mt-3 max-w-[18ch] text-[26px] font-semibold leading-[1.15] tracking-[-0.03em] text-ink-soft sm:max-w-none md:mx-0 md:text-[42px]">
                 {content.tagline}
               </p>
@@ -103,13 +95,14 @@ export default function HomePage() {
           </AnimatePresence>
 
           <div className="mt-7 flex flex-col items-center gap-3 md:mt-8 md:items-start">
-            <a
-              href={waitlistHref}
+            <button
+              type="button"
+              onClick={() => setWaitlistOpen(true)}
               className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-6 py-3.5 text-[15px] font-bold text-white transition hover:bg-accent-deep sm:w-auto"
             >
               Join waitlist
               <ArrowRight className="h-4 w-4" />
-            </a>
+            </button>
             <div
               role="group"
               aria-label="Audience"
@@ -239,15 +232,22 @@ export default function HomePage() {
               </p>
             </motion.div>
           </AnimatePresence>
-          <a
-            href={waitlistHref}
+          <button
+            type="button"
+            onClick={() => setWaitlistOpen(true)}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-6 py-3.5 text-[15px] font-bold text-white"
           >
             Join waitlist
             <ArrowRight className="h-4 w-4" />
-          </a>
+          </button>
         </div>
       </section>
+
+      <WaitlistModal
+        open={waitlistOpen}
+        audience={audience}
+        onClose={() => setWaitlistOpen(false)}
+      />
 
       <Footer />
     </div>
