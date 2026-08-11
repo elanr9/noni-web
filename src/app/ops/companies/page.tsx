@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { JoinCode } from "@/components/ops/JoinCode";
 import { NewCompanyForm } from "@/components/ops/NewCompanyForm";
 import { createClient } from "@/lib/supabase/server";
 
@@ -6,6 +7,7 @@ type CompanyRow = {
   id: string;
   name: string;
   slug: string;
+  join_code: string;
   created_at: string;
 };
 
@@ -20,7 +22,7 @@ export default async function OpsCompaniesPage() {
   const [{ data: companies, error }, { data: roster }] = await Promise.all([
     supabase
       .from("companies")
-      .select("id, name, slug, created_at")
+      .select("id, name, slug, join_code, created_at")
       .order("created_at", { ascending: false }),
     supabase
       .from("profiles")
@@ -74,6 +76,9 @@ export default async function OpsCompaniesPage() {
                       <span className="rounded-full bg-soft px-3 py-1 text-xs font-bold uppercase tracking-wide text-ink-soft">
                         {count.managers} managers · {count.creators} creators
                       </span>
+                    </div>
+                    <div className="mt-3">
+                      <JoinCode companyId={company.id} code={company.join_code} />
                     </div>
                   </Link>
                 );

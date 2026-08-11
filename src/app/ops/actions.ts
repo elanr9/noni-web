@@ -8,6 +8,7 @@ import {
   type CreateCompanyResponse,
   type InviteResponse,
 } from "@/lib/edge";
+import { createClient } from "@/lib/supabase/server";
 
 export type OpsActionResult = { ok: true } | { ok: false; error: string };
 
@@ -63,6 +64,23 @@ export async function inviteCampaignManager(input: {
   revalidatePath(`/ops/companies/${input.companyId}`);
   revalidatePath("/ops/invites");
   revalidatePath("/ops");
+  return { ok: true };
+}
+
+export async function regenerateJoinCode(input: {
+  companyId: string;
+}): Promise<OpsActionResult> {
+  const denied = await requirePlatformAdmin();
+  if (denied) return { ok: false, error: denied };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("regenerate_company_join_code", {
+    p_company_id: input.companyId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/ops/companies");
+  revalidatePath(`/ops/companies/${input.companyId}`);
   return { ok: true };
 }
 
