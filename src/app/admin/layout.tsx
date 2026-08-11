@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { getSessionProfile, isCampaignManager } from "@/lib/auth";
+import { canManageCampaigns, getSessionProfile } from "@/lib/auth";
 
 export default async function AdminLayout({
   children,
@@ -10,7 +10,7 @@ export default async function AdminLayout({
 }) {
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login?next=/admin");
-  if (!isCampaignManager(profile)) {
+  if (!canManageCampaigns(profile)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-soft px-5">
         <div className="max-w-md rounded-[28px] border border-line bg-white p-8 text-center shadow-sm">

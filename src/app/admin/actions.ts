@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getSessionProfile, isCampaignManager } from "@/lib/auth";
+import { canManageCampaigns, getSessionProfile } from "@/lib/auth";
 
 type TaskStatus =
   | "assigned"
@@ -30,7 +30,7 @@ export async function reviewSubmission(input: {
   note?: string | null;
 }): Promise<ReviewActionResult> {
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !isCampaignManager(profile)) {
+  if (!userId || !canManageCampaigns(profile)) {
     return { ok: false, error: "Campaign managers only." };
   }
 

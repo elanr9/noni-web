@@ -45,3 +45,7 @@ export function isPlatformAdmin(profile: Profile | null): boolean {
     profile.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL
   );
 }
+
+export function canManageCampaigns(profile: Profile | null): boolean {
+  return isCampaignManager(profile) || isPlatformAdmin(profile);
+}
