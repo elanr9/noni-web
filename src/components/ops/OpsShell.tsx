@@ -2,30 +2,17 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  BarChart3,
-  Inbox,
-  LayoutList,
-  LogOut,
-  Menu,
-  Plus,
-  Settings,
-  Users,
-  X,
-} from "lucide-react";
+import { Building2, LayoutDashboard, LogOut, Mail, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
-  { href: "/admin", label: "Review", icon: Inbox },
-  { href: "/admin/briefs", label: "Briefs", icon: Plus },
-  { href: "/admin/library", label: "Library", icon: LayoutList },
-  { href: "/admin/creators", label: "Creators", icon: Users },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/ops", label: "Overview", icon: LayoutDashboard },
+  { href: "/ops/companies", label: "Companies", icon: Building2 },
+  { href: "/ops/invites", label: "Invites", icon: Mail },
 ];
 
-export function AdminShell({
+export function OpsShell({
   children,
   name,
 }: {
@@ -47,9 +34,7 @@ export function AdminShell({
     <nav className="flex flex-1 flex-col gap-1 px-3">
       {NAV.map((item) => {
         const active =
-          item.href === "/admin"
-            ? pathname === "/admin"
-            : pathname.startsWith(item.href);
+          item.href === "/ops" ? pathname === "/ops" : pathname.startsWith(item.href);
         const Icon = item.icon;
         return (
           <Link
@@ -78,13 +63,13 @@ export function AdminShell({
             Noni
           </Link>
           <div className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-            Campaign manager
+            Platform ops
           </div>
         </div>
         {nav}
         <div className="mt-auto border-t border-line p-4">
           <div className="truncate px-1 text-sm font-semibold text-ink">
-            {name ?? "Campaign manager"}
+            {name ?? "Noni ops"}
           </div>
           <button
             type="button"

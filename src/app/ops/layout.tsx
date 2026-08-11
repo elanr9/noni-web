@@ -1,25 +1,25 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AdminShell } from "@/components/admin/AdminShell";
-import { getSessionProfile, isCampaignManager } from "@/lib/auth";
+import { OpsShell } from "@/components/ops/OpsShell";
+import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
 
-export default async function AdminLayout({
+export default async function OpsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const { userId, profile } = await getSessionProfile();
-  if (!userId) redirect("/login?next=/admin");
-  if (!isCampaignManager(profile)) {
+  if (!userId) redirect("/login?next=/ops");
+  if (!isPlatformAdmin(profile)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-soft px-5">
         <div className="max-w-md rounded-[28px] border border-line bg-white p-8 text-center shadow-sm">
           <h1 className="display text-3xl font-semibold text-ink">
-            Campaign managers only
+            Platform ops only
           </h1>
           <p className="mt-3 text-[15px] text-muted">
-            This account is signed in but is not a campaign manager. Use the Noni mobile
-            app as a creator, or sign in with a campaign manager account.
+            This account is signed in but is not the Noni platform ops account. Sign in
+            with the ops account to continue.
           </p>
           <Link
             href="/"
@@ -32,5 +32,5 @@ export default async function AdminLayout({
     );
   }
 
-  return <AdminShell name={profile?.full_name}>{children}</AdminShell>;
+  return <OpsShell name={profile?.full_name}>{children}</OpsShell>;
 }

@@ -33,6 +33,15 @@ export async function getSessionProfile(): Promise<{
   };
 }
 
-export function isAdmin(profile: Profile | null): boolean {
-  return profile?.role === "admin";
+export function isCampaignManager(profile: Profile | null): boolean {
+  return profile?.role === "campaign_manager";
+}
+
+const PLATFORM_ADMIN_EMAIL = "founders@usenoni.app";
+
+export function isPlatformAdmin(profile: Profile | null): boolean {
+  return (
+    profile?.role === "admin" &&
+    profile.email?.toLowerCase() === PLATFORM_ADMIN_EMAIL
+  );
 }

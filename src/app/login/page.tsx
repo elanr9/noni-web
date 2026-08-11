@@ -67,7 +67,7 @@ function LoginForm() {
       </Link>
       <h1 className="display mt-8 text-4xl font-semibold text-ink">Welcome back</h1>
       <p className="mt-2 text-[15px] text-muted">
-        Sign in to the admin web app or your Noni account.
+        Sign in to manage your company or your Noni account.
       </p>
 
       <button

@@ -32,7 +32,7 @@ export function Footer() {
             </li>
             <li>
               <Link href="/admin" className="hover:text-ink">
-                Admin
+                Campaign manager
               </Link>
             </li>
             <li>
