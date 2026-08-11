@@ -78,7 +78,7 @@ export default async function OpsCompaniesPage() {
                       </span>
                     </div>
                     <div className="mt-3">
-                      <JoinCode companyId={company.id} code={company.join_code} />
+                      <JoinCode code={company.join_code} />
                     </div>
                   </Link>
                 );

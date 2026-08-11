@@ -55,9 +55,12 @@ export default async function OpsCompanyDetailPage({ params }: PageProps) {
 
   return (
     <div>
-      <h1 className="display text-3xl font-semibold text-ink md:text-4xl">
-        {company.name}
-      </h1>
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="display text-3xl font-semibold text-ink md:text-4xl">
+          {company.name}
+        </h1>
+        <JoinCode code={company.join_code} />
+      </div>
       <p className="mt-1 text-[15px] text-muted">
         {company.slug}
         {company.website ? <> · {company.website}</> : null} · joined{" "}
@@ -72,23 +75,6 @@ export default async function OpsCompanyDetailPage({ params }: PageProps) {
         <span className="rounded-full bg-soft px-4 py-2 text-sm font-bold text-ink-soft">
           {creatorCount ?? 0} {creatorCount === 1 ? "creator" : "creators"}
         </span>
-      </div>
-
-      <div className="mt-6 rounded-2xl border border-line bg-white p-5 shadow-[0_8px_24px_rgba(15,23,32,0.03)]">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-ink-soft">
-          Creator join code
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          Creators enter this code in the app during onboarding to join{" "}
-          {company.name}.
-        </p>
-        <div className="mt-3">
-          <JoinCode
-            companyId={company.id}
-            code={company.join_code}
-            canRegenerate
-          />
-        </div>
       </div>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px]">
