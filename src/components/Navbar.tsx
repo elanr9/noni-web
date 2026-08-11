@@ -49,29 +49,36 @@ export function Navbar({ audience = "creators", onAudienceChange }: NavbarProps)
           noni
         </Link>
 
-        <div className="flex shrink-0 items-center gap-1.5 md:gap-2.5">
+        <div
+          role="group"
+          aria-label="Audience"
+          className="flex min-w-0 items-center rounded-full bg-accent-soft p-1"
+        >
           <button
             type="button"
             onClick={() => go("creators")}
-            className={`rounded-full px-3.5 py-2 text-[13px] font-semibold transition md:px-5 md:py-2.5 md:text-[14px] ${
+            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-semibold transition md:px-5 md:py-2 md:text-[14px] ${
               audience === "creators"
-                ? "bg-ink text-white"
-                : "border border-line bg-white text-ink hover:border-ink/20"
+                ? "bg-accent text-white"
+                : "text-ink-soft hover:text-ink"
             }`}
           >
-            Creators
+            For Creators
           </button>
           <button
             type="button"
             onClick={() => go("businesses")}
-            className={`rounded-full px-3.5 py-2 text-[13px] font-semibold transition md:px-5 md:py-2.5 md:text-[14px] ${
+            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-semibold transition md:px-5 md:py-2 md:text-[14px] ${
               audience === "businesses"
-                ? "bg-ink text-white"
-                : "border border-line bg-white text-ink hover:border-ink/20"
+                ? "bg-accent text-white"
+                : "text-ink-soft hover:text-ink"
             }`}
           >
-            Businesses
+            For Businesses
           </button>
+        </div>
+
+        <div className="flex shrink-0 items-center">
           <Link
             href="/login"
             className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
