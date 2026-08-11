@@ -19,12 +19,18 @@ export function WaitlistModal({ open, audience, onClose }: WaitlistModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [companyUrl, setCompanyUrl] = useState("");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const subject =
       audience === "creators" ? "Noni waitlist Creators" : "Noni waitlist Businesses";
-    const body = `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\n\nPlease add me to the Noni ${
+    const companyLines =
+      audience === "businesses"
+        ? `Company: ${companyName}\n${companyUrl ? `Company URL: ${companyUrl}\n` : ""}`
+        : "";
+    const body = `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\n${companyLines}\nPlease add me to the Noni ${
       audience === "creators" ? "creator" : "business"
     } waitlist.`;
     window.location.href = `mailto:${WAITLIST_EMAIL}?subject=${encodeURIComponent(
@@ -103,6 +109,27 @@ export function WaitlistModal({ open, audience, onClose }: WaitlistModalProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
               />
+              {audience === "businesses" && (
+                <>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Company name"
+                    autoComplete="organization"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    className={inputClass}
+                  />
+                  <input
+                    type="url"
+                    placeholder="Company URL (optional)"
+                    autoComplete="url"
+                    value={companyUrl}
+                    onChange={(e) => setCompanyUrl(e.target.value)}
+                    className={inputClass}
+                  />
+                </>
+              )}
               <button
                 type="submit"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-6 py-3.5 text-[15px] font-bold text-white transition hover:bg-accent-deep"
