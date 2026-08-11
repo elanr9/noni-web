@@ -137,7 +137,8 @@ export default async function OpsCompanyDetailPage({ params }: PageProps) {
             Invite campaign manager
           </h2>
           <p className="mt-1 text-sm text-muted">
-            They get an email with a link to accept and take over this company.
+            They get an email to download the Noni app. Signing in with that email
+            makes them this company&apos;s campaign manager automatically.
           </p>
           <div className="mt-5">
             <InviteForm companyId={company.id} />
