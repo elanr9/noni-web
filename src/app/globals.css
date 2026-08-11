@@ -64,6 +64,9 @@ body {
 .display {
   font-family: var(--font-display), var(--font-body), sans-serif;
   letter-spacing: -0.04em;
+  /* Syne's default single-storey g has a stubby flat descender that reads as
+     clipped. ss04 swaps in the double-storey g which renders complete. */
+  font-feature-settings: "ss04";
 }
 
 .glass {
