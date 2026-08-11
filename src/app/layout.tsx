@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Manrope, Syne } from "next/font/google";
+import { Manrope } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
 const body = Manrope({
@@ -8,10 +9,12 @@ const body = Manrope({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-const display = Syne({
+/* Self-hosted because Google Fonts strips Syne's stylistic sets, leaving the
+   ss04 double-storey g (globals.css .display) without glyphs to swap in. */
+const display = localFont({
+  src: "./fonts/syne-latin.woff2",
   variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  weight: "400 800",
 });
 
 export const metadata: Metadata = {
