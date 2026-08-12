@@ -291,7 +291,12 @@ export const MOCK_STAT_STRIP: StatStrip = {
   },
 };
 
-export const MOCK_DATASET: AdminDataset = {
+/* Mock-mode mutations write this dataset in place. The dev server can
+   instantiate this module once per route bundle, so the object lives on
+   globalThis to keep every read and mutation on the same instance. */
+const globalMock = globalThis as { __noniAdminMockDataset?: AdminDataset };
+
+export const MOCK_DATASET: AdminDataset = (globalMock.__noniAdminMockDataset ??= {
   company: MOCK_COMPANY,
   managers: MOCK_MANAGERS,
   creators: MOCK_CREATORS,
@@ -304,4 +309,4 @@ export const MOCK_DATASET: AdminDataset = {
   briefs: MOCK_BRIEFS,
   statStrip: MOCK_STAT_STRIP,
   weeklyViews: MOCK_WEEKLY_VIEWS,
-};
+});
