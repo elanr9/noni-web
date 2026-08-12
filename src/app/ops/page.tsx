@@ -1,68 +1,64 @@
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+"use client";
 
-export default async function OpsOverviewPage() {
-  const supabase = await createClient();
-  // Cross tenant tables are not readable via RLS, so counts for briefs and
-  // review queue use the service role client. The layout gate has already
-  // verified the platform admin before this page renders.
-  const service = createServiceClient();
-  const nowIso = new Date().toISOString();
+/* Overview — the platform-wide analytics explorer (OpsOverview in the
+   prototype). Title mirrors the selected range; the stat strip and the
+   View company pill follow the scope picked in the explorer. */
+import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-  const [companies, managers, creators, pendingInvites, briefs, inReview] =
-    await Promise.all([
-      supabase.from("companies").select("id", { count: "exact", head: true }),
-      supabase
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("role", "campaign_manager"),
-      supabase
-        .from("profiles")
-        .select("id", { count: "exact", head: true })
-        .eq("role", "creator"),
-      supabase
-        .from("company_invites")
-        .select("id", { count: "exact", head: true })
-        .is("accepted_at", null)
-        .gt("expires_at", nowIso),
-      service.from("briefs").select("id", { count: "exact", head: true }),
-      service
-        .from("assignments")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "submitted"),
-    ]);
+import { PageHead, Pill } from "@/components/kit";
+import { AnalyticsExplorer } from "@/components/ops/analytics/AnalyticsExplorer";
+import { StatStrip, type StatStripStat } from "@/components/ops/analytics/StatStrip";
+import { useOpsShell } from "@/components/ops/OpsShell";
+import { overviewStats, rangeLabel, type Range } from "@/lib/ops/analytics";
+import { SEED_COMPANIES, SEED_PEOPLE, SEED_POSTS } from "@/lib/ops/mock-data";
 
-  const cards = [
-    { label: "Companies", value: companies.count ?? 0 },
-    { label: "Campaign managers", value: managers.count ?? 0 },
-    { label: "Creators", value: creators.count ?? 0 },
-    { label: "Pending invites", value: pendingInvites.count ?? 0 },
-    { label: "Briefs, all companies", value: briefs.count ?? 0 },
-    { label: "Awaiting review, all companies", value: inReview.count ?? 0 },
+export default function OpsOverviewPage() {
+  const router = useRouter();
+  const { openUserProfile } = useOpsShell();
+  const [scope, setScope] = useState<string | null>(null);
+  const [range, setRange] = useState<Range>("Last 7 days");
+
+  const stats = overviewStats(SEED_COMPANIES, SEED_PEOPLE, scope);
+  const statItems: StatStripStat[] = [
+    { label: "Views this month", value: String(stats.views), delta: stats.dViews },
+    { label: "Posts this month", value: String(stats.posts), delta: stats.dPosts },
+    { label: "Active campaigns", value: String(stats.campaigns), delta: stats.dCamp },
+    { label: "Creators", value: String(stats.creators) },
   ];
 
   return (
     <div>
-      <h1 className="display text-3xl font-semibold text-ink md:text-4xl">Overview</h1>
-      <p className="mt-1 text-[15px] text-muted">
-        A cross company snapshot of the Noni platform.
-      </p>
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-[24px] border border-line bg-white p-6 shadow-[0_8px_24px_rgba(15,23,32,0.03)]"
-          >
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-              {card.label}
-            </div>
-            <div className="display mt-3 text-4xl font-semibold text-ink">
-              {card.value}
-            </div>
-          </div>
-        ))}
-      </div>
+      <PageHead title={rangeLabel(range)} />
+      <StatStrip
+        className="mb-[22px] border-b border-line pb-[22px]"
+        stats={statItems}
+        right={
+          scope ? (
+            <Pill
+              size="sm"
+              variant="tint"
+              icon={ArrowRight}
+              onClick={() => router.push(`/ops/companies/${scope}`)}
+            >
+              View company
+            </Pill>
+          ) : null
+        }
+      />
+      <AnalyticsExplorer
+        scope={scope}
+        showScopeDropdown
+        onScopeChange={setScope}
+        range={range}
+        onRangeChange={setRange}
+        posts={SEED_POSTS}
+        people={SEED_PEOPLE}
+        companies={SEED_COMPANIES}
+        onOpenProfile={openUserProfile}
+        onOpenPost={(post) => router.push(`/ops/posts/${post.id}`)}
+      />
     </div>
   );
 }

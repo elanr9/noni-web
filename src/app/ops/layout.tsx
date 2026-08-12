@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OpsShell } from "@/components/ops/OpsShell";
+import { ProfileModalHost } from "@/components/ops/users/ProfileModalHost";
 import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
 
 export default async function OpsLayout({
@@ -32,5 +33,10 @@ export default async function OpsLayout({
     );
   }
 
-  return <OpsShell name={profile?.full_name}>{children}</OpsShell>;
+  return (
+    <OpsShell name={profile?.full_name}>
+      {children}
+      <ProfileModalHost />
+    </OpsShell>
+  );
 }

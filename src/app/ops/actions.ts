@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
 import {
   callEdgeFunction,
   type CreateCompanyResponse,
   type InviteResponse,
 } from "@/lib/edge";
+
 export type OpsActionResult = { ok: true } | { ok: false; error: string };
 
 async function requirePlatformAdmin(): Promise<string | null> {
@@ -18,9 +18,13 @@ async function requirePlatformAdmin(): Promise<string | null> {
   return null;
 }
 
+/* Creates the company, then emails its one admin an invite. The company
+   stays invite-pending (visible only on the Invites page) until the admin
+   accepts, so no redirect to a detail page here. */
 export async function createCompany(input: {
   name: string;
   website: string | null;
+  adminName: string;
   adminEmail: string;
 }): Promise<OpsActionResult> {
   const denied = await requirePlatformAdmin();
@@ -28,6 +32,9 @@ export async function createCompany(input: {
 
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Company name is required." };
+  if (!input.adminName.trim()) {
+    return { ok: false, error: "The company admin's name is required." };
+  }
   const adminEmail = input.adminEmail.trim();
   if (!adminEmail) return { ok: false, error: "The company admin's email is required." };
 
@@ -41,6 +48,8 @@ export async function createCompany(input: {
   );
   if (error !== null) return { ok: false, error };
 
+  /* The invite edge function keys on email only; adminName is display-only
+     until the function persists a name. */
   const { error: inviteError } = await callEdgeFunction<InviteResponse>(
     "invite-campaign-manager",
     {
@@ -59,7 +68,8 @@ export async function createCompany(input: {
 
   revalidatePath("/ops");
   revalidatePath("/ops/companies");
-  redirect(`/ops/companies/${data.company.id}`);
+  revalidatePath("/ops/invites");
+  return { ok: true };
 }
 
 export async function inviteCampaignManager(input: {
