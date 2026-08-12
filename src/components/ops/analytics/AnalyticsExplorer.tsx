@@ -35,7 +35,7 @@ import {
   type Range,
   type SortMode,
 } from "@/lib/ops/analytics";
-import { companyName, fmtK } from "@/lib/ops/mock-data";
+import { fmtK } from "@/lib/ops/mock-data";
 import type { Company, Person, Post } from "@/lib/ops/types";
 
 export type AnalyticsExplorerProps = {
@@ -105,6 +105,8 @@ export function AnalyticsExplorer({
   };
 
   const active = companies.filter((c) => c.status === "Active");
+  const companyName = (id: string) =>
+    companies.find((c) => c.id === id)?.name ?? "";
   const scopeLabel = scope ? companyName(scope) : ALL_COMPANIES;
   const scopeCreators = creatorsInScope(people, scope);
   const formats = formatsInScope(companies, scope);

@@ -7,18 +7,23 @@ import { useState } from "react";
 
 import { Card, Label, MonthCal } from "@/components/kit";
 import { postsOnDay } from "@/lib/ops/analytics";
-import { companyName } from "@/lib/ops/mock-data";
 import type { CompanyDays, Post } from "@/lib/ops/types";
 
 import { DayModal } from "./DayModal";
 
 export type DailyActivityProps = {
   companyId: string;
+  companyName: string;
   days: CompanyDays;
   posts: Post[];
 };
 
-export function DailyActivity({ companyId, days, posts }: DailyActivityProps) {
+export function DailyActivity({
+  companyId,
+  companyName,
+  days,
+  posts,
+}: DailyActivityProps) {
   const [day, setDay] = useState<number | null>(null);
   const companyDays = days[companyId] || {};
   const dayData = day !== null ? companyDays[day] : undefined;
@@ -36,7 +41,7 @@ export function DailyActivity({ companyId, days, posts }: DailyActivityProps) {
       </Card>
       {day !== null && dayData ? (
         <DayModal
-          title={`August ${day} · ${companyName(companyId)}`}
+          title={`August ${day} · ${companyName}`}
           data={dayData}
           posts={postsOnDay(posts, companyId, day)}
           onClose={() => setDay(null)}

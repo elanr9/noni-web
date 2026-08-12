@@ -4,14 +4,30 @@ import { Images, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Card, HoverPeek } from "@/components/kit";
-import { fmtK, money, SEED_POSTS } from "@/lib/ops/mock-data";
-import type { Company } from "@/lib/ops/types";
+import { fmtK, money } from "@/lib/ops/mock-data";
+import type { Company, Post } from "@/lib/ops/types";
 
-export function CompanyPosts({ company }: { company: Company }) {
+export function CompanyPosts({
+  company,
+  posts: allPosts,
+}: {
+  company: Company;
+  posts: Post[];
+}) {
   const router = useRouter();
-  const posts = SEED_POSTS.filter((q) => q.company === company.id).sort(
-    (a, b) => b.viewsN - a.viewsN,
-  );
+  const posts = allPosts
+    .filter((q) => q.company === company.id)
+    .sort((a, b) => b.viewsN - a.viewsN);
+
+  if (posts.length === 0) {
+    return (
+      <Card pad={22}>
+        <p className="m-0 text-[13.5px] font-semibold text-slate-400">
+          Nothing published yet. Posts land here once creators start posting.
+        </p>
+      </Card>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 gap-3.5">

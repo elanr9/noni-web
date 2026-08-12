@@ -4,7 +4,6 @@ import { AtSign, Music2, Plus, Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import { Card, Chip, HoverPeek, Label, Modal, Pill } from "@/components/kit";
-import { BRAIN_ACCOUNTS, BRAIN_DOCS } from "@/lib/ops/mock-data";
 import type { BrainDoc, InspirationAccount } from "@/lib/ops/types";
 
 function DocModal({ doc, onClose }: { doc: BrainDoc; onClose: () => void }) {
@@ -42,9 +41,15 @@ function DocModal({ doc, onClose }: { doc: BrainDoc; onClose: () => void }) {
   );
 }
 
-export function CompanyBrain() {
+export function CompanyBrain({
+  docs,
+  accounts: initialAccounts,
+}: {
+  docs: BrainDoc[];
+  accounts: InspirationAccount[];
+}) {
   const [doc, setDoc] = useState<BrainDoc | null>(null);
-  const [accounts, setAccounts] = useState<InspirationAccount[]>(BRAIN_ACCOUNTS);
+  const [accounts, setAccounts] = useState<InspirationAccount[]>(initialAccounts);
   const [muted, setMuted] = useState<number[]>([]);
   const [adding, setAdding] = useState(false);
   const [handle, setHandle] = useState("");
@@ -65,8 +70,16 @@ export function CompanyBrain() {
 
   return (
     <div className="flex flex-col gap-3.5">
+      {docs.length === 0 ? (
+        <Card pad={22}>
+          <p className="m-0 text-[13.5px] font-semibold text-slate-400">
+            No brain docs yet. Product and Audience docs appear once the
+            company fills in its brand brain in the app.
+          </p>
+        </Card>
+      ) : (
       <div className="grid grid-cols-2 gap-3.5">
-        {BRAIN_DOCS.map((d) => (
+        {docs.map((d) => (
           <HoverPeek key={d.name} label="Open doc" onClick={() => setDoc(d)}>
             <Card pad={20} className="box-border h-full">
               <div className="flex items-center gap-2.5">
@@ -82,6 +95,7 @@ export function CompanyBrain() {
           </HoverPeek>
         ))}
       </div>
+      )}
       <Card pad={0}>
         <div className="flex items-center gap-2.5 px-5 pb-2.5 pt-4">
           <Label className="flex-1">Inspiration accounts</Label>
@@ -109,6 +123,11 @@ export function CompanyBrain() {
               Add
             </Pill>
           </div>
+        ) : null}
+        {accounts.length === 0 && !adding ? (
+          <p className="m-0 border-t border-line px-5 py-[13px] text-[13px] font-semibold text-slate-400">
+            No inspiration accounts yet. Add a handle to seed trend sourcing.
+          </p>
         ) : null}
         {accounts.map((a, i) => (
           <div

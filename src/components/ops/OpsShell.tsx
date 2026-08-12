@@ -23,13 +23,7 @@ import {
 
 import { CommandSearch, type CommandItem } from "@/components/kit";
 import { Avatar } from "@/components/kit/Avatar";
-import {
-  companyName,
-  SEED_COMPANIES,
-  SEED_INVITES,
-  SEED_PEOPLE,
-} from "@/lib/ops/mock-data";
-import type { Person } from "@/lib/ops/types";
+import type { Company, Invite, Person } from "@/lib/ops/types";
 import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
@@ -67,7 +61,14 @@ export function useOpsShell(): OpsShellContextValue {
   return ctx;
 }
 
-function buildDefaultIndex(): OpsSearchEntry[] {
+export interface OpsSearchData {
+  companies: Company[];
+  people: Person[];
+  invites: Invite[];
+}
+
+function buildDefaultIndex(data: OpsSearchData): OpsSearchEntry[] {
+  const names = new Map(data.companies.map((c) => [c.id, c.name]));
   return [
     ...NAV.map(
       (it): OpsSearchEntry => ({
@@ -79,27 +80,29 @@ function buildDefaultIndex(): OpsSearchEntry[] {
         action: { type: "navigate", href: it.href },
       }),
     ),
-    ...SEED_COMPANIES.filter((c) => c.status === "Active").map(
-      (c): OpsSearchEntry => ({
-        id: "co-" + c.id,
-        section: "Companies",
-        icon: LayoutGrid,
-        title: c.name,
-        meta: `${c.admin.email} · ${c.status}`,
-        action: { type: "navigate", href: `/ops/companies/${c.id}` },
-      }),
-    ),
-    ...SEED_PEOPLE.map(
+    ...data.companies
+      .filter((c) => c.status === "Active")
+      .map(
+        (c): OpsSearchEntry => ({
+          id: "co-" + c.id,
+          section: "Companies",
+          icon: LayoutGrid,
+          title: c.name,
+          meta: `${c.admin.email} · ${c.status}`,
+          action: { type: "navigate", href: `/ops/companies/${c.id}` },
+        }),
+      ),
+    ...data.people.map(
       (p): OpsSearchEntry => ({
         id: "pe-" + p.id,
         section: "Users",
         icon: CircleUserRound,
         title: p.name,
-        meta: `${companyName(p.company)} · ${p.role}`,
+        meta: `${names.get(p.company) ?? ""} · ${p.role}`,
         action: { type: "user", person: p },
       }),
     ),
-    ...SEED_INVITES.map(
+    ...data.invites.map(
       (iv): OpsSearchEntry => ({
         id: "in-" + iv.id,
         section: "Invites",
@@ -141,9 +144,11 @@ function SideItem({
 export function OpsShell({
   children,
   name,
+  searchData,
 }: {
   children: ReactNode;
   name?: string | null;
+  searchData: OpsSearchData;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -169,7 +174,7 @@ export function OpsShell({
     [openUserProfile],
   );
 
-  const defaultIndex = useMemo(() => buildDefaultIndex(), []);
+  const defaultIndex = useMemo(() => buildDefaultIndex(searchData), [searchData]);
   const searchIndex = indexOverride ?? defaultIndex;
 
   const onSearchSelect = useCallback(

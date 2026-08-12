@@ -3,24 +3,38 @@
 import { useState } from "react";
 
 import { AreaChart, Card, Label, SortDropdown } from "@/components/kit";
-import { COMPANY_DAYS, fmtK, moneyK } from "@/lib/ops/mock-data";
+import { fmtK, moneyK } from "@/lib/ops/mock-data";
+import type { DayActivity } from "@/lib/ops/types";
 
 const METRICS = ["Views", "Revenue", "Sign-ups"] as const;
 type Metric = (typeof METRICS)[number];
 
-/* Aug 5–11, the week the console's mock data centers on. */
-const DAYS = [5, 6, 7, 8, 9, 10, 11];
+/** Sun–Sat days of the current week, clamped to the current month. */
+function currentWeekDays(now: Date): number[] {
+  const sunday = now.getDate() - now.getDay();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const days: number[] = [];
+  for (let d = sunday; d < sunday + 7; d++) {
+    if (d >= 1 && d <= daysInMonth) days.push(d);
+  }
+  return days;
+}
 
 /** This-week chart with a metric dropdown, shown on campaign-manager profiles. */
-export function ManagerWeek({ companyId }: { companyId: string }) {
+export function ManagerWeek({ days }: { days: Record<number, DayActivity> }) {
   const [metric, setMetric] = useState<Metric>("Views");
-  const d = COMPANY_DAYS[companyId] ?? {};
+  const now = new Date();
+  const weekDays = currentWeekDays(now);
+  const month = now.toLocaleString("en-US", { month: "short" });
   const pickV = (day: number): number => {
-    const x = d[day];
+    const x = days[day];
     if (!x) return 0;
     return metric === "Views" ? x.views : metric === "Revenue" ? x.sales : x.signups;
   };
-  const series = DAYS.map(pickV);
+  const series = weekDays.map(pickV);
+  const labels = weekDays
+    .filter((_, i) => i % 2 === 0)
+    .map((d) => `${month} ${d}`);
   const yFmt =
     metric === "Views"
       ? (v: number) => fmtK(v)
@@ -34,12 +48,7 @@ export function ManagerWeek({ companyId }: { companyId: string }) {
         <SortDropdown prefix="" options={METRICS} value={metric} onSelect={setMetric} />
       </div>
       <div key={metric} className="animate-om-rise">
-        <AreaChart
-          series={series}
-          labels={["Aug 5", "Aug 7", "Aug 9", "Aug 11"]}
-          vb={210}
-          yFmt={yFmt}
-        />
+        <AreaChart series={series} labels={labels} vb={210} yFmt={yFmt} />
       </div>
     </Card>
   );

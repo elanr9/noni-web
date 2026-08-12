@@ -6,7 +6,7 @@ import { useState } from "react";
 
 import { pingTopUp, removeCompany } from "@/app/ops/companies/[id]/actions";
 import { Card, Label, Modal, Pill } from "@/components/kit";
-import { COMPANY_BILLING, money } from "@/lib/ops/mock-data";
+import { money } from "@/lib/ops/mock-data";
 import type { Company, CompanyBilling as Billing } from "@/lib/ops/types";
 
 function RemoveCompanyModal({
@@ -58,17 +58,23 @@ function RemoveCompanyModal({
   );
 }
 
-export function CompanyBilling({ company }: { company: Company }) {
+export function CompanyBilling({
+  company,
+  billing,
+}: {
+  company: Company;
+  billing: Billing | null;
+}) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [pinged, setPinged] = useState(false);
 
-  const b: Billing | undefined = COMPANY_BILLING[company.id];
+  const b: Billing | null = billing;
   if (!b) return null;
 
   const remaining = b.monthly - b.spent;
-  const pct = b.spent / b.monthly;
-  const low = remaining / b.monthly < 0.2;
+  const pct = b.monthly > 0 ? b.spent / b.monthly : 0;
+  const low = b.monthly > 0 && remaining / b.monthly < 0.2;
   const barClass = pct > 0.85 ? "bg-danger" : pct > 0.6 ? "bg-amber" : "bg-blue-500";
 
   const ping = () => {
@@ -132,6 +138,11 @@ export function CompanyBilling({ company }: { company: Company }) {
       </Card>
       <Card pad={0}>
         <Label className="block px-5 pb-1.5 pt-4">Top-ups</Label>
+        {b.topups.length === 0 ? (
+          <p className="m-0 border-t border-line px-5 py-[13px] text-[13px] font-semibold text-slate-400">
+            No top-ups yet. Prepaid credits show up here.
+          </p>
+        ) : null}
         {b.topups.map((t, i) => (
           <div
             key={i}

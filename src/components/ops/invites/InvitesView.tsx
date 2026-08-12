@@ -4,7 +4,7 @@ import { RotateCcw } from "lucide-react";
 import { useState, useTransition } from "react";
 import { resendInvite } from "@/app/ops/actions";
 import { Avatar, Card, Chip, PageHead, Pill } from "@/components/kit";
-import { SEED_INVITES, statusTone } from "@/lib/ops/mock-data";
+import { statusTone } from "@/lib/ops/mock-data";
 import type { Invite } from "@/lib/ops/types";
 
 export function InvitesView({ invites: initial }: { invites: Invite[] }) {
@@ -20,9 +20,6 @@ export function InvitesView({ invites: initial }: { invites: Invite[] }) {
         x.id === invite.id ? { ...x, sent: "Just now", status: "Pending" } : x,
       ),
     );
-    /* Seed rows have no Supabase invite behind them; they stay local-state
-       only until Agent F wires real data. */
-    if (SEED_INVITES.some((s) => s.id === invite.id)) return;
     startTransition(async () => {
       const result = await resendInvite({ inviteId: invite.id });
       if (!result.ok) {
@@ -39,6 +36,11 @@ export function InvitesView({ invites: initial }: { invites: Invite[] }) {
         sub="Every admin invite we've sent. Pending means they haven't signed in with Google yet."
       />
       <Card pad={0} className="overflow-hidden">
+        {invites.length === 0 ? (
+          <p className="m-0 px-5 py-[22px] text-[13.5px] font-semibold text-slate-400">
+            No invites yet. New company sends the first one.
+          </p>
+        ) : null}
         {invites.map((iv, i) => (
           <div
             key={iv.id}
@@ -53,7 +55,7 @@ export function InvitesView({ invites: initial }: { invites: Invite[] }) {
                 <span className="font-semibold text-slate-400">{iv.email}</span>
               </span>
               <span className="mt-0.5 block text-[13px] font-semibold text-slate-400">
-                {iv.company} · Company admin · sent {iv.sent}
+                {iv.company} · {iv.role ?? "Company admin"} · sent {iv.sent}
               </span>
             </span>
             {error && error.id === iv.id ? (

@@ -6,8 +6,14 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { Avatar, Card, Chip, Label, PageHead, Pill } from "@/components/kit";
-import { companyName, fmtK, money, SEED_POSTS, statusTone } from "@/lib/ops/mock-data";
-import type { Person } from "@/lib/ops/types";
+import { fmtK, money, statusTone } from "@/lib/ops/mock-data";
+import type {
+  Brief,
+  BriefWeek,
+  CompanyDays,
+  Person,
+  Post,
+} from "@/lib/ops/types";
 
 import { ManagerBriefs } from "./ManagerBriefs";
 import { ManagerWeek } from "./ManagerWeek";
@@ -23,12 +29,26 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 
 /** Full profile page at /ops/users/[userId]: creator, campaign-manager
     and company-admin variants. */
-export function UserProfile({ person: p }: { person: Person }) {
+export function UserProfile({
+  person: p,
+  companyName,
+  posts: allPosts,
+  days,
+  briefs,
+  briefWeeks,
+}: {
+  person: Person;
+  companyName: string;
+  posts: Post[];
+  days: CompanyDays;
+  briefs: Brief[];
+  briefWeeks: BriefWeek[];
+}) {
   const router = useRouter();
   const [resent, setResent] = useState(false);
-  const posts = SEED_POSTS.filter((q) => q.creator === p.name).sort(
-    (a, b) => b.viewsN - a.viewsN,
-  );
+  const posts = allPosts
+    .filter((q) => q.creator === p.name && q.company === p.company)
+    .sort((a, b) => b.viewsN - a.viewsN);
   const earned = posts.reduce((n, q) => n + q.earned, 0);
   const stats: Array<[string, ReactNode]> = [
     ["Posts this month", p.posts],
@@ -40,7 +60,7 @@ export function UserProfile({ person: p }: { person: Person }) {
       <PageHead
         onBack={() => router.back()}
         title={p.name}
-        sub={`${p.role} · ${companyName(p.company)}`}
+        sub={`${p.role} · ${companyName}`}
         right={<Chip tone={statusTone(p.status)}>{p.status}</Chip>}
       />
       <div className="grid grid-cols-[minmax(280px,340px)_minmax(0,1fr)] items-start gap-3.5">
@@ -65,7 +85,7 @@ export function UserProfile({ person: p }: { person: Person }) {
               href={`/ops/companies/${p.company}`}
               className="flex-1 text-[13.5px] font-bold text-blue-700"
             >
-              {companyName(p.company)}
+              {companyName}
             </Link>
           </div>
           {p.status === "Invite pending" || p.status === "Pending" ? (
@@ -94,11 +114,11 @@ export function UserProfile({ person: p }: { person: Person }) {
               ))}
             </Card>
           ) : p.role === "Campaign manager" ? (
-            <ManagerWeek companyId={p.company} />
+            <ManagerWeek days={days[p.company] ?? {}} />
           ) : (
             <Card pad={22}>
               <p className="m-0 text-[14px] font-semibold leading-[1.6] text-slate-500">
-                {`Owns ${companyName(p.company)}'s program on the web dashboard — brand brain, features, billing and the campaign team.`}
+                {`Owns ${companyName}'s program on the web dashboard — brand brain, features, billing and the campaign team.`}
               </p>
             </Card>
           )}
@@ -151,7 +171,12 @@ export function UserProfile({ person: p }: { person: Person }) {
       </div>
       {p.role === "Campaign manager" ? (
         <div className="mt-3.5">
-          <ManagerBriefs companyId={p.company} />
+          <ManagerBriefs
+            companyId={p.company}
+            briefs={briefs}
+            posts={allPosts}
+            weeks={briefWeeks}
+          />
         </div>
       ) : null}
     </div>

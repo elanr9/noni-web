@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { CompanyDetail } from "@/components/ops/company/CompanyDetail";
-import { SEED_COMPANIES } from "@/lib/ops/mock-data";
+import { getOpsData } from "@/lib/ops/data";
 
 export default async function OpsCompanyDetailPage({
   params,
@@ -9,7 +9,19 @@ export default async function OpsCompanyDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const company = SEED_COMPANIES.find((c) => c.id === id);
+  const data = await getOpsData();
+  const company = data.companies.find((c) => c.id === id);
   if (!company) notFound();
-  return <CompanyDetail company={company} />;
+  return (
+    <CompanyDetail
+      company={company}
+      companies={data.companies}
+      people={data.people}
+      posts={data.posts}
+      days={data.companyDays}
+      billing={data.billing[company.id] ?? null}
+      brainDocs={data.brainDocs[company.id] ?? []}
+      brainAccounts={data.brainAccounts[company.id] ?? []}
+    />
+  );
 }

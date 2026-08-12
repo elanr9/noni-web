@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Avatar, Chip, Modal, Pill } from "@/components/kit";
 import { useOpsShell } from "@/components/ops/OpsShell";
-import { companyName, fmtK, statusTone } from "@/lib/ops/mock-data";
+import { fmtK, statusTone } from "@/lib/ops/mock-data";
 import type { Person } from "@/lib/ops/types";
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -20,7 +20,11 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 
 /** Global profile modal. Registers itself with the shell so ⌘K person
     results, team rows and the users list all open it via openUserProfile. */
-export function ProfileModalHost() {
+export function ProfileModalHost({
+  companyNames,
+}: {
+  companyNames: Record<string, string>;
+}) {
   const router = useRouter();
   const { setOnSelectUser } = useOpsShell();
   const [person, setPerson] = useState<Person | null>(null);
@@ -55,7 +59,7 @@ export function ProfileModalHost() {
       <div>
         <Row label="Email" value={p.email} />
         <Row label="Phone" value={p.phone} />
-        <Row label="Company" value={companyName(p.company)} />
+        <Row label="Company" value={companyNames[p.company] ?? "—"} />
         {p.role === "Creator" ? (
           <Row
             label="This month"

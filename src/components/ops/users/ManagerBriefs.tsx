@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 import { Card, Chip, Label } from "@/components/kit";
-import { BRIEF_WEEKS, SEED_BRIEFS, SEED_POSTS } from "@/lib/ops/mock-data";
+import type { Brief, BriefWeek, Post } from "@/lib/ops/types";
 
 import { MiniPostCard } from "./MiniPostCard";
 import { WeekDayPill } from "./WeekDayPill";
@@ -50,23 +50,37 @@ function Arrow({
 
 export interface ManagerBriefsProps {
   companyId: string;
+  briefs: Brief[];
+  posts: Post[];
+  weeks: BriefWeek[];
 }
 
 /** Full-width briefs browser: chevron week stepping over Sun–Sat weeks,
     a Full-week + day-pill strip, then posts and briefs scoped to the
     selection. Reused by the company-admin build. */
-export function ManagerBriefs({ companyId }: ManagerBriefsProps) {
-  const [wi, setWi] = useState(1);
+export function ManagerBriefs({
+  companyId,
+  briefs: allBriefs,
+  posts,
+  weeks,
+}: ManagerBriefsProps) {
+  /* Start on the week containing today. */
+  const today = new Date().getDate();
+  const initialWeek = Math.max(
+    0,
+    weeks.findIndex((w) => w.days.includes(today)),
+  );
+  const [wi, setWi] = useState(initialWeek);
   /* null = full week */
   const [day, setDay] = useState<number | null>(null);
-  const week = BRIEF_WEEKS[wi];
-  const briefs = SEED_BRIEFS.filter((b) => b.company === companyId);
+  const week = weeks[wi] ?? { label: "", days: [] };
+  const briefs = allBriefs.filter((b) => b.company === companyId);
   const hasContent = (dd: number) =>
     briefs.some((b) => b.day === dd) ||
-    SEED_POSTS.some((q) => q.company === companyId && q.day === dd);
+    posts.some((q) => q.company === companyId && q.day === dd);
   const shownDays = day ? [day] : week.days;
   const shownBriefs = briefs.filter((b) => shownDays.includes(b.day));
-  const shownPosts = SEED_POSTS.filter(
+  const shownPosts = posts.filter(
     (q) => q.company === companyId && shownDays.includes(q.day),
   );
 
@@ -83,7 +97,7 @@ export function ManagerBriefs({ companyId }: ManagerBriefsProps) {
         <span className="min-w-[86px] whitespace-nowrap text-center text-[13px] font-bold text-ink">
           {week.label}
         </span>
-        <Arrow dir={1} disabled={wi === BRIEF_WEEKS.length - 1} onStep={step} />
+        <Arrow dir={1} disabled={wi >= weeks.length - 1} onStep={step} />
       </div>
       <div className="mb-[18px] flex gap-1.5">
         <button

@@ -1,7 +1,7 @@
 import { CompaniesView } from "@/components/ops/companies/CompaniesView";
-import { SEED_COMPANIES } from "@/lib/ops/mock-data";
+import { getOpsData } from "@/lib/ops/data";
 
-/* Renders mock data for now; Agent F swaps in real Supabase rows. */
-export default function OpsCompaniesPage() {
-  return <CompaniesView companies={SEED_COMPANIES} />;
+export default async function OpsCompaniesPage() {
+  const { companies } = await getOpsData();
+  return <CompaniesView companies={companies} />;
 }

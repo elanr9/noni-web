@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { OpsShell } from "@/components/ops/OpsShell";
 import { ProfileModalHost } from "@/components/ops/users/ProfileModalHost";
 import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
+import { getOpsData } from "@/lib/ops/data";
 
 export default async function OpsLayout({
   children,
@@ -33,10 +34,22 @@ export default async function OpsLayout({
     );
   }
 
+  const data = await getOpsData();
+  const companyNames = Object.fromEntries(
+    data.companies.map((c) => [c.id, c.name]),
+  );
+
   return (
-    <OpsShell name={profile?.full_name}>
+    <OpsShell
+      name={profile?.full_name}
+      searchData={{
+        companies: data.companies,
+        people: data.people,
+        invites: data.invites,
+      }}
+    >
       {children}
-      <ProfileModalHost />
+      <ProfileModalHost companyNames={companyNames} />
     </OpsShell>
   );
 }

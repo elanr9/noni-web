@@ -4,14 +4,8 @@ import { useState } from "react";
 
 import { Avatar, Card, Chip, PageHead, SortDropdown, Tabs } from "@/components/kit";
 import { useOpsShell } from "@/components/ops/OpsShell";
-import {
-  companyName,
-  fmtK,
-  SEED_COMPANIES,
-  SEED_PEOPLE,
-  statusTone,
-} from "@/lib/ops/mock-data";
-import type { Role } from "@/lib/ops/types";
+import { fmtK, statusTone } from "@/lib/ops/mock-data";
+import type { Company, Person, Role } from "@/lib/ops/types";
 
 const TABS = ["Admins", "Creators", "Campaign Managers"] as const;
 type Tab = (typeof TABS)[number];
@@ -24,18 +18,26 @@ const ROLE_OF: Record<Tab, Role> = {
 
 type Sort = "Views" | "Posts" | "Name" | "Company";
 
-export function UsersPage() {
+export function UsersPage({
+  companies,
+  people,
+}: {
+  companies: Company[];
+  people: Person[];
+}) {
   const { openUserProfile } = useOpsShell();
   const [filter, setFilter] = useState<Tab>("Admins");
   const [sort, setSort] = useState<Sort>("Name");
+  const companyName = (id: string) =>
+    companies.find((c) => c.id === id)?.name ?? "";
   const sortOptions: readonly Sort[] =
     filter === "Creators" ? ["Views", "Posts", "Name", "Company"] : ["Name", "Company"];
   const pick = (f: Tab) => {
     setFilter(f);
     setSort(f === "Creators" ? "Views" : "Name");
   };
-  const activeIds = SEED_COMPANIES.filter((c) => c.status === "Active").map((c) => c.id);
-  const shown = SEED_PEOPLE.filter(
+  const activeIds = companies.filter((c) => c.status === "Active").map((c) => c.id);
+  const shown = people.filter(
     (p) => p.role === ROLE_OF[filter] && activeIds.includes(p.company),
   );
   shown.sort((a, b) =>
@@ -60,6 +62,11 @@ export function UsersPage() {
         right={<SortDropdown options={sortOptions} value={sort} onSelect={setSort} />}
       />
       <Card pad={0} key={filter + sort} className="animate-om-rise">
+        {shown.length === 0 ? (
+          <p className="m-0 px-5 py-[22px] text-[13.5px] font-semibold text-slate-400">
+            Nobody here yet.
+          </p>
+        ) : null}
         {shown.map((r, i) => (
           <div
             key={r.id}

@@ -130,6 +130,8 @@ export interface Invite {
   /** Display string, e.g. "2 days ago", "Jul 14", "Just now". */
   sent: string;
   status: InviteStatus;
+  /** Invited role display label; defaults to "Company admin". */
+  role?: string;
 }
 
 export interface BrainDoc {

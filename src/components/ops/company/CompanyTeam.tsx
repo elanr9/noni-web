@@ -5,8 +5,8 @@ import { useState } from "react";
 
 import { Avatar, Card, Chip, HoverPeek, SortDropdown, Tabs } from "@/components/kit";
 import { useOpsShell } from "@/components/ops/OpsShell";
-import { fmtK, SEED_PEOPLE, statusTone } from "@/lib/ops/mock-data";
-import type { Company, Role } from "@/lib/ops/types";
+import { fmtK, statusTone } from "@/lib/ops/mock-data";
+import type { Company, Person, Role } from "@/lib/ops/types";
 
 const SUB_TABS = ["Admins", "Creators", "Campaign Managers"] as const;
 type SubTab = (typeof SUB_TABS)[number];
@@ -18,7 +18,13 @@ const ROLE_OF: Record<SubTab, Role> = {
   "Campaign Managers": "Campaign manager",
 };
 
-export function CompanyTeam({ company }: { company: Company }) {
+export function CompanyTeam({
+  company,
+  people: allPeople,
+}: {
+  company: Company;
+  people: Person[];
+}) {
   const { openUserProfile } = useOpsShell();
   const [filter, setFilter] = useState<SubTab>("Admins");
   const [sort, setSort] = useState<TeamSort>("Name");
@@ -30,7 +36,7 @@ export function CompanyTeam({ company }: { company: Company }) {
     setSort(f === "Creators" ? "Views" : "Name");
   };
 
-  const people = SEED_PEOPLE.filter(
+  const people = allPeople.filter(
     (p) => p.company === company.id && p.role === ROLE_OF[filter],
   ).sort((a, b) =>
     sort === "Views"

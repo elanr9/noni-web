@@ -8,15 +8,21 @@ import { AnalyticsExplorer } from "@/components/ops/analytics/AnalyticsExplorer"
 import { DailyActivity } from "@/components/ops/analytics/DailyActivity";
 import { StatStrip } from "@/components/ops/analytics/StatStrip";
 import { useOpsShell } from "@/components/ops/OpsShell";
-import {
-  COMPANY_DAYS,
-  SEED_COMPANIES,
-  SEED_PEOPLE,
-  SEED_POSTS,
-} from "@/lib/ops/mock-data";
-import type { Company } from "@/lib/ops/types";
+import type { Company, CompanyDays, Person, Post } from "@/lib/ops/types";
 
-export function CompanyAnalytics({ company }: { company: Company }) {
+export function CompanyAnalytics({
+  company,
+  companies,
+  people,
+  posts,
+  days,
+}: {
+  company: Company;
+  companies: Company[];
+  people: Person[];
+  posts: Post[];
+  days: CompanyDays;
+}) {
   const router = useRouter();
   const { openUserProfile } = useOpsShell();
 
@@ -54,13 +60,18 @@ export function CompanyAnalytics({ company }: { company: Company }) {
       <AnalyticsExplorer
         scope={company.id}
         showScopeDropdown={false}
-        posts={SEED_POSTS}
-        people={SEED_PEOPLE}
-        companies={SEED_COMPANIES}
+        posts={posts}
+        people={people}
+        companies={companies}
         onOpenProfile={openUserProfile}
         onOpenPost={(p) => router.push(`/ops/posts/${p.id}`)}
       />
-      <DailyActivity companyId={company.id} days={COMPANY_DAYS} posts={SEED_POSTS} />
+      <DailyActivity
+        companyId={company.id}
+        companyName={company.name}
+        days={days}
+        posts={posts}
+      />
     </div>
   );
 }

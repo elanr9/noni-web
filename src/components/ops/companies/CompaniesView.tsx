@@ -24,7 +24,8 @@ function CompanyRow({ c, last }: { c: Company; last: boolean }) {
         </span>
       </span>
       <span className="w-[210px] text-right text-[13px] font-semibold text-slate-400">
-        {c.campaigns} campaigns · {c.posts} posts · {c.views} views
+        {c.campaigns} campaigns · {c.posts} posts ·{" "}
+        <span className="whitespace-nowrap">{c.views} views</span>
       </span>
       <Chip tone={statusTone(c.status)}>{c.status}</Chip>
       <ChevronRight size={16} className="shrink-0 text-slate-400" />
@@ -47,6 +48,11 @@ export function CompaniesView({ companies }: { companies: Company[] }) {
         }
       />
       <Card pad={0} className="overflow-hidden">
+        {shown.length === 0 ? (
+          <p className="m-0 px-5 py-[22px] text-[13.5px] font-semibold text-slate-400">
+            No active companies yet. New company sends the first invite.
+          </p>
+        ) : null}
         {shown.map((c, i) => (
           <CompanyRow key={c.id} c={c} last={i === shown.length - 1} />
         ))}
