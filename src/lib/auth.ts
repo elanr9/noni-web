@@ -49,3 +49,42 @@ export function isPlatformAdmin(profile: Profile | null): boolean {
 export function canManageCampaigns(profile: Profile | null): boolean {
   return isCampaignManager(profile) || isPlatformAdmin(profile);
 }
+
+export type MemberPermissions = {
+  manage_brand: boolean;
+  manage_features: boolean;
+  manage_billing: boolean;
+};
+
+const NO_PERMISSIONS: MemberPermissions = {
+  manage_brand: false,
+  manage_features: false,
+  manage_billing: false,
+};
+
+// UI affordances only; RLS and the billing edge function are the real gate.
+// Role 'admin' (platform admin) implicitly has every permission.
+export async function getMemberPermissions(
+  profile: Profile | null,
+): Promise<MemberPermissions> {
+  if (!profile) return NO_PERMISSIONS;
+  if (profile.role === "admin") {
+    return { manage_brand: true, manage_features: true, manage_billing: true };
+  }
+  if (!profile.company_id) return NO_PERMISSIONS;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("company_members")
+    .select("permissions")
+    .eq("profile_id", profile.id)
+    .eq("company_id", profile.company_id)
+    .maybeSingle();
+
+  const permissions = (data?.permissions ?? {}) as Record<string, unknown>;
+  return {
+    manage_brand: permissions.manage_brand === true,
+    manage_features: permissions.manage_features === true,
+    manage_billing: permissions.manage_billing === true,
+  };
+}

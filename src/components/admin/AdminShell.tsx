@@ -4,8 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
+  Brain,
+  CreditCard,
   Inbox,
   LayoutList,
+  ListChecks,
   LogOut,
   Menu,
   Plus,
@@ -22,6 +25,9 @@ const NAV = [
   { href: "/admin/library", label: "Library", icon: LayoutList },
   { href: "/admin/creators", label: "Creators", icon: Users },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/brand", label: "Brand", icon: Brain },
+  { href: "/admin/features", label: "Features", icon: ListChecks },
+  { href: "/admin/billing", label: "Billing", icon: CreditCard },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
