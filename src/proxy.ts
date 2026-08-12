@@ -33,14 +33,25 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/admin") && !user) {
+  /* TEMPORARY QA BYPASS — mirrors the /admin layout envs so /admin and
+     /onboarding can be QA'd without a session. Remove before finishing. */
+  const adminQaBypass =
+    process.env.NODE_ENV === "development" &&
+    process.env.ADMIN_QA_BYPASS === "1";
+
+  if (request.nextUrl.pathname.startsWith("/admin") && !user && !adminQaBypass) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", "/admin");
     return NextResponse.redirect(url);
   }
 
-  if (request.nextUrl.pathname.startsWith("/ops") && !user) {
+  /* TEMPORARY QA BYPASS — mirrors the /ops layout envs. Remove before finishing. */
+  const opsQaBypass =
+    process.env.NODE_ENV === "development" &&
+    process.env.OPS_QA_BYPASS === "1";
+
+  if (request.nextUrl.pathname.startsWith("/ops") && !user && !opsQaBypass) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", "/ops");

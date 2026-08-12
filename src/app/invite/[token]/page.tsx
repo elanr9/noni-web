@@ -1,5 +1,7 @@
 import Link from "next/link";
+
 import { createServiceClient } from "@/lib/supabase/service";
+import { AdminInviteLanding } from "./InviteAuth";
 
 const APP_STORE_URL = "https://apps.apple.com/app/id6799189794";
 
@@ -15,6 +17,10 @@ type InviteRow = {
   companies: { name: string } | null;
 };
 
+function isExpired(expiresAt: string): boolean {
+  return new Date(expiresAt).getTime() < Date.now();
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-soft px-5">
@@ -26,7 +32,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 // The token in the URL is the credential, so the lookup runs on the service
-// role without a session. Signing in happens in the app, not here.
+// role without a session. Signing in happens on this page for admins (Get
+// started with Google) and in the app for everyone else.
 export default async function InvitePage({ params }: PageProps) {
   const { token } = await params;
   const supabase = createServiceClient();
@@ -88,7 +95,7 @@ export default async function InvitePage({ params }: PageProps) {
     );
   }
 
-  if (new Date(invite.expires_at).getTime() < Date.now()) {
+  if (isExpired(invite.expires_at)) {
     return (
       <Shell>
         <h1 className="display text-3xl font-semibold text-ink">
@@ -103,23 +110,11 @@ export default async function InvitePage({ params }: PageProps) {
 
   if (isAdminInvite) {
     return (
-      <Shell>
-        <h1 className="display text-3xl font-semibold text-ink">
-          You are invited to run {companyName}
-        </h1>
-        <p className="mt-3 text-[15px] text-muted">
-          Sign in with Google using{" "}
-          <span className="font-semibold text-ink">{invite.email}</span> and Noni
-          will set you up as the admin of {companyName}. You will go through a
-          short onboarding, then land in your company dashboard.
-        </p>
-        <Link
-          href={`/login?next=/invite/${token}/accept`}
-          className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-ink px-6 py-3.5 text-[15px] font-bold text-white"
-        >
-          Continue with Google
-        </Link>
-      </Shell>
+      <AdminInviteLanding
+        token={token}
+        companyName={companyName}
+        invitedEmail={invite.email}
+      />
     );
   }
 

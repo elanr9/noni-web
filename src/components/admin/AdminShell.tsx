@@ -1,64 +1,151 @@
 "use client";
 
+import {
+  ChartColumn,
+  CircleUserRound,
+  DollarSign,
+  House,
+  Images,
+  LogOut,
+  Sparkles,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  BarChart3,
-  Brain,
-  Clock,
-  CreditCard,
-  Inbox,
-  KeyRound,
-  LayoutList,
-  ListChecks,
-  LogOut,
-  Menu,
-  Plus,
-  Settings,
-  UserPlus,
-  Users,
-  X,
-} from "lucide-react";
-import { useState } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
+
+import { CommandSearch, type CommandItem } from "@/components/kit";
+import { Avatar } from "@/components/kit/Avatar";
 import { createClient } from "@/lib/supabase/client";
 
-const NAV_GROUPS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  tour: string;
+}
+
+const NAV_SECTIONS: ReadonlyArray<{ label: string; items: NavItem[] }> = [
   {
-    label: "Work",
+    label: "Workspace",
     items: [
-      { href: "/admin", label: "Review", icon: Inbox },
-      { href: "/admin/briefs", label: "Briefs", icon: Plus },
-      { href: "/admin/library", label: "Library", icon: LayoutList },
-      { href: "/admin/creators", label: "Creators", icon: Users },
-      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/admin", label: "Onboarding", icon: House, tour: "nav-onboarding" },
+      { href: "/admin/analytics", label: "Analytics", icon: ChartColumn, tour: "nav-analytics" },
+      { href: "/admin/team", label: "Team", icon: Users, tour: "nav-team" },
+      { href: "/admin/posts", label: "Posts", icon: Images, tour: "nav-posts" },
     ],
   },
   {
     label: "Company",
     items: [
-      { href: "/admin/brand", label: "Brand Brain", icon: Brain },
-      { href: "/admin/features", label: "Features", icon: ListChecks },
-      { href: "/admin/billing", label: "Billing", icon: CreditCard },
-      { href: "/admin/team", label: "Team", icon: UserPlus },
-      { href: "/admin/code", label: "Company code", icon: KeyRound },
-      { href: "/admin/publish", label: "Publish time", icon: Clock },
-      { href: "/admin/settings", label: "Settings", icon: Settings },
+      { href: "/admin/brain", label: "Company Brain", icon: Sparkles, tour: "nav-brain" },
+      { href: "/admin/billing", label: "Billing", icon: DollarSign, tour: "nav-billing" },
     ],
   },
 ];
 
+/* ⌘K reaches every page and team member. Person hits open the member's
+   profile page. */
+export interface AdminSearchPerson {
+  id: string;
+  name: string;
+  role: string;
+  status: string;
+}
+
+interface AdminSearchEntry extends CommandItem {
+  href: string;
+}
+
+function SideItem({
+  item,
+  active,
+  badge,
+}: {
+  item: NavItem;
+  active: boolean;
+  badge?: number;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      data-tour={item.tour}
+      className={`flex w-full items-center gap-[11px] px-[11px] py-[9px] text-[13.5px] font-bold transition-colors duration-[160ms] ease-om rounded-[11px] ${
+        active ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-fill-quiet"
+      }`}
+    >
+      <Icon size={17} className={active ? "text-blue-700" : "text-slate-400"} />
+      <span className="flex-1 whitespace-nowrap">{item.label}</span>
+      {badge ? (
+        <span
+          className={`px-2 py-0.5 text-[11px] font-extrabold text-blue-700 rounded-pill ${
+            active ? "bg-white" : "bg-blue-100"
+          }`}
+        >
+          {badge}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 export function AdminShell({
   children,
+  companyName,
   name,
-  role,
+  people,
+  setupRemaining,
+  setupComplete,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
+  companyName: string;
   name?: string | null;
-  role?: string | null;
+  people: AdminSearchPerson[];
+  /** Setup steps left; badge on the Onboarding nav item. */
+  setupRemaining: number;
+  /** True retires the Onboarding tab from nav and search. */
+  setupComplete: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+
+  const searchIndex = useMemo<AdminSearchEntry[]>(
+    () => [
+      ...NAV_SECTIONS.flatMap((section) =>
+        section.items
+          .filter((it) => it.label !== "Onboarding" || !setupComplete)
+          .map(
+            (it): AdminSearchEntry => ({
+              id: "nav-" + it.href,
+              section: "Go to",
+              icon: it.icon,
+              title: it.label,
+              meta: section.label,
+              href: it.href,
+            }),
+          ),
+      ),
+      ...people.map(
+        (p): AdminSearchEntry => ({
+          id: "pe-" + p.id,
+          section: "Team",
+          icon: CircleUserRound,
+          title: p.name,
+          meta: `${p.role} · ${p.status}`,
+          href: `/admin/team/${p.id}`,
+        }),
+      ),
+    ],
+    [people, setupComplete],
+  );
+
+  const onSearchSelect = useCallback(
+    (item: AdminSearchEntry) => router.push(item.href),
+    [router],
+  );
 
   async function signOut() {
     const supabase = createClient();
@@ -67,107 +154,87 @@ export function AdminShell({
     router.refresh();
   }
 
-  const nav = (
-    <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4">
-      {NAV_GROUPS.map((group) => (
-        <div key={group.label}>
-          <div className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted/70">
-            {group.label}
-          </div>
-          <div className="flex flex-col gap-1">
-            {group.items.map((item) => {
-              const active =
-                item.href === "/admin"
-                  ? pathname === "/admin"
-                  : pathname.startsWith(item.href);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setOpen(false)}
-                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition ${
-                    active
-                      ? "bg-accent-soft text-accent-deep"
-                      : "text-ink-soft hover:bg-soft hover:text-ink"
-                  }`}
-                >
-                  <Icon className="h-4.5 w-4.5" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </nav>
-  );
-
-  const roleLabel = role === "admin" ? "Noni ops" : "Company admin";
-
   return (
-    <div className="min-h-screen bg-white md:flex">
-      <aside className="hidden w-[260px] shrink-0 flex-col border-r border-line bg-white md:flex">
-        <div className="px-5 py-5">
-          <Link href="/" className="display text-2xl font-semibold text-ink">
-            Noni
-          </Link>
-          <div className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-            {roleLabel}
-          </div>
+    <div className="flex h-screen overflow-hidden bg-ground text-ink font-ops">
+      <aside className="flex w-[236px] shrink-0 flex-col border-r border-line bg-white px-3.5 pb-3.5 pt-[22px]">
+        <div className="flex items-center gap-[9px] px-[9px]">
+          <Image src="/brand/noni-logo.svg" alt="" width={30} height={30} />
+          <span className="text-[20px] font-bold tracking-[-0.6px] text-ink">
+            noni
+          </span>
         </div>
-        {nav}
-        <div className="mt-auto border-t border-line p-4">
-          <div className="truncate px-1 text-sm font-semibold text-ink">
-            {name ?? roleLabel}
+        <div className="mb-1.5 mt-[18px] flex items-center gap-[9px] bg-fill-quiet px-[11px] py-2.5 rounded-ops-sm">
+          <span className="h-[7px] w-[7px] shrink-0 bg-blue-500 rounded-pill" />
+          <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold text-ink">
+            {companyName}
+          </span>
+        </div>
+        <nav className="scrollbar-none flex flex-1 flex-col gap-5 overflow-y-auto pt-3.5">
+          {NAV_SECTIONS.map((section) => {
+            const items = section.items.filter(
+              (it) => it.label !== "Onboarding" || !setupComplete,
+            );
+            return (
+              <div key={section.label} className="flex flex-col gap-0.5">
+                <span className="px-[11px] pb-1.5 text-[11px] font-extrabold uppercase tracking-[0.9px] text-slate-400">
+                  {section.label}
+                </span>
+                {items.map((it) => (
+                  <SideItem
+                    key={it.href}
+                    item={it}
+                    active={
+                      it.href === "/admin"
+                        ? pathname === "/admin"
+                        : pathname.startsWith(it.href)
+                    }
+                    badge={
+                      it.label === "Onboarding" && setupRemaining > 0
+                        ? setupRemaining
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+            );
+          })}
+        </nav>
+        <div className="mt-3 flex items-center gap-2.5 border-t border-line px-[9px] pt-3">
+          <Avatar name={name ?? companyName} size={32} />
+          <div className="min-w-0 flex-1">
+            <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold text-ink">
+              {name ?? "Admin"}
+            </div>
+            <div className="text-[11.5px] font-semibold text-slate-400">
+              Company admin
+            </div>
           </div>
           <button
             type="button"
+            title="Sign out"
+            aria-label="Sign out"
             onClick={() => void signOut()}
-            className="mt-2 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-sm font-semibold text-muted hover:bg-soft hover:text-ink"
+            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center border-none bg-transparent rounded-pill hover:bg-fill-quiet"
           >
-            <LogOut className="h-4 w-4" />
-            Sign out
+            <LogOut size={15} className="text-slate-400" />
           </button>
         </div>
       </aside>
-
-      <div className="flex min-h-screen flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-line bg-white px-4 py-3 md:hidden">
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="rounded-xl p-2 hover:bg-soft"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="display text-xl font-semibold">Noni</div>
-          <div className="w-9" />
-        </header>
-
-        {open ? (
-          <div className="fixed inset-0 z-50 md:hidden">
-            <button
-              type="button"
-              className="absolute inset-0 bg-ink/40"
-              onClick={() => setOpen(false)}
-              aria-label="Close menu"
-            />
-            <div className="absolute inset-y-0 left-0 flex w-[280px] flex-col bg-white shadow-xl">
-              <div className="flex items-center justify-between px-4 py-4">
-                <div className="display text-2xl font-semibold">Noni</div>
-                <button type="button" onClick={() => setOpen(false)} className="p-2">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              {nav}
-            </div>
+      <main className="flex min-w-0 flex-1 flex-col">
+        <div className="flex shrink-0 justify-center px-11 pt-4">
+          <div data-tour="search" className="flex w-full max-w-[560px] justify-center">
+            <CommandSearch index={searchIndex} onSelect={onSearchSelect} />
           </div>
-        ) : null}
-
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
-      </div>
+        </div>
+        <div className="scrollbar-none flex-1 overflow-y-auto">
+          <div
+            key={pathname}
+            className="mx-auto max-w-[1100px] px-11 pb-[72px] pt-[30px] animate-om-rise"
+          >
+            {children}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

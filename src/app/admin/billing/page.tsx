@@ -1,54 +1,45 @@
-import { getMemberPermissions, getSessionProfile } from "@/lib/auth";
-import { callEdgeFunction } from "@/lib/edge";
-import { BillingPanel } from "@/components/admin/BillingPanel";
-import type { CompanyBillingStatus } from "./actions";
+import { BillingView } from "@/components/admin/billing/BillingView";
+import {
+  getBillingContext,
+  runAutoTopUpCheck,
+  stripeSimulated,
+} from "@/lib/admin/billing";
+import { getAdminData } from "@/lib/admin/data";
+import { getSessionProfile } from "@/lib/auth";
 
-function Header() {
-  return (
-    <>
-      <h1 className="display text-3xl font-semibold text-ink md:text-4xl">
-        Billing
-      </h1>
-      <p className="mt-1 text-[15px] text-muted">
-        Prepaid credits for creator bounties.
-      </p>
-    </>
-  );
-}
+/* Return-trip messages from Stripe redirects. Success needs no banner: the
+   webhook (or the simulated write) already flipped the state on screen. */
+const NOTICES: Record<string, string> = {
+  "checkout=cancelled": "Checkout was cancelled. Your plan has not changed.",
+  "connect=declined": "The Stripe connection was declined.",
+  "connect=error": "The Stripe connection failed. Try again.",
+};
 
-export default async function BillingPage() {
+export default async function AdminBillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const ctx = await getBillingContext();
+  /* The auto top-up "job" runs as a check on every billing read; a
+     scheduled job would replace this in production. */
+  if (ctx) await runAutoTopUpCheck(ctx);
+
   const { profile } = await getSessionProfile();
-  const permissions = await getMemberPermissions(profile);
+  const data = await getAdminData(ctx?.companyId ?? profile?.company_id ?? "");
 
-  // The edge function rejects every action without manage_billing, so there
-  // is nothing to show read-only here.
-  if (!permissions.manage_billing) {
-    return (
-      <div>
-        <Header />
-        <p className="mt-8 max-w-xl rounded-[24px] border border-line bg-white p-6 text-[15px] text-muted">
-          Your account does not have the manage billing permission. Ask the
-          person who invited you to grant it.
-        </p>
-      </div>
-    );
-  }
-
-  const status = await callEdgeFunction<CompanyBillingStatus>(
-    "company-billing",
-    { action: "status" },
-  );
+  const sp = await searchParams;
+  const notice =
+    NOTICES[`checkout=${typeof sp.checkout === "string" ? sp.checkout : ""}`] ??
+    NOTICES[`connect=${typeof sp.connect === "string" ? sp.connect : ""}`] ??
+    null;
 
   return (
-    <div>
-      <Header />
-      {status.error !== null ? (
-        <p className="mt-8 max-w-xl rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Could not load billing: {status.error}
-        </p>
-      ) : (
-        <BillingPanel status={status.data} />
-      )}
-    </div>
+    <BillingView
+      billing={data.billing}
+      companyName={data.company.name}
+      simulated={stripeSimulated()}
+      notice={notice}
+    />
   );
 }
