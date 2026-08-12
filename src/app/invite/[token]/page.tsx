@@ -9,6 +9,7 @@ type PageProps = {
 
 type InviteRow = {
   email: string;
+  role: string;
   accepted_at: string | null;
   expires_at: string;
   companies: { name: string } | null;
@@ -31,7 +32,7 @@ export default async function InvitePage({ params }: PageProps) {
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("company_invites")
-    .select("email, accepted_at, expires_at, companies(name)")
+    .select("email, role, accepted_at, expires_at, companies(name)")
     .eq("token", token)
     .maybeSingle();
 
@@ -53,6 +54,8 @@ export default async function InvitePage({ params }: PageProps) {
 
   const companyName = invite.companies?.name ?? "your company";
 
+  const isAdminInvite = invite.role === "company_admin";
+
   if (invite.accepted_at) {
     return (
       <Shell>
@@ -60,15 +63,26 @@ export default async function InvitePage({ params }: PageProps) {
           You are all set
         </h1>
         <p className="mt-3 text-[15px] text-muted">
-          This invite has already been used. Open the Noni app and sign in
-          with <span className="font-semibold text-ink">{invite.email}</span>{" "}
-          to manage {companyName}.
+          This invite has already been used.{" "}
+          {isAdminInvite ? (
+            <>
+              Sign in with{" "}
+              <span className="font-semibold text-ink">{invite.email}</span> to run{" "}
+              {companyName}.
+            </>
+          ) : (
+            <>
+              Open the Noni app and sign in with{" "}
+              <span className="font-semibold text-ink">{invite.email}</span> to manage{" "}
+              {companyName}.
+            </>
+          )}
         </p>
         <a
-          href="noni://"
+          href={isAdminInvite ? "/login" : "noni://"}
           className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-ink px-6 py-3.5 text-[15px] font-bold text-white"
         >
-          Open the Noni app
+          {isAdminInvite ? "Sign in" : "Open the Noni app"}
         </a>
       </Shell>
     );
@@ -87,6 +101,28 @@ export default async function InvitePage({ params }: PageProps) {
     );
   }
 
+  if (isAdminInvite) {
+    return (
+      <Shell>
+        <h1 className="display text-3xl font-semibold text-ink">
+          You are invited to run {companyName}
+        </h1>
+        <p className="mt-3 text-[15px] text-muted">
+          Sign in with Google using{" "}
+          <span className="font-semibold text-ink">{invite.email}</span> and Noni
+          will set you up as the admin of {companyName}. You will go through a
+          short onboarding, then land in your company dashboard.
+        </p>
+        <Link
+          href={`/login?next=/invite/${token}/accept`}
+          className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-ink px-6 py-3.5 text-[15px] font-bold text-white"
+        >
+          Continue with Google
+        </Link>
+      </Shell>
+    );
+  }
+
   return (
     <Shell>
       <h1 className="display text-3xl font-semibold text-ink">
@@ -97,7 +133,7 @@ export default async function InvitePage({ params }: PageProps) {
         <span className="font-semibold text-ink">{companyName}</span> on Noni.
         Get the app and sign in with{" "}
         <span className="font-semibold text-ink">{invite.email}</span>. Noni
-        sets you up as the campaign manager automatically.
+        sets you up as a campaign manager automatically.
       </p>
 
       <div className="mt-6 space-y-3">
@@ -116,7 +152,7 @@ export default async function InvitePage({ params }: PageProps) {
       </div>
 
       <p className="mt-6 text-[13px] text-muted">
-        Already using Noni on the web with this email?{" "}
+        Already using Noni with this email?{" "}
         <Link
           href={`/invite/${token}/accept`}
           className="font-semibold text-accent hover:text-accent-deep"

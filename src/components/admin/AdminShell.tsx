@@ -5,38 +5,56 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   Brain,
+  Clock,
   CreditCard,
   Inbox,
+  KeyRound,
   LayoutList,
   ListChecks,
   LogOut,
   Menu,
   Plus,
   Settings,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-const NAV = [
-  { href: "/admin", label: "Review", icon: Inbox },
-  { href: "/admin/briefs", label: "Briefs", icon: Plus },
-  { href: "/admin/library", label: "Library", icon: LayoutList },
-  { href: "/admin/creators", label: "Creators", icon: Users },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/admin/brand", label: "Brand", icon: Brain },
-  { href: "/admin/features", label: "Features", icon: ListChecks },
-  { href: "/admin/billing", label: "Billing", icon: CreditCard },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+const NAV_GROUPS = [
+  {
+    label: "Work",
+    items: [
+      { href: "/admin", label: "Review", icon: Inbox },
+      { href: "/admin/briefs", label: "Briefs", icon: Plus },
+      { href: "/admin/library", label: "Library", icon: LayoutList },
+      { href: "/admin/creators", label: "Creators", icon: Users },
+      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Company",
+    items: [
+      { href: "/admin/brand", label: "Brand Brain", icon: Brain },
+      { href: "/admin/features", label: "Features", icon: ListChecks },
+      { href: "/admin/billing", label: "Billing", icon: CreditCard },
+      { href: "/admin/team", label: "Team", icon: UserPlus },
+      { href: "/admin/code", label: "Company code", icon: KeyRound },
+      { href: "/admin/publish", label: "Publish time", icon: Clock },
+      { href: "/admin/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 export function AdminShell({
   children,
   name,
+  role,
 }: {
   children: React.ReactNode;
   name?: string | null;
+  role?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -50,31 +68,42 @@ export function AdminShell({
   }
 
   const nav = (
-    <nav className="flex flex-1 flex-col gap-1 px-3">
-      {NAV.map((item) => {
-        const active =
-          item.href === "/admin"
-            ? pathname === "/admin"
-            : pathname.startsWith(item.href);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition ${
-              active
-                ? "bg-accent-soft text-accent-deep"
-                : "text-ink-soft hover:bg-soft hover:text-ink"
-            }`}
-          >
-            <Icon className="h-4.5 w-4.5" />
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 pb-4">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.label}>
+          <div className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted/70">
+            {group.label}
+          </div>
+          <div className="flex flex-col gap-1">
+            {group.items.map((item) => {
+              const active =
+                item.href === "/admin"
+                  ? pathname === "/admin"
+                  : pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition ${
+                    active
+                      ? "bg-accent-soft text-accent-deep"
+                      : "text-ink-soft hover:bg-soft hover:text-ink"
+                  }`}
+                >
+                  <Icon className="h-4.5 w-4.5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </nav>
   );
+
+  const roleLabel = role === "admin" ? "Noni ops" : "Company admin";
 
   return (
     <div className="min-h-screen bg-white md:flex">
@@ -84,13 +113,13 @@ export function AdminShell({
             Noni
           </Link>
           <div className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-            Campaign manager
+            {roleLabel}
           </div>
         </div>
         {nav}
         <div className="mt-auto border-t border-line p-4">
           <div className="truncate px-1 text-sm font-semibold text-ink">
-            {name ?? "Campaign manager"}
+            {name ?? roleLabel}
           </div>
           <button
             type="button"

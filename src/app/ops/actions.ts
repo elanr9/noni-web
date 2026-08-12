@@ -21,12 +21,15 @@ async function requirePlatformAdmin(): Promise<string | null> {
 export async function createCompany(input: {
   name: string;
   website: string | null;
+  adminEmail: string;
 }): Promise<OpsActionResult> {
   const denied = await requirePlatformAdmin();
   if (denied) return { ok: false, error: denied };
 
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Company name is required." };
+  const adminEmail = input.adminEmail.trim();
+  if (!adminEmail) return { ok: false, error: "The company admin's email is required." };
 
   const { data, error } = await callEdgeFunction<CreateCompanyResponse>(
     "ops-create-company",
@@ -38,6 +41,22 @@ export async function createCompany(input: {
   );
   if (error !== null) return { ok: false, error };
 
+  const { error: inviteError } = await callEdgeFunction<InviteResponse>(
+    "invite-campaign-manager",
+    {
+      action: "invite",
+      company_id: data.company.id,
+      email: adminEmail,
+      role: "company_admin",
+    },
+  );
+  if (inviteError) {
+    return {
+      ok: false,
+      error: `Company created, but the admin invite failed: ${inviteError}`,
+    };
+  }
+
   revalidatePath("/ops");
   revalidatePath("/ops/companies");
   redirect(`/ops/companies/${data.company.id}`);
@@ -46,6 +65,7 @@ export async function createCompany(input: {
 export async function inviteCampaignManager(input: {
   companyId: string;
   email: string;
+  role?: "company_admin" | "campaign_manager";
 }): Promise<OpsActionResult> {
   const denied = await requirePlatformAdmin();
   if (denied) return { ok: false, error: denied };
@@ -55,7 +75,12 @@ export async function inviteCampaignManager(input: {
 
   const { error } = await callEdgeFunction<InviteResponse>(
     "invite-campaign-manager",
-    { action: "invite", company_id: input.companyId, email },
+    {
+      action: "invite",
+      company_id: input.companyId,
+      email,
+      role: input.role ?? "campaign_manager",
+    },
   );
   if (error) return { ok: false, error };
 

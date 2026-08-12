@@ -8,6 +8,7 @@ export function NewCompanyForm() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [website, setWebsite] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -16,6 +17,7 @@ export function NewCompanyForm() {
       const result = await createCompany({
         name,
         website: website.trim() ? website.trim() : null,
+        adminEmail,
       });
       if (!result.ok) setError(result.error);
     });
@@ -38,6 +40,17 @@ export function NewCompanyForm() {
         placeholder="Website (optional)"
         className="w-full rounded-2xl border border-line bg-white px-4 py-3.5 text-[15px] outline-none ring-accent/30 focus:ring-4"
       />
+      <input
+        type="email"
+        required
+        value={adminEmail}
+        onChange={(e) => setAdminEmail(e.target.value)}
+        placeholder="Company admin's email"
+        className="w-full rounded-2xl border border-line bg-white px-4 py-3.5 text-[15px] outline-none ring-accent/30 focus:ring-4"
+      />
+      <p className="text-[12px] text-muted">
+        They get an email invite to set up the company on usenoni.app.
+      </p>
       {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
       <button
         type="submit"

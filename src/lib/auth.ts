@@ -1,10 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
+import {
+  PERMISSION_DEFS,
+  type PermissionKey,
+  type Permissions,
+} from "@/lib/permissions";
+
+export type Role = "admin" | "company_admin" | "campaign_manager" | "creator";
 
 export type Profile = {
   id: string;
   full_name: string | null;
-  role: string | null;
+  role: Role | null;
   company_id: string | null;
+  onboarded: boolean;
   email?: string | null;
 };
 
@@ -21,20 +29,23 @@ export async function getSessionProfile(): Promise<{
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, role, company_id")
+    .select("id, full_name, role, company_id, onboarded")
     .eq("id", user.id)
     .maybeSingle();
 
   return {
     userId: user.id,
     profile: profile
-      ? { ...profile, email: user.email ?? null }
-      : { id: user.id, full_name: null, role: null, company_id: null, email: user.email },
+      ? { ...profile, onboarded: profile.onboarded ?? false, email: user.email ?? null }
+      : {
+          id: user.id,
+          full_name: null,
+          role: null,
+          company_id: null,
+          onboarded: false,
+          email: user.email,
+        },
   };
-}
-
-export function isCampaignManager(profile: Profile | null): boolean {
-  return profile?.role === "campaign_manager";
 }
 
 const PLATFORM_ADMIN_EMAIL = "founders@usenoni.app";
@@ -46,45 +57,39 @@ export function isPlatformAdmin(profile: Profile | null): boolean {
   );
 }
 
-export function canManageCampaigns(profile: Profile | null): boolean {
-  return isCampaignManager(profile) || isPlatformAdmin(profile);
+export function isCompanyAdmin(profile: Profile | null): boolean {
+  return profile?.role === "company_admin";
 }
 
-export type MemberPermissions = {
-  manage_brand: boolean;
-  manage_features: boolean;
-  manage_billing: boolean;
-};
+// The web dashboard is for the company admin (and the platform account).
+// Campaign managers and creators live in the iOS app.
+export function canUseWebDashboard(profile: Profile | null): boolean {
+  return isCompanyAdmin(profile) || isPlatformAdmin(profile);
+}
 
-const NO_PERMISSIONS: MemberPermissions = {
-  manage_brand: false,
-  manage_features: false,
-  manage_billing: false,
-};
-
-// UI affordances only; RLS and the billing edge function are the real gate.
-// Role 'admin' (platform admin) implicitly has every permission.
+// Mirrors SQL has_permission(): admins hold every permission implicitly,
+// campaign managers read their company_members row. RLS enforces the same
+// rules server side; this is only for shaping the UI.
 export async function getMemberPermissions(
   profile: Profile | null,
-): Promise<MemberPermissions> {
-  if (!profile) return NO_PERMISSIONS;
-  if (profile.role === "admin") {
-    return { manage_brand: true, manage_features: true, manage_billing: true };
-  }
-  if (!profile.company_id) return NO_PERMISSIONS;
+): Promise<Record<PermissionKey, boolean>> {
+  const all = isCompanyAdmin(profile) || isPlatformAdmin(profile);
+  const base = Object.fromEntries(
+    PERMISSION_DEFS.map((def) => [def.key, all]),
+  ) as Record<PermissionKey, boolean>;
+  if (all || !profile?.company_id) return base;
 
   const supabase = await createClient();
   const { data } = await supabase
     .from("company_members")
     .select("permissions")
-    .eq("profile_id", profile.id)
     .eq("company_id", profile.company_id)
+    .eq("profile_id", profile.id)
     .maybeSingle();
 
-  const permissions = (data?.permissions ?? {}) as Record<string, unknown>;
-  return {
-    manage_brand: permissions.manage_brand === true,
-    manage_features: permissions.manage_features === true,
-    manage_billing: permissions.manage_billing === true,
-  };
+  const stored = (data?.permissions ?? {}) as Permissions;
+  for (const def of PERMISSION_DEFS) {
+    base[def.key] = stored[def.key] === true;
+  }
+  return base;
 }

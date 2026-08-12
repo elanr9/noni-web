@@ -1,53 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") ?? "/admin";
+  const authError =
+    params.get("error") === "auth"
+      ? params.get("error_description") ||
+        "Google sign-in failed. Try again, or use the same browser where you started login."
+      : null;
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const supabase = createClient();
-    const { error: signError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setBusy(false);
-    if (signError) {
-      setError(signError.message);
-      return;
-    }
-    router.replace(next);
-    router.refresh();
-  }
+  const [error, setError] = useState<string | null>(authError);
 
   async function signInWithGoogle() {
     setBusy(true);
     setError(null);
     const supabase = createClient();
     const origin = window.location.origin;
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        skipBrowserRedirect: true,
       },
     });
     if (oauthError) {
       setBusy(false);
       setError(oauthError.message);
+      return;
     }
+    if (!data.url) {
+      setBusy(false);
+      setError("Google sign-in did not return a redirect URL.");
+      return;
+    }
+    // Ensure the PKCE verifier cookie was written before leaving the page.
+    if (!document.cookie.includes("code-verifier")) {
+      setBusy(false);
+      setError(
+        "Could not save sign-in cookies. Allow cookies for localhost and try again.",
+      );
+      return;
+    }
+    window.location.assign(data.url);
   }
 
   return (
@@ -73,7 +73,7 @@ function LoginForm() {
           Welcome back
         </h1>
         <p className="mt-1.5 text-center text-[14px] leading-relaxed text-muted">
-          Sign in to manage your company or your Noni account.
+          Sign in with the Google account your Noni invite was sent to.
         </p>
 
         <button
@@ -83,47 +83,14 @@ function LoginForm() {
           className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-full border border-line bg-white px-5 py-3 text-[15px] font-semibold text-ink transition hover:bg-soft disabled:opacity-50"
         >
           <GoogleLogo />
-          Continue with Google
+          {busy ? "Opening Google…" : "Continue with Google"}
         </button>
 
-        <div className="my-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted/70">
-          <div className="h-px flex-1 bg-line" />
-          or
-          <div className="h-px flex-1 bg-line" />
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-3">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            autoComplete="email"
-            className={inputClass}
-          />
-          <input
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            autoComplete="current-password"
-            className={inputClass}
-          />
-          {error ? (
-            <p className="rounded-xl bg-red-50 px-3.5 py-2.5 text-[13px] font-medium text-red-600">
-              {error}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-full bg-ink px-5 py-3 text-[15px] font-bold text-white transition hover:bg-ink/90 disabled:opacity-50"
-          >
-            {busy ? "Signing in…" : "Login"}
-          </button>
-        </form>
+        {error ? (
+          <p className="mt-4 rounded-xl bg-red-50 px-3.5 py-2.5 text-[13px] font-medium text-red-600">
+            {error}
+          </p>
+        ) : null}
       </div>
 
       <p className="mt-5 text-center text-[13px] text-muted">
@@ -135,9 +102,6 @@ function LoginForm() {
     </div>
   );
 }
-
-const inputClass =
-  "w-full rounded-xl border border-line bg-white px-4 py-3 text-[15px] text-ink placeholder:text-muted/60 outline-none transition focus:border-accent";
 
 function GoogleLogo() {
   return (
