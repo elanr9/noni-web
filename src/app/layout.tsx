@@ -27,16 +27,14 @@ export const metadata: Metadata = {
     apple: "/brand/app-icon.svg",
   },
   applicationName: "Noni",
-  description:
-    "The Noni app pays creators to post and lets businesses scale UGC without a content team.",
+  description: "Automated UGC Content Submissions.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.usenoni.app",
   ),
   openGraph: {
     title: "Noni",
     siteName: "Noni",
-    description:
-      "Noni automates UGC campaigns for creators and businesses: queued posts, in app creation, one approve, then auto post and pay.",
+    description: "Automated UGC Content Submissions.",
     type: "website",
   },
   appleWebApp: {

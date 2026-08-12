@@ -3,14 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type Audience = "creators" | "businesses";
-
-type NavbarProps = {
-  audience?: Audience;
-  onAudienceChange?: (audience: Audience) => void;
-};
-
-export function Navbar({ audience = "creators", onAudienceChange }: NavbarProps) {
+export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -19,14 +12,6 @@ export function Navbar({ audience = "creators", onAudienceChange }: NavbarProps)
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  const go = (next: Audience) => {
-    if (onAudienceChange) {
-      onAudienceChange(next);
-      return;
-    }
-    window.location.href = "/";
-  };
 
   return (
     <header
@@ -49,43 +34,12 @@ export function Navbar({ audience = "creators", onAudienceChange }: NavbarProps)
           noni
         </Link>
 
-        <div
-          role="group"
-          aria-label="Audience"
-          className="flex min-w-0 items-center rounded-full bg-accent-soft p-1"
+        <Link
+          href="/login"
+          className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
         >
-          <button
-            type="button"
-            onClick={() => go("creators")}
-            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-semibold transition md:px-5 md:py-2 md:text-[14px] ${
-              audience === "creators"
-                ? "bg-accent text-white"
-                : "text-ink-soft hover:text-ink"
-            }`}
-          >
-            For Creators
-          </button>
-          <button
-            type="button"
-            onClick={() => go("businesses")}
-            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-semibold transition md:px-5 md:py-2 md:text-[14px] ${
-              audience === "businesses"
-                ? "bg-accent text-white"
-                : "text-ink-soft hover:text-ink"
-            }`}
-          >
-            For Businesses
-          </button>
-        </div>
-
-        <div className="flex shrink-0 items-center">
-          <Link
-            href="/login"
-            className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
-          >
-            Login
-          </Link>
-        </div>
+          Login
+        </Link>
       </div>
     </header>
   );

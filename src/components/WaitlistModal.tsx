@@ -8,31 +8,21 @@ const WAITLIST_EMAIL = "founders@fieldvisionai.com";
 
 type WaitlistModalProps = {
   open: boolean;
-  audience: "creators" | "businesses";
   onClose: () => void;
 };
 
 const inputClass =
   "w-full rounded-xl border border-line bg-white px-4 py-3 text-[15px] text-ink placeholder:text-muted/60 outline-none transition focus:border-accent";
 
-export function WaitlistModal({ open, audience, onClose }: WaitlistModalProps) {
+export function WaitlistModal({ open, onClose }: WaitlistModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [companyUrl, setCompanyUrl] = useState("");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const subject =
-      audience === "creators" ? "Noni waitlist Creators" : "Noni waitlist Businesses";
-    const companyLines =
-      audience === "businesses"
-        ? `Company: ${companyName}\n${companyUrl ? `Company URL: ${companyUrl}\n` : ""}`
-        : "";
-    const body = `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\n${companyLines}\nPlease add me to the Noni ${
-      audience === "creators" ? "creator" : "business"
-    } waitlist.`;
+    const subject = "Noni waitlist";
+    const body = `Name: ${name}\nPhone: ${phone}\nEmail: ${email}\n\nPlease add me to the Noni waitlist.`;
     window.location.href = `mailto:${WAITLIST_EMAIL}?subject=${encodeURIComponent(
       subject,
     )}&body=${encodeURIComponent(body)}`;
@@ -74,11 +64,7 @@ export function WaitlistModal({ open, audience, onClose }: WaitlistModalProps) {
             <h2 className="display text-[22px] font-semibold text-ink">
               Join the waitlist
             </h2>
-            <p className="mt-1 text-[14px] text-muted">
-              {audience === "creators"
-                ? "Get early access to Noni as a creator."
-                : "Get early access to Noni for your business."}
-            </p>
+            <p className="mt-1 text-[14px] text-muted">Get early access to Noni.</p>
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-3">
               <input
@@ -109,27 +95,6 @@ export function WaitlistModal({ open, audience, onClose }: WaitlistModalProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 className={inputClass}
               />
-              {audience === "businesses" && (
-                <>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Company name"
-                    autoComplete="organization"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className={inputClass}
-                  />
-                  <input
-                    type="url"
-                    placeholder="Company URL (optional)"
-                    autoComplete="url"
-                    value={companyUrl}
-                    onChange={(e) => setCompanyUrl(e.target.value)}
-                    className={inputClass}
-                  />
-                </>
-              )}
               <button
                 type="submit"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-6 py-3.5 text-[15px] font-bold text-white transition hover:bg-accent-deep"
