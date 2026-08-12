@@ -73,3 +73,126 @@ body {
   background: #ffffff;
   border: 1px solid var(--line);
 }
+
+/* ── Ops console (/ops) design tokens ─────────────────────────────────
+   Mapped from design_handoff_ops_console/tokens/*.css. Radii are ops-
+   prefixed and easings named --ease-om so Tailwind defaults used by the
+   marketing and admin surfaces stay untouched. */
+@theme {
+  /* colors.css — brand blue scale (no default blue-* usage elsewhere) */
+  --color-blue-50: #f2f9fe;
+  --color-blue-100: #e7f4fd;
+  --color-blue-200: #a7d3f7;
+  --color-blue-300: #8ec9f5;
+  --color-blue-400: #4fbaf2;
+  --color-blue-500: #1ba6ee;
+  --color-blue-600: #0f8fd1;
+  --color-blue-700: #0b76ad;
+
+  /* colors.css — neutrals */
+  --color-off-white: #f7fafd;
+  --color-ground: #f7fafd;
+  --color-fill-quiet: #f1f3f5;
+  --color-line-strong: #d6e3ef;
+  --color-slate-300: #b4bfcb;
+  --color-slate-400: #8e9aa6;
+  --color-slate-500: #6b7a8c;
+  --color-ink-800: #151d26;
+  --color-ink-900: #0b0f14;
+
+  /* colors.css — status */
+  --color-amber: #e08a16;
+  --color-amber-soft: #fdf2df;
+  --color-green: #1f8f5f;
+  --color-green-soft: #e4f5ec;
+  --color-danger: #d93a3a;
+  --color-danger-soft: #fcebeb;
+
+  /* modal backdrop, ink-900 at 35% as rendered by the prototype */
+  --color-scrim: rgba(11, 15, 20, 0.35);
+
+  /* shape.css — radii (ops-prefixed to keep default rounded-* intact) */
+  --radius-ops-sm: 12px;
+  --radius-ops-md: 16px;
+  --radius-ops-lg: 18px;
+  --radius-ops-xl: 20px;
+  --radius-ops-2xl: 24px;
+  --radius-pill: 999px;
+
+  /* shape.css — shadows */
+  --shadow-card: 0 1px 2px rgba(15, 23, 32, 0.04), 0 6px 16px rgba(15, 23, 32, 0.05);
+  --shadow-raised: 0 2px 6px rgba(15, 23, 32, 0.06), 0 12px 28px rgba(15, 23, 32, 0.08);
+  --shadow-float: 0 6px 24px rgba(15, 23, 32, 0.14);
+  --shadow-media: 0 4px 18px rgba(15, 23, 32, 0.1);
+  --shadow-accent: 0 8px 20px rgba(27, 166, 238, 0.28);
+
+  /* motion.css — easings */
+  --ease-om: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-om-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-om-spring: cubic-bezier(0.34, 1.32, 0.64, 1);
+
+  /* ops motion — animate-om-* utilities */
+  --animate-om-fade: om-fade 180ms var(--ease-om) both;
+  --animate-om-pop: om-pop 240ms var(--ease-om) both;
+  --animate-om-rise: om-rise 260ms var(--ease-om) both;
+
+  /* fonts.css + brand brief — Poppins everywhere in /ops */
+  --font-ops: var(--font-poppins), "Poppins", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+}
+
+/* Defined outside @theme so arbitrary [animation:om-*_160ms_...] values
+   always resolve, not only when an animate-om-* utility is present. */
+@keyframes om-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes om-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes om-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+:root {
+  /* motion.css — durations (referenced by kit transitions) */
+  --dur-instant: 90ms;
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+
+  /* shape.css — focus ring */
+  --ring-focus: 0 0 0 3px rgba(27, 166, 238, 0.3);
+
+  /* spacing.css — layout rhythm used by ops surfaces */
+  --card-pad: 18px;
+  --stack-gap: 12px;
+  --section-gap: 28px;
+}
+
+/* Ops console placeholder treatment (prototype OpsConsole.html) */
+.font-ops input::placeholder,
+.font-ops textarea::placeholder {
+  color: #a9b6c3;
+  font-weight: 400;
+}

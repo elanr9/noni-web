@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import { Manrope, Poppins } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 
 const body = Manrope({
   variable: "--font-body",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+/* Ops console (/ops) typeface. Loaded here so the variable is available on
+   <html>; the ops shell opts in via the font-ops utility. */
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
 });
@@ -48,7 +56,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${body.variable} ${display.variable} h-full`}>
+    <html
+      lang="en"
+      className={`${body.variable} ${display.variable} ${poppins.variable} h-full`}
+    >
       <body className="min-h-full antialiased">{children}</body>
     </html>
   );
