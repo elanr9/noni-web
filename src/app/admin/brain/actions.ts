@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { rewriteBrainDoc } from "@/lib/admin/brain-cleanup";
 import { MOCK_DATASET } from "@/lib/admin/mock-data";
 import type { Platform } from "@/lib/admin/types";
 import { getSessionProfile, isCompanyAdmin, isPlatformAdmin } from "@/lib/auth";
@@ -103,12 +104,8 @@ export async function saveBrainDoc(input: {
   return { ok: true };
 }
 
-/* SIMULATED AI CLEANUP. The repo has no Claude/AI cleanup endpoint yet
-   (searched src/lib/edge.ts and every edge function reference), so this
-   stub reproduces the prototype's deterministic tidy-up: collapse
-   whitespace, fix spacing before punctuation, capitalize, end with a
-   period. Replace the body with the real endpoint call when it lands. */
 export async function cleanUpBrainDoc(input: {
+  kind: "product" | "audience";
   text: string;
 }): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
   const gate = await requireCompanyAdmin();
@@ -117,10 +114,7 @@ export async function cleanUpBrainDoc(input: {
   const raw = input.text.trim();
   if (!raw) return { ok: false, error: "Nothing to clean up." };
 
-  let t = raw.replace(/\s+/g, " ").replace(/\s+([,.!?])/g, "$1");
-  t = t.charAt(0).toUpperCase() + t.slice(1);
-  if (!/[.!?]$/.test(t)) t += ".";
-  return { ok: true, text: t };
+  return rewriteBrainDoc(input.kind, raw);
 }
 
 /* Handles are stored bare in some rows and @-prefixed in others; the read

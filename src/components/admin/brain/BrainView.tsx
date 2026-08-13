@@ -46,7 +46,7 @@ function DocEditorModal({ doc, onClose }: { doc: BrainDoc; onClose: () => void }
     if (!text.trim() || cleaning) return;
     setError(null);
     setCleaning(true);
-    void cleanUpBrainDoc({ text }).then((result) => {
+    void cleanUpBrainDoc({ kind: doc.kind, text }).then((result) => {
       if (result.ok) setText(result.text);
       else setError(result.error);
       setCleaning(false);
