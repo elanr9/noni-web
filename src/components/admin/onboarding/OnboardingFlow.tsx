@@ -38,6 +38,8 @@ const DASH_INDEX: Record<Exclude<StepId, "welcome" | "done">, number> = {
   download: 6,
 };
 
+const APP_STORE_URL = "https://apps.apple.com/app/id6799189794";
+
 const ADMIN_ROLES = [
   "Founder",
   "Marketing",
@@ -509,18 +511,29 @@ export function OnboardingFlow({
         total={total}
         title="Download the Noni App to run your campaigns!"
         subtitle={`This Google account is already set as a campaign manager for ${companyName}.`}
-        primary="I downloaded it!"
-        onPrimary={() => setStep("done")}
       >
         <div className="flex justify-center">
-          <Image
-            src="/brand/review-phone-crop.png"
-            alt="The Noni app"
-            width={240}
-            height={522}
-            className="h-[522px] w-[240px] rounded-[28px] object-cover"
-          />
+          <span className="inline-block rounded-[30px] bg-ink-900 p-[6px] shadow-card">
+            <Image
+              src="/brand/review-phone-crop.png"
+              alt="The Noni app"
+              width={150}
+              height={319}
+              quality={95}
+              className="block h-[319px] w-[150px] rounded-[24px] object-cover object-top"
+            />
+          </span>
         </div>
+        <a
+          href={APP_STORE_URL}
+          target="_blank"
+          rel="noreferrer"
+          onClick={() => setStep("done")}
+          className="mt-[22px] flex w-full items-center justify-center rounded-pill bg-blue-500 font-bold text-white no-underline shadow-accent"
+          style={{ padding: "15px 22px", fontSize: 15 }}
+        >
+          Download now
+        </a>
       </OnbStep>
     );
   }
