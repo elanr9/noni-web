@@ -1,4 +1,5 @@
 import { AuthCallbackClient } from "./AuthCallbackClient";
+import { ReturnToApp } from "./ReturnToApp";
 
 type Search = Promise<{
   code?: string;
@@ -15,11 +16,9 @@ export default async function AuthCallbackPage({
   const params = await searchParams;
 
   if (params.app === "1" && params.code) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-white text-[15px] text-ink/70">
-        Returning to Noni…
-      </div>
-    );
+    const q = new URLSearchParams({ code: params.code });
+    if (params.sb_flow_id) q.set("sb_flow_id", params.sb_flow_id);
+    return <ReturnToApp query={q.toString()} />;
   }
 
   return (
