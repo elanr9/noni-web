@@ -90,6 +90,8 @@ export async function startCheckout(
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
+    allow_promotion_codes: true,
+    payment_method_collection: "if_required",
     success_url: `${origin}/admin/billing?checkout=success`,
     cancel_url: `${origin}/admin/billing?checkout=cancelled`,
     metadata: { company_id: ctx.companyId },
