@@ -4,7 +4,12 @@ import { redirect } from "next/navigation";
 import { AchievementHost } from "@/components/admin/achievements/AchievementHost";
 import { AdminShell, type AdminSearchPerson } from "@/components/admin/AdminShell";
 import { TourHost } from "@/components/admin/tour/TourHost";
-import { canUseWebDashboard, getSessionProfile, isCompanyAdmin } from "@/lib/auth";
+import {
+  canUseWebDashboard,
+  getSessionProfile,
+  isCompanyAdmin,
+  isPlatformAdmin,
+} from "@/lib/auth";
 import { getAdminData } from "@/lib/admin/data";
 import { deriveSetupStatus } from "@/lib/admin/setup";
 
@@ -51,7 +56,11 @@ export default async function AdminLayout({
   }
 
   const data = await getAdminData(profile?.company_id ?? "");
-  const setup = deriveSetupStatus(data);
+  /* The platform support account has no company to set up: the Onboarding
+     tab, badge and achievements never apply to it. */
+  const setup = isPlatformAdmin(profile)
+    ? { steps: [], doneCount: 0, remaining: 0, complete: true }
+    : deriveSetupStatus(data);
   const people: AdminSearchPerson[] = [...data.managers, ...data.creators].map(
     (m) => ({ id: m.id, name: m.name, role: m.role, status: m.status }),
   );
