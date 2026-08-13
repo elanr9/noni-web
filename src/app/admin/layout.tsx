@@ -27,8 +27,10 @@ export default async function AdminLayout({
     : await getSessionProfile();
   if (!userId) redirect("/login?next=/admin");
   if (!qaBypass) {
-    /* Company admins run this dashboard; the platform account is let in
-       for support. Everyone else gets a friendly gate. */
+    /* The noni platform account runs the ops console, not the company
+       dashboard. It has no company here, so /admin is always wrong for it. */
+    if (isPlatformAdmin(profile)) redirect("/ops");
+    /* Company admins run this dashboard; everyone else gets a friendly gate. */
     if (!canUseWebDashboard(profile)) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-soft px-5">
@@ -56,11 +58,7 @@ export default async function AdminLayout({
   }
 
   const data = await getAdminData(profile?.company_id ?? "");
-  /* The platform support account has no company to set up: the Onboarding
-     tab, badge and achievements never apply to it. */
-  const setup = isPlatformAdmin(profile)
-    ? { steps: [], doneCount: 0, remaining: 0, complete: true }
-    : deriveSetupStatus(data);
+  const setup = deriveSetupStatus(data);
   const people: AdminSearchPerson[] = [...data.managers, ...data.creators].map(
     (m) => ({ id: m.id, name: m.name, role: m.role, status: m.status }),
   );

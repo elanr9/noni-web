@@ -4,14 +4,11 @@ import { SetupChecklist } from "@/components/admin/todo/SetupChecklist";
 import { PageHead } from "@/components/kit";
 import { getAdminData } from "@/lib/admin/data";
 import { deriveSetupStatus } from "@/lib/admin/setup";
-import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
+import { getSessionProfile } from "@/lib/auth";
 
 /* Onboarding tab: the gamified setup to-do. */
 export default async function AdminOnboardingPage() {
   const { profile } = await getSessionProfile();
-  /* The platform support account has no company to set up. */
-  if (isPlatformAdmin(profile)) redirect("/admin/analytics");
-
   const data = await getAdminData(profile?.company_id ?? "");
   const setup = deriveSetupStatus(data);
 

@@ -4,14 +4,14 @@ Build the **Noni platform admin console** exactly as designed in this project. T
 
 ## Files in this package
 - `OpsConsole.html` — open directly in a browser; the full interactive prototype (needs the sibling files below).
-- `OpsApp.jsx` / `WebKit.jsx` — every screen + the shared UI kit.
+- `ops-app.jsx` / `web-kit.jsx` — every screen + the shared UI kit.
 - `styles.css` + `tokens/` — design tokens. `_ds_bundle.js` — icon/component bundle the prototype loads.
 - `assets/noni-logo.svg` — the marlin mark.
 
 ## Source of truth
 - `OpsConsole.html` — the live prototype. Click through EVERY screen before writing code.
-- `OpsApp.jsx` — all screens, data shapes, copy, and interaction logic.
-- `WebKit.jsx` — the shared UI kit (KShell, KSearch, KModal, KPill, KChip, KCard, KField, KTabs pattern).
+- `ops-app.jsx` — all screens, data shapes, copy, and interaction logic.
+- `web-kit.jsx` — the shared UI kit (KShell, KSearch, KModal, KPill, KChip, KCard, KField, KTabs pattern).
 - `styles.css` + `tokens/*.css` — color/spacing/shadow/motion tokens. Never hardcode a hex that exists as a token.
 - Brand: marlin mark `assets/noni-logo.svg` (in this package), lowercase "noni" wordmark. Font: **Poppins** (400/500/600/700/800) everywhere; display weight 700, UI 600–700.
 
