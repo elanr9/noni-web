@@ -7,6 +7,7 @@ import {
   type CreateCompanyResponse,
   type InviteResponse,
 } from "@/lib/edge";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export type OpsActionResult = { ok: true } | { ok: false; error: string };
 
@@ -48,9 +49,7 @@ export async function createCompany(input: {
   );
   if (error !== null) return { ok: false, error };
 
-  /* The invite edge function keys on email only; adminName is display-only
-     until the function persists a name. */
-  const { error: inviteError } = await callEdgeFunction<InviteResponse>(
+  const { data: inviteData, error: inviteError } = await callEdgeFunction<InviteResponse>(
     "invite-campaign-manager",
     {
       action: "invite",
@@ -59,12 +58,19 @@ export async function createCompany(input: {
       role: "company_admin",
     },
   );
-  if (inviteError) {
+  if (inviteError !== null) {
     return {
       ok: false,
       error: `Company created, but the admin invite failed: ${inviteError}`,
     };
   }
+
+  /* The invite edge function keys on email only, so the admin's name is
+     stored here; onboarding prefills the greeting from it. */
+  await createServiceClient()
+    .from("company_invites")
+    .update({ invited_name: input.adminName.trim() })
+    .eq("id", inviteData.invite.id);
 
   revalidatePath("/ops");
   revalidatePath("/ops/companies");

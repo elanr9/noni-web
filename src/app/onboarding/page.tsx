@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/admin/onboarding/OnboardingFlow";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export const metadata = { title: "Set up your company · Noni" };
 
@@ -38,7 +39,21 @@ export default async function OnboardingPage() {
   ]);
   const company = companyRes.data as { name: string; website: string | null } | null;
 
-  /* Prefill the name from Google when the profile has none yet. */
+  /* Prefill the name from the invite ops sent, then Google, when the
+     profile has none yet. */
+  const email = userRes.data.user?.email?.toLowerCase() ?? "";
+  const { data: invite } = await createServiceClient()
+    .from("company_invites")
+    .select("invited_name")
+    .eq("company_id", profile!.company_id!)
+    .eq("email", email)
+    .not("invited_name", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const invitedName =
+    typeof invite?.invited_name === "string" ? invite.invited_name.trim() : "";
+
   const meta = (userRes.data.user?.user_metadata ?? {}) as Record<string, unknown>;
   const googleName =
     typeof meta.full_name === "string"
@@ -46,7 +61,7 @@ export default async function OnboardingPage() {
       : typeof meta.name === "string"
         ? meta.name
         : "";
-  const defaultName = profile?.full_name?.trim() || googleName;
+  const defaultName = profile?.full_name?.trim() || invitedName || googleName;
 
   return (
     <OnboardingFlow
