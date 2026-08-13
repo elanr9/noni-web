@@ -16,6 +16,7 @@
 
 import { cache } from "react";
 
+import { currentWeekStart } from "@/lib/admin/feature-analyze";
 import { createServiceClient } from "@/lib/supabase/service";
 
 import type {
@@ -25,12 +26,14 @@ import type {
   AdminInvite,
   AdminPost,
   BrainDoc,
+  BriefTemplate,
   DayActivity,
   DayActivityMap,
   InspirationAccount,
   Member,
   OnboardingAnswers,
   PostFormat,
+  ProductFeature,
   Stat,
   StatStrip,
   Subscription,
@@ -347,6 +350,8 @@ function emptyDataset(companyId: string): AdminDataset {
     billing: EMPTY_BILLING,
     brainDocs: EMPTY_DOCS,
     inspirationAccounts: [],
+    features: [],
+    briefTemplates: [],
     briefs: [],
     statStrip: {
       views: emptyStat("Views this month"),
@@ -385,6 +390,9 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     sourceAccountsRes,
     briefsRes,
     companyMembersRes,
+    featuresRes,
+    briefTemplatesRes,
+    sourcePostsRes,
   ] = await Promise.all([
     /* select("*") so onboarding-answer columns that have not been migrated
        yet do not error the query; readers default when absent. */
@@ -451,6 +459,26 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       .from("company_members")
       .select("profile_id")
       .eq("company_id", companyId),
+    supabase
+      .from("product_features")
+      .select("id, name, sentence, screenshot_path, score, reason, rank")
+      .eq("company_id", companyId)
+      .order("rank", { ascending: true }),
+    supabase
+      .from("brief_templates")
+      .select(
+        "id, feature_id, title, format, type_label, example, description, action, phrase, sort_order",
+      )
+      .eq("company_id", companyId)
+      .eq("week_start", currentWeekStart())
+      .order("sort_order"),
+    supabase
+      .from("source_posts")
+      .select(
+        "id, platform, handle, url, caption, thumbnail_url, views, likes, shares, hook, why",
+      )
+      .eq("company_id", companyId)
+      .order("score", { ascending: false }),
   ]);
 
   const companyRow = (companyRes.data ?? null) as LooseRow | null;
@@ -468,6 +496,39 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
   const briefRows = (briefsRes.data ?? []) as BriefRow[];
   const companyMemberRows = (companyMembersRes.data ?? []) as Array<{
     profile_id: string;
+  }>;
+  const featureRows = (featuresRes.data ?? []) as Array<{
+    id: string;
+    name: string | null;
+    sentence: string | null;
+    screenshot_path: string | null;
+    score: number | null;
+    reason: string | null;
+    rank: number | null;
+  }>;
+  const templateRows = (briefTemplatesRes.data ?? []) as Array<{
+    id: string;
+    feature_id: string | null;
+    title: string | null;
+    format: string | null;
+    type_label: string | null;
+    example: string | null;
+    description: string | null;
+    action: string | null;
+    phrase: string | null;
+  }>;
+  const sourcePostRows = (sourcePostsRes.data ?? []) as Array<{
+    id: string;
+    platform: string | null;
+    handle: string | null;
+    url: string | null;
+    caption: string | null;
+    thumbnail_url: string | null;
+    views: number | null;
+    likes: number | null;
+    shares: number | null;
+    hook: string | null;
+    why: string | null;
   }>;
 
   const emailById = new Map<string, string>();
@@ -692,14 +753,63 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     doc.updated = row.updated_at && doc.body.trim() ? fmtShortDate(row.updated_at) : "";
   }
 
+  const postsByAccount = new Map<string, InspirationAccount["posts"]>();
+  for (const row of sourcePostRows) {
+    const platform = row.platform === "instagram" ? "instagram" : "tiktok";
+    const handle = (row.handle ?? "").replace(/^@+/, "").toLowerCase();
+    const key = `${platform}:${handle}`;
+    const list = postsByAccount.get(key) ?? [];
+    list.push({
+      id: row.id,
+      url: row.url ?? "",
+      caption: row.caption ?? "",
+      thumbnailUrl: row.thumbnail_url ?? "",
+      views: row.views ?? 0,
+      likes: row.likes ?? 0,
+      shares: row.shares ?? 0,
+      hook: row.hook ?? "",
+      why: row.why ?? "",
+    });
+    postsByAccount.set(key, list);
+  }
+
   const inspirationAccounts: InspirationAccount[] = sourceAccountRows.map((row) => {
     const handle = readStr(row, "handle") ?? "";
+    const platform = readStr(row, "platform") === "instagram" ? "instagram" : "tiktok";
+    const key = `${platform}:${handle.replace(/^@+/, "").toLowerCase()}`;
     return {
       handle: handle.startsWith("@") ? handle : "@" + handle,
-      platform: readStr(row, "platform") === "instagram" ? "instagram" : "tiktok",
+      platform,
       muted: readBool(row, "muted") ?? false,
+      posts: postsByAccount.get(key) ?? [],
     };
   });
+
+  const features: ProductFeature[] = featureRows.map((row) => {
+    const path = row.screenshot_path ?? "";
+    const { data } = supabase.storage.from("product-features").getPublicUrl(path);
+    return {
+      id: row.id,
+      name: row.name?.trim() ?? "",
+      sentence: row.sentence ?? "",
+      screenshotUrl: path ? data.publicUrl : "",
+      score: row.score,
+      reason: row.reason ?? "",
+      rank: row.rank,
+    };
+  });
+
+  const briefTemplates: BriefTemplate[] = templateRows.map((row) => ({
+    id: row.id,
+    featureId: row.feature_id ?? "",
+    title: row.title?.trim() || "Untitled brief",
+    format: toFormat(row.format),
+    typeLabel: row.type_label ?? "",
+    example: row.example ?? "",
+    description: row.description ?? "",
+    action: row.action ?? "",
+    phrase: row.phrase ?? "",
+  }));
 
   const briefs: AdminBrief[] = briefRows.map((b) => ({
     id: b.id,
@@ -771,6 +881,8 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     billing,
     brainDocs,
     inspirationAccounts,
+    features,
+    briefTemplates,
     briefs,
     statStrip,
     weeklyViews,

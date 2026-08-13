@@ -14,7 +14,9 @@ import type {
   AdminPost,
   BrainDoc,
   DayActivityMap,
+  BriefTemplate,
   InspirationAccount,
+  ProductFeature,
   Member,
   PlatformStats,
   StatStrip,
@@ -242,12 +244,15 @@ export const MOCK_BRAIN_DRAFTS: Record<"product" | "audience", string> = {
 };
 
 export const MOCK_INSPIRATION_ACCOUNTS: InspirationAccount[] = [
-  { handle: "@fridaynightfilm", platform: "tiktok", muted: false },
-  { handle: "@coachreels", platform: "tiktok", muted: false },
-  { handle: "@qbschool", platform: "tiktok", muted: false },
-  { handle: "@gridironlab", platform: "instagram", muted: false },
-  { handle: "@sidelinescout", platform: "instagram", muted: false },
+  { handle: "@fridaynightfilm", platform: "tiktok", muted: false, posts: [] },
+  { handle: "@coachreels", platform: "tiktok", muted: false, posts: [] },
+  { handle: "@qbschool", platform: "tiktok", muted: false, posts: [] },
+  { handle: "@gridironlab", platform: "instagram", muted: false, posts: [] },
+  { handle: "@sidelinescout", platform: "instagram", muted: false, posts: [] },
 ];
+
+export const MOCK_FEATURES: ProductFeature[] = [];
+export const MOCK_BRIEF_TEMPLATES: BriefTemplate[] = [];
 
 export const MOCK_BRIEFS: AdminBrief[] = [
   {
@@ -306,7 +311,15 @@ export const MOCK_DATASET: AdminDataset = (globalMock.__noniAdminMockDataset ??=
   billing: MOCK_BILLING,
   brainDocs: MOCK_BRAIN_DOCS,
   inspirationAccounts: MOCK_INSPIRATION_ACCOUNTS,
+  features: MOCK_FEATURES,
+  briefTemplates: MOCK_BRIEF_TEMPLATES,
   briefs: MOCK_BRIEFS,
   statStrip: MOCK_STAT_STRIP,
   weeklyViews: MOCK_WEEKLY_VIEWS,
 });
+
+MOCK_DATASET.features ??= [];
+MOCK_DATASET.briefTemplates ??= [];
+for (const account of MOCK_DATASET.inspirationAccounts) {
+  account.posts ??= [];
+}

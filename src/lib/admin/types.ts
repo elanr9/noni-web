@@ -136,10 +136,45 @@ export interface BrainDoc {
   updated: string;
 }
 
+export interface InspirationPost {
+  id: string;
+  url: string;
+  caption: string;
+  thumbnailUrl: string;
+  views: number;
+  likes: number;
+  shares: number;
+  hook: string;
+  why: string;
+}
+
 export interface InspirationAccount {
   platform: Platform;
   handle: string;
   muted: boolean;
+  posts: InspirationPost[];
+}
+
+export interface ProductFeature {
+  id: string;
+  name: string;
+  sentence: string;
+  screenshotUrl: string;
+  score: number | null;
+  reason: string;
+  rank: number | null;
+}
+
+export interface BriefTemplate {
+  id: string;
+  featureId: string;
+  title: string;
+  format: PostFormat;
+  typeLabel: string;
+  example: string;
+  description: string;
+  action: string;
+  phrase: string;
 }
 
 /* Shown on campaign manager profile pages. */
@@ -178,6 +213,8 @@ export interface AdminDataset {
   billing: AdminBilling;
   brainDocs: BrainDoc[];
   inspirationAccounts: InspirationAccount[];
+  features: ProductFeature[];
+  briefTemplates: BriefTemplate[];
   briefs: AdminBrief[];
   statStrip: StatStrip;
   /** 12-point weekly views series in thousands, oldest first. Feeds the

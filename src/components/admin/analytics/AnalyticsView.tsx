@@ -28,7 +28,7 @@ function ModeToggle({
   onSelect: (mode: ViewMode) => void;
 }) {
   return (
-    <div className="flex gap-1 bg-fill-quiet p-[3px] rounded-pill">
+    <div data-tour="analytics-mode" className="flex gap-1 bg-fill-quiet p-[3px] rounded-pill">
       {MODES.map(({ mode: m, icon: Icon }) => (
         <button
           key={m}
@@ -73,28 +73,32 @@ export function AnalyticsView({
         sub="Views, sign-ups and earnings across every post and creator."
         right={<ModeToggle mode={mode} onSelect={setMode} />}
       />
-      <Card pad={22} className="mb-3.5 flex gap-[18px]">
-        {stats.map((s) => (
-          <span key={s.label} className="min-w-0 flex-1">
-            <span className="block whitespace-nowrap text-[12px] font-semibold text-slate-400">
-              {s.label}
-            </span>
-            <span className="mt-1 block text-[24px] font-bold tracking-[-0.6px] text-ink">
-              {s.value}
-            </span>
-            {s.delta ? (
-              <span className="mt-0.5 block whitespace-nowrap text-[12px] font-semibold text-slate-400">
-                {s.delta}
+      <div data-tour="analytics-stats">
+        <Card pad={22} className="mb-3.5 flex gap-[18px]">
+          {stats.map((s) => (
+            <span key={s.label} className="min-w-0 flex-1">
+              <span className="block whitespace-nowrap text-[12px] font-semibold text-slate-400">
+                {s.label}
               </span>
-            ) : null}
-          </span>
-        ))}
-      </Card>
-      {mode === "Graph" ? (
-        <AnalyticsExplorer posts={posts} creators={creators} weeklyViews={weeklyViews} />
-      ) : (
-        <DailyActivity dayActivity={dayActivity} posts={posts} />
-      )}
+              <span className="mt-1 block text-[24px] font-bold tracking-[-0.6px] text-ink">
+                {s.value}
+              </span>
+              {s.delta ? (
+                <span className="mt-0.5 block whitespace-nowrap text-[12px] font-semibold text-slate-400">
+                  {s.delta}
+                </span>
+              ) : null}
+            </span>
+          ))}
+        </Card>
+      </div>
+      <div data-tour="analytics-explorer">
+        {mode === "Graph" ? (
+          <AnalyticsExplorer posts={posts} creators={creators} weeklyViews={weeklyViews} />
+        ) : (
+          <DailyActivity dayActivity={dayActivity} posts={posts} />
+        )}
+      </div>
     </div>
   );
 }

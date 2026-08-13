@@ -138,110 +138,117 @@ export function BillingView({
           </Card>
         ) : null}
 
-        <Card pad={22}>
-          <div className="flex items-center gap-2.5">
-            <Label className="flex-1">Subscription</Label>
-            {active ? (
-              <Chip tone="green">Active</Chip>
-            ) : (
-              <Chip tone="amber">Not active</Chip>
-            )}
-          </div>
-          {active ? (
-            <>
-              <div className="mt-3 flex items-baseline gap-2.5">
-                <span className="display text-[30px] font-bold tracking-[-0.8px] text-ink">
-                  {money(subscription.price)}
-                  <span className="text-[15px] font-bold text-slate-400">/mo</span>
-                </span>
-                <span className="text-[13.5px] font-semibold text-slate-400">
-                  {annual
-                    ? `Annual · billed $1,200/yr · renews ${subscription.renewsAt}`
-                    : `Monthly · renews ${subscription.renewsAt}`}
-                  {cardOnFile ? ` · ${cardOnFile}` : ""}
-                </span>
-              </div>
-              <div className="mt-3.5">
-                <Pill size="sm" variant="quiet" onClick={() => setModal("plan")}>
-                  Manage plan
-                </Pill>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
-                $100/mo billed annually, or $200/mo billed monthly. One
-                subscription runs your whole roster. Checkout is handled by
-                Stripe.
-              </p>
-              <div className="mt-3.5">
-                <Pill size="sm" onClick={() => setModal("plan")}>
-                  Choose a plan
-                </Pill>
-              </div>
-            </>
-          )}
-        </Card>
-
-        <Card pad={0}>
-          <div className="px-[22px] pb-4 pt-[18px]">
-            <Label className="mb-3 block">Creator budget</Label>
-            <div className="flex items-center gap-4">
-              <span className="min-w-0">
-                <span className="display block text-[24px] font-bold tracking-[-0.6px] text-ink">
-                  {money(billing.spentThisMonth)} spent
-                </span>
-                <span className="mt-0.5 block text-[12.5px] font-semibold text-slate-400">
-                  {resetsLabel()}
-                </span>
-              </span>
-              <span className="h-2 flex-1 overflow-hidden bg-fill-quiet rounded-pill">
-                <span
-                  className={`block h-full transition-[width] duration-[400ms] ease-om rounded-pill ${
-                    pctUsed > 0.85 ? "bg-danger" : pctUsed > 0.6 ? "bg-amber" : "bg-blue-500"
-                  }`}
-                  style={{ width: Math.round(pctUsed * 100) + "%" }}
-                />
-              </span>
-              <span className="whitespace-nowrap text-[13px] font-semibold text-slate-400">
-                {Math.round(pctUsed * 100)}% used
-              </span>
+        <div data-tour="billing-subscription">
+          <Card pad={22}>
+            <div className="flex items-center gap-2.5">
+              <Label className="flex-1">Subscription</Label>
+              {active ? (
+                <Chip tone="green">Active</Chip>
+              ) : (
+                <Chip tone="amber">Not active</Chip>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-3 border-t border-line px-[22px] py-3.5">
-            <span className="min-w-0 flex-1">
-              <span className="block text-[16px] font-bold text-ink">
-                {limit > 0 ? money(limit) : "Not set"}
+            {active ? (
+              <>
+                <div className="mt-3 flex items-baseline gap-2.5">
+                  <span className="display text-[30px] font-bold tracking-[-0.8px] text-ink">
+                    {money(subscription.price)}
+                    <span className="text-[15px] font-bold text-slate-400">/mo</span>
+                  </span>
+                  <span className="text-[13.5px] font-semibold text-slate-400">
+                    {annual
+                      ? `Annual · billed $1,200/yr · renews ${subscription.renewsAt}`
+                      : `Monthly · renews ${subscription.renewsAt}`}
+                    {cardOnFile ? ` · ${cardOnFile}` : ""}
+                  </span>
+                </div>
+                <div className="mt-3.5">
+                  <Pill size="sm" variant="quiet" onClick={() => setModal("plan")}>
+                    Manage plan
+                  </Pill>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
+                  $100/mo billed annually, or $200/mo billed monthly. One
+                  subscription runs your whole roster. Checkout is handled by
+                  Stripe.
+                </p>
+                <div className="mt-3.5">
+                  <Pill size="sm" onClick={() => setModal("plan")}>
+                    Choose a plan
+                  </Pill>
+                </div>
+              </>
+            )}
+          </Card>
+        </div>
+
+        <div data-tour="billing-budget">
+          <Card pad={0}>
+            <div className="px-[22px] pb-4 pt-[18px]">
+              <Label className="mb-3 block">Creator budget</Label>
+              <div className="flex items-center gap-4">
+                <span className="min-w-0">
+                  <span className="display block text-[24px] font-bold tracking-[-0.6px] text-ink">
+                    {money(billing.spentThisMonth)} spent
+                  </span>
+                  <span className="mt-0.5 block text-[12.5px] font-semibold text-slate-400">
+                    {resetsLabel()}
+                  </span>
+                </span>
+                <span className="h-2 flex-1 overflow-hidden bg-fill-quiet rounded-pill">
+                  <span
+                    className={`block h-full transition-[width] duration-[400ms] ease-om rounded-pill ${
+                      pctUsed > 0.85 ? "bg-danger" : pctUsed > 0.6 ? "bg-amber" : "bg-blue-500"
+                    }`}
+                    style={{ width: Math.round(pctUsed * 100) + "%" }}
+                  />
+                </span>
+                <span className="whitespace-nowrap text-[13px] font-semibold text-slate-400">
+                  {Math.round(pctUsed * 100)}% used
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 border-t border-line px-[22px] py-3.5">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-bold text-ink">
+                  {limit > 0 ? money(limit) : "Not set"}
+                </span>
+                <span className="mt-px block text-[12.5px] font-semibold text-slate-400">
+                  Monthly spend limit
+                </span>
               </span>
-              <span className="mt-px block text-[12.5px] font-semibold text-slate-400">
-                Monthly spend limit
+              <Pill size="sm" variant="quiet" onClick={() => setModal("limit")}>
+                {limit > 0 ? "Adjust limit" : "Set limit"}
+              </Pill>
+            </div>
+            <div
+              data-tour="billing-top-up"
+              className="flex items-center gap-3 border-t border-line px-[22px] py-3.5"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-bold text-ink">
+                  {money(billing.creditBalance)}
+                </span>
+                <span className="mt-px flex items-center gap-2 text-[12.5px] font-semibold text-slate-400">
+                  Extra credit balance · Auto top-up {billing.autoTopUp ? "on" : "off"}
+                  <button
+                    type="button"
+                    onClick={() => void run(() => setAutoTopUp(!billing.autoTopUp))}
+                    className="cursor-pointer border-none bg-transparent p-0 text-[12.5px] font-bold text-blue-700"
+                  >
+                    {billing.autoTopUp ? "Turn off" : "Turn on"}
+                  </button>
+                </span>
               </span>
-            </span>
-            <Pill size="sm" variant="quiet" onClick={() => setModal("limit")}>
-              {limit > 0 ? "Adjust limit" : "Set limit"}
-            </Pill>
-          </div>
-          <div className="flex items-center gap-3 border-t border-line px-[22px] py-3.5">
-            <span className="min-w-0 flex-1">
-              <span className="block text-[16px] font-bold text-ink">
-                {money(billing.creditBalance)}
-              </span>
-              <span className="mt-px flex items-center gap-2 text-[12.5px] font-semibold text-slate-400">
-                Extra credit balance · Auto top-up {billing.autoTopUp ? "on" : "off"}
-                <button
-                  type="button"
-                  onClick={() => void run(() => setAutoTopUp(!billing.autoTopUp))}
-                  className="cursor-pointer border-none bg-transparent p-0 text-[12.5px] font-bold text-blue-700"
-                >
-                  {billing.autoTopUp ? "Turn off" : "Turn on"}
-                </button>
-              </span>
-            </span>
-            <Pill size="sm" icon={Plus} onClick={() => setModal("topup")}>
-              Top up
-            </Pill>
-          </div>
-        </Card>
+              <Pill size="sm" icon={Plus} onClick={() => setModal("topup")}>
+                Top up
+              </Pill>
+            </div>
+          </Card>
+        </div>
 
         <Card pad={22}>
           <div className="flex items-center gap-2.5">

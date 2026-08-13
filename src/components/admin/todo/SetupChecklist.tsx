@@ -22,7 +22,7 @@ export function SetupChecklist({
 
   return (
     <Card pad={0}>
-      <div className="px-5 pb-3.5 pt-[18px]">
+      <div data-tour="onb-progress" className="px-5 pb-3.5 pt-[18px]">
         <div className="flex items-center gap-2.5">
           <Label className="flex-1">Set up {companyName}</Label>
           <span className="text-[13px] font-bold text-slate-500">
@@ -39,6 +39,7 @@ export function SetupChecklist({
       {steps.map((s, i) => (
         <div
           key={s.key}
+          data-tour={i === 0 ? "onb-first-step" : undefined}
           className={`flex items-center gap-[15px] px-5 py-4 ${
             i === steps.length - 1 ? "" : "border-b border-line"
           }`}

@@ -7,6 +7,11 @@ export default async function AdminBrainPage() {
   const data = await getAdminData(profile?.company_id ?? "");
 
   return (
-    <BrainView docs={data.brainDocs} accounts={data.inspirationAccounts} />
+    <BrainView
+      docs={data.brainDocs}
+      accounts={data.inspirationAccounts}
+      features={data.features}
+      templates={data.briefTemplates}
+    />
   );
 }

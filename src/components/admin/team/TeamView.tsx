@@ -192,20 +192,24 @@ export function TeamView({
         sub={`Everyone on ${companyName}. Invites land by email; Noni knows their role the moment they sign in.`}
       />
       <div className="flex flex-col gap-3.5">
-        <TeamSection
-          label="Campaign managers"
-          hint="They run weekly briefs and keep creators on pace."
-          people={managers}
-          inviteLabel="Invite manager"
-          onInvite={() => setInviting("Campaign manager")}
-        />
-        <TeamSection
-          label="Creators"
-          hint="They record. Their first tasks are waiting when they sign in."
-          people={creators}
-          inviteLabel="Invite creator"
-          onInvite={() => setInviting("Creator")}
-        />
+        <div data-tour="team-managers">
+          <TeamSection
+            label="Campaign managers"
+            hint="They run weekly briefs and keep creators on pace."
+            people={managers}
+            inviteLabel="Invite manager"
+            onInvite={() => setInviting("Campaign manager")}
+          />
+        </div>
+        <div data-tour="team-creators">
+          <TeamSection
+            label="Creators"
+            hint="They record. Their first tasks are waiting when they sign in."
+            people={creators}
+            inviteLabel="Invite creator"
+            onInvite={() => setInviting("Creator")}
+          />
+        </div>
       </div>
       {inviting ? (
         <InviteModal

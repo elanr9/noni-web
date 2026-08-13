@@ -104,6 +104,49 @@ async function complete(
   return { ok: true, text };
 }
 
+interface TranscriptionResponse {
+  text?: string;
+  error?: { message?: string };
+}
+
+const TRANSCRIBE_MODELS = ["gpt-4o-mini-transcribe", "whisper-1"] as const;
+
+export async function transcribeBrainAudio(
+  audio: File,
+): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: "Clean up with AI is not configured. Add OPENAI_API_KEY on the server.",
+    };
+  }
+
+  const filename = audio.name || "voice.webm";
+  let lastError = "OpenAI is unavailable.";
+  for (const model of TRANSCRIBE_MODELS) {
+    const body = new FormData();
+    body.append("file", audio, filename);
+    body.append("model", model);
+    const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body,
+    });
+    const json = (await res.json()) as TranscriptionResponse;
+    if (!res.ok) {
+      lastError = json.error?.message ?? `OpenAI ${res.status}`;
+      const retryable = res.status === 404 || res.status === 400;
+      if (!retryable) return { ok: false, error: lastError };
+      continue;
+    }
+    const text = json.text?.trim() ?? "";
+    if (!text) return { ok: false, error: "Didn't catch that. Try speaking again." };
+    return { ok: true, text };
+  }
+  return { ok: false, error: lastError };
+}
+
 export async function rewriteBrainDoc(
   kind: BrainDocKind,
   draft: string,
