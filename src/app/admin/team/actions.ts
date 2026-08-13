@@ -2,6 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  companyCreatorCount,
+  companyPlanTier,
+  PLAN_CREATOR_CAP,
+  PLAN_TIER_LABEL,
+} from "@/lib/admin/billing";
 import { MOCK_DATASET } from "@/lib/admin/mock-data";
 import type { MemberRole } from "@/lib/admin/types";
 import { getSessionProfile, isCompanyAdmin, isPlatformAdmin } from "@/lib/auth";
@@ -63,6 +69,26 @@ export async function sendTeamInvite(input: {
   }
   const companyId = profile?.company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
+
+  /* Plans differ only in how many creators a company can run, so the cap
+     is enforced here, the one place creators get added. */
+  if (input.role === "Creator") {
+    const tier = await companyPlanTier(companyId);
+    const cap = tier ? PLAN_CREATOR_CAP[tier] : null;
+    if (tier && cap !== null) {
+      const creators = await companyCreatorCount(companyId);
+      if (creators >= cap) {
+        const fix =
+          tier === "starter"
+            ? "Upgrade to Premium in Billing for 15."
+            : "Contact us in Billing about Enterprise for unlimited creators.";
+        return {
+          ok: false,
+          error: `${PLAN_TIER_LABEL[tier]} allows ${cap} creators. ${fix}`,
+        };
+      }
+    }
+  }
 
   const { error } = await callEdgeFunction<InviteResponse>(
     "invite-campaign-manager",

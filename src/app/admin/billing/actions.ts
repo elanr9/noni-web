@@ -13,12 +13,15 @@ import {
   applyStripeSubscription,
   chargeSavedCard,
   clearSubscription,
+  companyCreatorCount,
   getBillingContext,
   getStripe,
   mockActivateSubscription,
   mockBilling,
   mockTopUp,
+  PLAN_CREATOR_CAP,
   PLAN_PRICING,
+  PLAN_TIER_LABEL,
   planRenewalIso,
   readBillingRow,
   recordTopUp,
@@ -95,7 +98,7 @@ export async function startCheckout(
     success_url: `${origin}/admin/billing?checkout=success`,
     cancel_url: `${origin}/admin/billing?checkout=cancelled`,
     metadata: { company_id: ctx.companyId },
-    subscription_data: { metadata: { company_id: ctx.companyId } },
+    subscription_data: { metadata: { company_id: ctx.companyId, plan } },
     ...(typeof customerId === "string" && customerId.startsWith("cus_")
       ? { customer: customerId }
       : {}),
@@ -106,9 +109,10 @@ export async function startCheckout(
   return { ok: true, redirectUrl: session.url };
 }
 
-/** Manage plan: switch the active subscription to the other plan. Live mode
+/** Manage plan: switch the active subscription to another plan. Live mode
     swaps the subscription item's price with prorations; the webhook then
-    confirms the state this writes optimistically. */
+    confirms the state this writes optimistically. Downgrades are blocked
+    while the team runs more creators than the target plan allows. */
 export async function switchPlan(
   plan: SubscriptionPlan,
 ): Promise<BillingActionResult> {
@@ -119,6 +123,18 @@ export async function switchPlan(
     mockActivateSubscription(plan);
     refresh();
     return { ok: true };
+  }
+
+  const cap = PLAN_CREATOR_CAP[PLAN_PRICING[plan].tier];
+  if (cap !== null) {
+    const creators = await companyCreatorCount(ctx.companyId);
+    if (creators > cap) {
+      const label = PLAN_TIER_LABEL[PLAN_PRICING[plan].tier];
+      return {
+        ok: false,
+        error: `${label} allows ${cap} creators and your team has ${creators}. Remove creators on the Team tab before switching.`,
+      };
+    }
   }
 
   if (!ctx.simulated) {

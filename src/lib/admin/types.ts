@@ -8,7 +8,15 @@ export type PostFormat = "Video" | "Carousel";
 export type MemberRole = "Campaign manager" | "Creator";
 export type MemberStatus = "Active" | "Invite sent";
 export type InviteStatus = "Pending" | "Accepted" | "Expired";
-export type SubscriptionPlan = "monthly" | "annual";
+export type PlanTier = "starter" | "premium" | "enterprise";
+export type BillingCadence = "monthly" | "annual";
+/** Self-serve Stripe plans (design_handoff_pricing_plans). Enterprise is
+    sales-led and never goes through Checkout. */
+export type SubscriptionPlan =
+  | "starter_monthly"
+  | "starter_annual"
+  | "premium_monthly"
+  | "premium_annual";
 export type BriefStatus = "Active" | "Archived";
 
 /* Answers captured by the onboarding question flow (Agent B persists them).
@@ -99,8 +107,10 @@ export type Subscription =
   | { status: "none" }
   | {
       status: "active";
-      plan: SubscriptionPlan;
-      /** Dollars per month ($200 monthly, $100 annual). */
+      tier: PlanTier;
+      cadence: BillingCadence;
+      /** Effective dollars per month, e.g. 100 starter monthly, 75 starter
+          annual. */
       price: number;
       /** Display date, e.g. "Sep 12, 2026". */
       renewsAt: string;

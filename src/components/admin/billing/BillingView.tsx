@@ -18,7 +18,7 @@ import { Card, Chip, Label, PageHead, Pill } from "@/components/kit";
 import type { AdminBilling, SubscriptionPlan } from "@/lib/admin/types";
 
 import { AmountModal, money } from "./AmountModal";
-import { PlanModal } from "./PlanModal";
+import { PlanPicker, TIER_LABEL } from "./PlanPicker";
 
 const MONTH_SHORT = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -31,7 +31,7 @@ function resetsLabel(): string {
   return `Resets ${MONTH_SHORT[(now.getMonth() + 1) % 12]} 1`;
 }
 
-type ModalKind = "plan" | "limit" | "topup" | null;
+type ModalKind = "limit" | "topup" | null;
 
 export function BillingView({
   billing,
@@ -48,12 +48,15 @@ export function BillingView({
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalKind>(null);
+  /* The plan picker replaces the subscription card in the change-plan flow;
+     with no subscription it is the subscription section. */
+  const [changingPlan, setChangingPlan] = useState(false);
   const [error, setError] = useState<string | null>(notice);
   const [connecting, setConnecting] = useState(false);
 
   const { subscription } = billing;
   const active = subscription.status === "active";
-  const annual = active && subscription.plan === "annual";
+  const annual = active && subscription.cadence === "annual";
   const limit = billing.monthlySpendLimit ?? 0;
   const pctUsed = limit > 0 ? Math.min(1, billing.spentThisMonth / limit) : 0;
   const cardOnFile = active
@@ -76,8 +79,16 @@ export function BillingView({
     return true;
   };
 
-  const purchase = (plan: SubscriptionPlan) =>
-    run(() => (active ? switchPlan(plan) : startCheckout(plan)));
+  const purchase = async (plan: SubscriptionPlan): Promise<boolean> => {
+    const done = await run(() => (active ? switchPlan(plan) : startCheckout(plan)));
+    if (done) setChangingPlan(false);
+    return done;
+  };
+
+  const cancel = async () => {
+    const done = await run(cancelPlan);
+    if (done) setChangingPlan(false);
+  };
 
   const connect = async () => {
     if (connecting) return;
@@ -139,50 +150,58 @@ export function BillingView({
         ) : null}
 
         <div data-tour="billing-subscription">
-          <Card pad={22}>
-            <div className="flex items-center gap-2.5">
-              <Label className="flex-1">Subscription</Label>
-              {active ? (
+          {active && !changingPlan ? (
+            <Card pad={22}>
+              <div className="flex items-center gap-2.5">
+                <Label className="flex-1">Subscription</Label>
                 <Chip tone="green">Active</Chip>
-              ) : (
-                <Chip tone="amber">Not active</Chip>
-              )}
-            </div>
-            {active ? (
-              <>
-                <div className="mt-3 flex items-baseline gap-2.5">
-                  <span className="display text-[30px] font-bold tracking-[-0.8px] text-ink">
-                    {money(subscription.price)}
-                    <span className="text-[15px] font-bold text-slate-400">/mo</span>
-                  </span>
-                  <span className="text-[13.5px] font-semibold text-slate-400">
-                    {annual
-                      ? `Annual · billed $1,200/yr · renews ${subscription.renewsAt}`
-                      : `Monthly · renews ${subscription.renewsAt}`}
-                    {cardOnFile ? ` · ${cardOnFile}` : ""}
-                  </span>
+              </div>
+              <div className="mt-3 flex items-baseline gap-2.5">
+                <span className="display text-[30px] font-bold tracking-[-0.8px] text-ink">
+                  {money(subscription.price)}
+                  <span className="text-[15px] font-bold text-slate-400">/mo</span>
+                </span>
+                <span className="text-[13.5px] font-semibold text-slate-400">
+                  {TIER_LABEL[subscription.tier]}
+                  {annual
+                    ? ` annual · billed ${money(subscription.price * 12)}/yr · renews ${subscription.renewsAt}`
+                    : ` monthly · renews ${subscription.renewsAt}`}
+                  {cardOnFile ? ` · ${cardOnFile}` : ""}
+                </span>
+              </div>
+              <div className="mt-3.5">
+                <Pill size="sm" variant="quiet" onClick={() => setChangingPlan(true)}>
+                  Change plan
+                </Pill>
+              </div>
+            </Card>
+          ) : (
+            <>
+              <PlanPicker
+                subscription={subscription}
+                simulated={simulated}
+                onChoose={purchase}
+              />
+              {active ? (
+                <div className="flex items-center justify-center gap-5 pb-2">
+                  <button
+                    type="button"
+                    onClick={() => setChangingPlan(false)}
+                    className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-bold text-blue-700"
+                  >
+                    Keep current plan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void cancel()}
+                    className="cursor-pointer border-none bg-transparent p-0 text-[13px] font-bold text-slate-400"
+                  >
+                    Cancel subscription
+                  </button>
                 </div>
-                <div className="mt-3.5">
-                  <Pill size="sm" variant="quiet" onClick={() => setModal("plan")}>
-                    Manage plan
-                  </Pill>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
-                  $100/mo billed annually, or $200/mo billed monthly. One
-                  subscription runs your whole roster. Checkout is handled by
-                  Stripe.
-                </p>
-                <div className="mt-3.5">
-                  <Pill size="sm" onClick={() => setModal("plan")}>
-                    Choose a plan
-                  </Pill>
-                </div>
-              </>
-            )}
-          </Card>
+              ) : null}
+            </>
+          )}
         </div>
 
         <div data-tour="billing-budget">
@@ -309,15 +328,6 @@ export function BillingView({
         ) : null}
       </div>
 
-      {modal === "plan" ? (
-        <PlanModal
-          subscription={subscription}
-          simulated={simulated}
-          onPurchase={purchase}
-          onCancel={() => void run(cancelPlan)}
-          onClose={() => setModal(null)}
-        />
-      ) : null}
       {modal === "limit" ? (
         <AmountModal
           title="Monthly spend limit"

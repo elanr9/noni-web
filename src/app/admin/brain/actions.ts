@@ -276,7 +276,7 @@ async function applyRankedToDb(
   const supabase = createServiceClient();
   for (const [i, row] of ranked.entries()) {
     const { error } = await supabase
-      .from("product_features")
+      .from("brain_features")
       .update({
         name: row.name,
         score: row.score,
@@ -307,7 +307,7 @@ async function draftsFromMock(): Promise<FeatureDraft[]> {
 async function draftsFromDb(companyId: string): Promise<FeatureDraft[]> {
   const supabase = createServiceClient();
   const { data } = await supabase
-    .from("product_features")
+    .from("brain_features")
     .select("id, sentence, screenshot_path")
     .eq("company_id", companyId);
   const rows = (data ?? []) as Array<{
@@ -512,7 +512,7 @@ export async function addProductFeature(input: {
   }
 
   const supabase = createServiceClient();
-  const { error: insertError } = await supabase.from("product_features").insert({
+  const { error: insertError } = await supabase.from("brain_features").insert({
     id,
     company_id: gate.companyId,
     sentence,
@@ -527,13 +527,13 @@ export async function addProductFeature(input: {
     startOrder: 0,
   });
   if (!uploaded.ok) {
-    await supabase.from("product_features").delete().eq("id", id);
+    await supabase.from("brain_features").delete().eq("id", id);
     return uploaded;
   }
 
   /* First upload is the cover the ranking and the feature list show. */
   const { error: coverError } = await supabase
-    .from("product_features")
+    .from("brain_features")
     .update({ screenshot_path: uploaded.paths[0] })
     .eq("id", id);
   if (coverError) return { ok: false, error: coverError.message };
@@ -563,7 +563,7 @@ export async function addFeatureScreenshots(input: {
 
   const supabase = createServiceClient();
   const { data } = await supabase
-    .from("product_features")
+    .from("brain_features")
     .select("id")
     .eq("id", input.featureId)
     .eq("company_id", gate.companyId)
@@ -622,7 +622,7 @@ export async function makeNoniScreenshot(input: {
   const supabase = createServiceClient();
   const [{ data: featureRow }, { data: shotRows }] = await Promise.all([
     supabase
-      .from("product_features")
+      .from("brain_features")
       .select("id, name, sentence")
       .eq("id", input.featureId)
       .eq("company_id", gate.companyId)
@@ -716,7 +716,7 @@ export async function removeFeatureScreenshot(input: {
 
   /* If the cover was deleted, promote the next remaining shot. */
   const { data: coverRow } = await supabase
-    .from("product_features")
+    .from("brain_features")
     .select("screenshot_path")
     .eq("id", shot.feature_id)
     .maybeSingle();
@@ -729,7 +729,7 @@ export async function removeFeatureScreenshot(input: {
       .limit(1)
       .maybeSingle();
     await supabase
-      .from("product_features")
+      .from("brain_features")
       .update({ screenshot_path: (nextRow as { path?: string } | null)?.path ?? "" })
       .eq("id", shot.feature_id);
   }
@@ -756,7 +756,7 @@ export async function removeProductFeature(input: {
   const supabase = createServiceClient();
   const [{ data: featureRow }, { data: shotRows }] = await Promise.all([
     supabase
-      .from("product_features")
+      .from("brain_features")
       .select("screenshot_path")
       .eq("id", input.id)
       .eq("company_id", gate.companyId)
@@ -775,7 +775,7 @@ export async function removeProductFeature(input: {
 
   /* feature_screenshots rows cascade with the feature. */
   const { error } = await supabase
-    .from("product_features")
+    .from("brain_features")
     .delete()
     .eq("id", input.id)
     .eq("company_id", gate.companyId);

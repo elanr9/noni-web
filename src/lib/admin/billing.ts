@@ -20,17 +20,84 @@ import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 
 import { MOCK_DATASET } from "./mock-data";
-import type { AdminBilling, SubscriptionPlan } from "./types";
+import type {
+  AdminBilling,
+  BillingCadence,
+  PlanTier,
+  SubscriptionPlan,
+} from "./types";
 
-/* ── Plan pricing (fixed by the spec) ── */
+/* ── Plan pricing (design_handoff_pricing_plans) ──
+   Plans differ only in the creator cap. Starter and Premium are self-serve
+   Stripe subscriptions in a monthly or annual cadence; Enterprise is
+   sales-led (contact us) and gets written by ops, never by Checkout. */
 
 export const PLAN_PRICING: Record<
   SubscriptionPlan,
-  { monthlyPriceCents: number; priceEnv: "STRIPE_PRICE_MONTHLY" | "STRIPE_PRICE_ANNUAL" }
+  {
+    tier: Exclude<PlanTier, "enterprise">;
+    cadence: BillingCadence;
+    /** Effective monthly price in cents. */
+    monthlyPriceCents: number;
+    priceEnv:
+      | "STRIPE_PRICE_STARTER_MONTHLY"
+      | "STRIPE_PRICE_STARTER_ANNUAL"
+      | "STRIPE_PRICE_PREMIUM_MONTHLY"
+      | "STRIPE_PRICE_PREMIUM_ANNUAL";
+  }
 > = {
-  monthly: { monthlyPriceCents: 20000, priceEnv: "STRIPE_PRICE_MONTHLY" },
-  annual: { monthlyPriceCents: 10000, priceEnv: "STRIPE_PRICE_ANNUAL" },
+  starter_monthly: {
+    tier: "starter",
+    cadence: "monthly",
+    monthlyPriceCents: 10000,
+    priceEnv: "STRIPE_PRICE_STARTER_MONTHLY",
+  },
+  starter_annual: {
+    tier: "starter",
+    cadence: "annual",
+    monthlyPriceCents: 7500,
+    priceEnv: "STRIPE_PRICE_STARTER_ANNUAL",
+  },
+  premium_monthly: {
+    tier: "premium",
+    cadence: "monthly",
+    monthlyPriceCents: 25000,
+    priceEnv: "STRIPE_PRICE_PREMIUM_MONTHLY",
+  },
+  premium_annual: {
+    tier: "premium",
+    cadence: "annual",
+    monthlyPriceCents: 15000,
+    priceEnv: "STRIPE_PRICE_PREMIUM_ANNUAL",
+  },
 };
+
+/** Creators a company can run on Noni per plan. Null means unlimited. */
+export const PLAN_CREATOR_CAP: Record<PlanTier, number | null> = {
+  starter: 5,
+  premium: 15,
+  enterprise: null,
+};
+
+export const PLAN_TIER_LABEL: Record<PlanTier, string> = {
+  starter: "Starter",
+  premium: "Premium",
+  enterprise: "Enterprise",
+};
+
+/** Maps a stored subscription_plan value to tier and cadence. Legacy rows
+    from the single-plan era ("monthly"/"annual") are grandfathered as
+    Premium so nobody loses creators. */
+export function parseStoredPlan(
+  value: string | null,
+): { tier: PlanTier; cadence: BillingCadence } {
+  if (value && value in PLAN_PRICING) {
+    const { tier, cadence } = PLAN_PRICING[value as SubscriptionPlan];
+    return { tier, cadence };
+  }
+  if (value === "enterprise") return { tier: "enterprise", cadence: "annual" };
+  return { tier: "premium", cadence: value === "annual" ? "annual" : "monthly" };
+}
 
 /* Refill $1,000 whenever the balance falls under $200 with auto top-up on. */
 export const AUTO_TOP_UP_THRESHOLD_CENTS = 20000;
@@ -97,7 +164,7 @@ function fmtLongDate(iso: string): string {
 /** First renewal for a plan started now, as an ISO timestamp. */
 export function planRenewalIso(plan: SubscriptionPlan): string {
   const d = new Date();
-  if (plan === "annual") d.setFullYear(d.getFullYear() + 1);
+  if (PLAN_PRICING[plan].cadence === "annual") d.setFullYear(d.getFullYear() + 1);
   else d.setMonth(d.getMonth() + 1);
   return d.toISOString();
 }
@@ -204,6 +271,39 @@ export async function recordTopUp(
   });
 }
 
+/* ── Creator cap enforcement ── */
+
+/** The company's current plan tier, or null with no active subscription.
+    No subscription means no cap: pilot and pre-checkout companies keep
+    working, the cap bites once they are on a plan. */
+export async function companyPlanTier(companyId: string): Promise<PlanTier | null> {
+  const row = await readBillingRow(companyId);
+  if (rowStr(row, "subscription_status") !== "active") return null;
+  return parseStoredPlan(rowStr(row, "subscription_plan")).tier;
+}
+
+/** Creators the company is using: accepted creator profiles plus pending,
+    unexpired creator invites (same counting as the Team tab). */
+export async function companyCreatorCount(companyId: string): Promise<number> {
+  const supabase = createServiceClient();
+  const nowIso = new Date().toISOString();
+  const [profiles, invites] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("role", "creator"),
+    supabase
+      .from("company_invites")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("role", "creator")
+      .is("accepted_at", null)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`),
+  ]);
+  return (profiles.count ?? 0) + (invites.count ?? 0);
+}
+
 /* ── Mock mode writers (MOCK_DATASET.billing, in place) ── */
 
 export function mockBilling(): AdminBilling {
@@ -214,7 +314,8 @@ export function mockActivateSubscription(plan: SubscriptionPlan): void {
   const prev = MOCK_DATASET.billing.subscription;
   MOCK_DATASET.billing.subscription = {
     status: "active",
-    plan,
+    tier: PLAN_PRICING[plan].tier,
+    cadence: PLAN_PRICING[plan].cadence,
     price: PLAN_PRICING[plan].monthlyPriceCents / 100,
     renewsAt: fmtLongDate(planRenewalIso(plan)),
     cardBrand: prev.status === "active" ? prev.cardBrand : "Visa",
@@ -273,6 +374,25 @@ export async function chargeSavedCard(
   }
 }
 
+/** Resolves a live Stripe subscription to one of our plans: by price id
+    against the four STRIPE_PRICE_* envs, then by the plan metadata Checkout
+    stamps on the subscription, then by billing interval as a last resort. */
+function planForStripePrice(
+  priceId: string | null,
+  metadataPlan: string | null,
+  interval: string | null,
+): SubscriptionPlan {
+  const plans = Object.keys(PLAN_PRICING) as SubscriptionPlan[];
+  if (priceId) {
+    const byPrice = plans.find((p) => process.env[PLAN_PRICING[p].priceEnv] === priceId);
+    if (byPrice) return byPrice;
+  }
+  if (metadataPlan && metadataPlan in PLAN_PRICING) {
+    return metadataPlan as SubscriptionPlan;
+  }
+  return interval === "year" ? "premium_annual" : "premium_monthly";
+}
+
 /** Shared by the webhook and the switch-plan action: writes a live Stripe
     subscription's state to company_billing. */
 export async function applyStripeSubscription(
@@ -285,8 +405,11 @@ export async function applyStripeSubscription(
   if (!active) return clearSubscription(companyId);
 
   const item = subscription.items.data[0];
-  const plan: SubscriptionPlan =
-    item?.price.recurring?.interval === "year" ? "annual" : "monthly";
+  const plan = planForStripePrice(
+    item?.price.id ?? null,
+    subscription.metadata?.plan ?? null,
+    item?.price.recurring?.interval ?? null,
+  );
   const periodEnd = item?.current_period_end;
   return activateSubscription(companyId, {
     plan,

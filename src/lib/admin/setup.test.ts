@@ -41,8 +41,9 @@ const filledDocs: AdminDataset["brainDocs"] = [
 const completeBilling: AdminDataset["billing"] = {
   subscription: {
     status: "active",
-    plan: "annual",
-    price: 100,
+    tier: "starter",
+    cadence: "annual",
+    price: 75,
     renewsAt: "Aug 12, 2027",
     cardBrand: "Visa",
     cardLast4: "4242",

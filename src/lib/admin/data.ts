@@ -16,6 +16,7 @@
 
 import { cache } from "react";
 
+import { parseStoredPlan, PLAN_PRICING } from "@/lib/admin/billing";
 import { currentWeekStart } from "@/lib/admin/feature-analyze";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -462,7 +463,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       .select("profile_id")
       .eq("company_id", companyId),
     supabase
-      .from("product_features")
+      .from("brain_features")
       .select(
         "id, name, sentence, screenshot_path, score, reason, rank, idea_title, idea_example, idea_action",
       )
@@ -714,19 +715,20 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
 
   /* Billing (subscription and Stripe columns may not exist yet) */
   const subActive = readStr(billingRow, "subscription_status") === "active";
-  const plan =
-    readStr(billingRow, "subscription_plan") === "annual" ? "annual" : "monthly";
+  const { tier, cadence } = parseStoredPlan(readStr(billingRow, "subscription_plan"));
+  const fallbackPricing = Object.values(PLAN_PRICING).find(
+    (p) => p.tier === tier && p.cadence === cadence,
+  );
   const renewsAtIso = readStr(billingRow, "subscription_renews_at");
   const subscription: Subscription = subActive
     ? {
         status: "active",
-        plan,
+        tier,
+        cadence,
         price:
           readNum(billingRow, "subscription_price_cents") !== null
             ? Math.round((readNum(billingRow, "subscription_price_cents") ?? 0) / 100)
-            : plan === "annual"
-              ? 100
-              : 200,
+            : (fallbackPricing?.monthlyPriceCents ?? 0) / 100,
         renewsAt: renewsAtIso ? fmtLongDate(renewsAtIso) : "",
         cardBrand: readStr(billingRow, "card_brand") ?? "Card",
         cardLast4: readStr(billingRow, "card_last4") ?? "",
