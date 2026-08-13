@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Plus } from "lucide-react";
+import { Camera, Check, ChevronDown, Heart, Plus, Smile, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -14,6 +14,7 @@ import { Field, Pill } from "@/components/kit";
    and no checkmark. Back is a quiet text button. No payment here. */
 
 type StepId =
+  | "welcome"
   | "name"
   | "role"
   | "website"
@@ -24,8 +25,9 @@ type StepId =
   | "download"
   | "done";
 
-/* Segmented progress dash index per step (download shares the last dash). */
-const DASH_INDEX: Record<Exclude<StepId, "done">, number> = {
+/* Segmented progress dash index per step (download shares the last dash).
+   The welcome greeting sits outside the question flow, so no dash. */
+const DASH_INDEX: Record<Exclude<StepId, "welcome" | "done">, number> = {
   name: 0,
   role: 1,
   website: 2,
@@ -171,7 +173,7 @@ function OnbStep({
   onPrimary,
   onBack,
 }: {
-  stepKey: Exclude<StepId, "done">;
+  stepKey: Exclude<StepId, "welcome" | "done">;
   total: number;
   title: string;
   subtitle?: string;
@@ -247,7 +249,7 @@ export function OnboardingFlow({
   defaultWebsite,
 }: OnboardingFlowProps) {
   const router = useRouter();
-  const [step, setStep] = useState<StepId>("name");
+  const [step, setStep] = useState<StepId>("welcome");
   const [name, setName] = useState(defaultName);
   const [role, setRole] = useState("");
   const [website, setWebsite] = useState(defaultWebsite);
@@ -282,6 +284,46 @@ export function OnboardingFlow({
       return;
     }
     router.push("/admin?tour=1");
+  }
+
+  if (step === "welcome") {
+    const firstName = defaultName.trim().split(/\s+/)[0] ?? "";
+    return (
+      <div className="flex min-h-screen flex-col bg-ground font-ops">
+        <TopBar />
+        <div className="flex flex-1 items-center justify-center px-6 pb-[80px]">
+          <div className="w-[440px] max-w-full animate-om-pop text-center">
+            <div className="mx-auto grid w-fit grid-cols-2 gap-2.5">
+              <span className="flex h-[92px] w-[92px] items-center justify-center rounded-[24px] bg-amber-soft">
+                <Sparkles size={34} className="text-amber" />
+              </span>
+              <span className="flex h-[92px] w-[92px] items-center justify-center rounded-[24px] bg-accent-soft">
+                <Camera size={34} className="text-blue-500" />
+              </span>
+              <span className="flex h-[92px] w-[92px] items-center justify-center rounded-[24px] bg-danger-soft">
+                <Heart size={34} className="text-danger" />
+              </span>
+              <span className="flex h-[92px] w-[92px] items-center justify-center rounded-[24px] bg-green-soft">
+                <Smile size={34} className="text-green" />
+              </span>
+            </div>
+            <h1 className="mb-0 mt-8 text-[30px] font-bold tracking-[-0.8px] text-ink">
+              {firstName ? `Hi ${firstName}, welcome to Noni!` : "Welcome to Noni!"}
+            </h1>
+            <p className="mb-0 mt-2.5 text-[14.5px] font-semibold leading-[1.6] text-slate-400">
+              {`We're so glad you're here. A few quick questions and ${companyName} is up and running.`}
+            </p>
+            <Pill
+              onClick={() => setStep("name")}
+              className="mt-[28px]"
+              style={{ padding: "15px 34px", fontSize: 15 }}
+            >
+              {"Let's get started"}
+            </Pill>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (step === "name") {
