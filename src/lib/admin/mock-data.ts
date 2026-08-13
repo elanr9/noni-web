@@ -216,15 +216,7 @@ export const MOCK_DAY_ACTIVITY: DayActivityMap = Object.fromEntries(
    Stripe not connected. That keeps the billing setup step pending so the
    to-do, badge and achievement flows can all be exercised in mock mode. */
 export const MOCK_BILLING: AdminBilling = {
-  subscription: {
-    status: "active",
-    tier: "starter",
-    cadence: "annual",
-    price: 75,
-    renewsAt: "Aug 13, 2027",
-    cardBrand: "Visa",
-    cardLast4: "4242",
-  },
+  subscription: { status: "none" },
   monthlySpendLimit: null,
   spentThisMonth: 0,
   creditBalance: 0,
