@@ -78,7 +78,9 @@ interface CampaignRow {
   id: string;
   company_id: string;
   status: string | null;
+  starts_on: string | null;
   ends_on: string | null;
+  created_at: string | null;
 }
 
 interface MetricSnapshot {
@@ -399,7 +401,9 @@ async function fetchOpsData(): Promise<OpsDataset> {
       .from("company_invites")
       .select("id, company_id, email, role, accepted_at, expires_at, created_at")
       .order("created_at", { ascending: false }),
-    supabase.from("campaigns").select("id, company_id, status, ends_on"),
+    supabase
+      .from("campaigns")
+      .select("id, company_id, status, starts_on, ends_on, created_at"),
     supabase
       .from("posts")
       .select(
@@ -449,7 +453,22 @@ async function fetchOpsData(): Promise<OpsDataset> {
   const postRows = (postsRes.data ?? []) as unknown as PostRow[];
   const ledgerRows = (ledgerRes.data ?? []) as LedgerRow[];
   const creditRows = (creditLedgerRes.data ?? []) as CreditLedgerRow[];
-  const conversionRows = (conversionsRes.data ?? []) as ConversionRow[];
+  /* Conversion numbers only count from each company's first campaign
+     (starts_on, falling back to creation day), so Stripe history predating
+     Noni never shows in analytics. */
+  const firstCampaignDayByCompany = new Map<string, string>();
+  for (const cp of campaignRows) {
+    const day = cp.starts_on ?? cp.created_at?.slice(0, 10) ?? null;
+    if (!day) continue;
+    const prev = firstCampaignDayByCompany.get(cp.company_id);
+    if (!prev || day < prev) firstCampaignDayByCompany.set(cp.company_id, day);
+  }
+  const conversionRows = (
+    (conversionsRes.data ?? []) as ConversionRow[]
+  ).filter((r) => {
+    const first = firstCampaignDayByCompany.get(r.company_id);
+    return first !== undefined && r.day >= first;
+  });
   const billingRows = (billingRes.data ?? []) as BillingRow[];
   const brandDocRows = (brandDocsRes.data ?? []) as BrandDocRow[];
   const sourceAccountRows = (sourceAccountsRes.data ?? []) as SourceAccountRow[];

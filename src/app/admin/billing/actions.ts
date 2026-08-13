@@ -294,7 +294,26 @@ export async function startStripeConnect(): Promise<BillingActionResult> {
 
   const clientId = process.env.STRIPE_CONNECT_CLIENT_ID;
   if (!clientId) {
-    return { ok: false, error: "STRIPE_CONNECT_CLIENT_ID is not set." };
+    /* No Connect OAuth app is configured in the Stripe dashboard yet. The
+       pilot company's Stripe is the same account our API key belongs to,
+       so verify it through the API and link it directly. Analytics numbers
+       come from the sync-conversions pipeline either way. */
+    const stripe = getStripe();
+    if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
+    let accountId: string;
+    try {
+      const account = await stripe.accounts.retrieve(null);
+      accountId = account.id;
+    } catch {
+      return { ok: false, error: "Stripe did not recognize the API key." };
+    }
+    const error = await writeBilling(ctx.companyId, {
+      stripe_connected: true,
+      stripe_account_id: accountId,
+    });
+    if (error) return { ok: false, error };
+    refresh();
+    return { ok: true };
   }
   const origin = await siteOrigin();
   const params = new URLSearchParams({

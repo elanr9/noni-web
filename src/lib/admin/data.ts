@@ -106,6 +106,23 @@ interface ConversionRow {
   sales_cents: number;
 }
 
+interface CampaignDateRow {
+  starts_on: string | null;
+  created_at: string | null;
+}
+
+/** The day the company started its first campaign on Noni (YYYY-MM-DD), or
+    null with no campaigns yet. A campaign counts from starts_on, falling
+    back to the day it was created. */
+export function firstCampaignDayOf(rows: CampaignDateRow[]): string | null {
+  let first: string | null = null;
+  for (const row of rows) {
+    const day = row.starts_on ?? row.created_at?.slice(0, 10) ?? null;
+    if (day && (first === null || day < first)) first = day;
+  }
+  return first;
+}
+
 interface BrandDocRow {
   kind: string;
   content: string | null;
@@ -387,6 +404,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     ledgerRes,
     creditLedgerRes,
     conversionsRes,
+    campaignsRes,
     billingRes,
     brandDocsRes,
     sourceAccountsRes,
@@ -437,6 +455,12 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       .eq("company_id", companyId)
       .is("creator_id", null)
       .gte("day", prevMonthStartDay),
+    /* Conversion numbers only count from the company's first campaign, so
+       Stripe history predating Noni never shows in Analytics. */
+    supabase
+      .from("campaigns")
+      .select("starts_on, created_at")
+      .eq("company_id", companyId),
     supabase
       .from("company_billing")
       .select("*")
@@ -499,7 +523,14 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
   const postRows = (postsRes.data ?? []) as unknown as PostRow[];
   const ledgerRows = (ledgerRes.data ?? []) as LedgerRow[];
   const creditRows = (creditLedgerRes.data ?? []) as CreditLedgerRow[];
-  const conversionRows = (conversionsRes.data ?? []) as ConversionRow[];
+  const firstCampaignDay = firstCampaignDayOf(
+    (campaignsRes.data ?? []) as CampaignDateRow[],
+  );
+  /* No campaign yet means no conversion numbers at all: Stripe sales and
+     sign-ups only count from the day the first campaign started on Noni. */
+  const conversionRows = (
+    (conversionsRes.data ?? []) as ConversionRow[]
+  ).filter((r) => firstCampaignDay !== null && r.day >= firstCampaignDay);
   const billingRow = (billingRes.data ?? null) as LooseRow | null;
   const brandDocRows = (brandDocsRes.data ?? []) as BrandDocRow[];
   const sourceAccountRows = (sourceAccountsRes.data ?? []) as LooseRow[];
