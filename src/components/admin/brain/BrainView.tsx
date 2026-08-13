@@ -1,13 +1,28 @@
 "use client";
 
-import { AtSign, Check, ImagePlus, Mic, Music2, Pencil, Plus, Sparkles, X } from "lucide-react";
+import {
+  AtSign,
+  Check,
+  ImagePlus,
+  Laptop,
+  Mic,
+  Music2,
+  Pencil,
+  Plus,
+  Smartphone,
+  Sparkles,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import {
+  addFeatureScreenshots,
   addInspirationAccount,
   addProductFeature,
   cleanUpBrainDoc,
+  makeNoniScreenshot,
   rankBrainFeatures,
+  removeFeatureScreenshot,
   removeInspirationAccount,
   removeProductFeature,
   saveBrainDoc,
@@ -23,6 +38,7 @@ import type {
   InspirationAccount,
   Platform,
   ProductFeature,
+  ScreenshotShape,
 } from "@/lib/admin/types";
 
 /* Company Brain tab (BrainPage in AdminSetupTabs.jsx): Product + Audience
@@ -66,64 +82,112 @@ function scoreChip(score: number | null): { tone: "green" | "blue" | "slate"; la
 
 function FeatureModal({ onClose }: { onClose: () => void }) {
   const [sentence, setSentence] = useState("");
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [picks, setPicks] = useState<Array<{ file: File; preview: string }>>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const picksRef = useRef<Array<{ file: File; preview: string }>>([]);
 
-  useEffect(() => () => {
-    if (preview) URL.revokeObjectURL(preview);
-  }, [preview]);
+  useEffect(() => {
+    picksRef.current = picks;
+  }, [picks]);
+  useEffect(
+    () => () => picksRef.current.forEach((p) => URL.revokeObjectURL(p.preview)),
+    [],
+  );
 
-  const pick = (next: File | undefined) => {
-    if (!next) return;
-    if (preview) URL.revokeObjectURL(preview);
-    setFile(next);
-    setPreview(URL.createObjectURL(next));
+  const pick = (files: FileList | null) => {
+    if (!files?.length) return;
+    const next = Array.from(files).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setPicks((prev) => [...prev, ...next].slice(0, 6));
     setError(null);
   };
 
+  const drop = (preview: string) => {
+    setPicks((prev) => {
+      const gone = prev.find((p) => p.preview === preview);
+      if (gone) URL.revokeObjectURL(gone.preview);
+      return prev.filter((p) => p.preview !== preview);
+    });
+  };
+
   const save = () => {
-    if (!file || !sentence.trim() || saving) return;
+    if (picks.length === 0 || !sentence.trim() || saving) return;
     setError(null);
     setSaving(true);
-    void addProductFeature({ sentence, image: file }).then((result) => {
-      if (result.ok) onClose();
-      else {
-        setError(result.error);
-        setSaving(false);
-      }
-    });
+    void addProductFeature({ sentence, images: picks.map((p) => p.file) }).then(
+      (result) => {
+        if (result.ok) onClose();
+        else {
+          setError(result.error);
+          setSaving(false);
+        }
+      },
+    );
   };
 
   return (
     <Modal title="Add a feature" onClose={onClose}>
       <p className="mx-0 mb-3 mt-0 text-[13px] font-semibold leading-normal text-slate-400">
-        Screenshot the feature and one sentence on what it does. We rank what
-        will travel, then stamp this week&apos;s briefs from that.
+        Screenshot the feature, up to six shots, and one sentence on what it
+        does. We rank what will travel, stamp this week&apos;s briefs, and Noni
+        can remake the shots video-ready in the library below.
       </p>
       <input
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
         className="hidden"
-        onChange={(e) => pick(e.target.files?.[0])}
+        onChange={(e) => {
+          pick(e.target.files);
+          e.target.value = "";
+        }}
       />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className="mb-3 flex min-h-[160px] w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-line bg-fill-quiet text-left rounded-ops-sm"
-      >
-        {preview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="" className="max-h-[220px] w-full object-contain" />
-        ) : (
+      {picks.length > 0 ? (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {picks.map((p) => (
+            <span key={p.preview} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.preview}
+                alt=""
+                className="h-24 w-24 object-cover border border-line rounded-ops-sm"
+              />
+              <button
+                type="button"
+                aria-label="Remove screenshot"
+                onClick={() => drop(p.preview)}
+                className="absolute -right-1.5 -top-1.5 inline-flex h-5 w-5 cursor-pointer items-center justify-center border border-line bg-white rounded-pill"
+              >
+                <X size={11} className="text-slate-500" />
+              </button>
+            </span>
+          ))}
+          {picks.length < 6 ? (
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="inline-flex h-24 w-24 cursor-pointer items-center justify-center border border-dashed border-line bg-fill-quiet rounded-ops-sm"
+            >
+              <Plus size={16} className="text-slate-400" />
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="mb-3 flex min-h-[160px] w-full cursor-pointer items-center justify-center overflow-hidden border border-dashed border-line bg-fill-quiet text-left rounded-ops-sm"
+        >
           <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-blue-700">
-            <ImagePlus size={15} /> Upload a screenshot
+            <ImagePlus size={15} /> Upload screenshots
           </span>
-        )}
-      </button>
+        </button>
+      )}
       <textarea
         value={sentence}
         onChange={(e) => setSentence(e.target.value)}
@@ -140,7 +204,7 @@ function FeatureModal({ onClose }: { onClose: () => void }) {
         <Pill
           size="sm"
           onClick={save}
-          disabled={!file || !sentence.trim() || saving}
+          disabled={picks.length === 0 || !sentence.trim() || saving}
           icon={Sparkles}
         >
           {saving ? "Ranking…" : "Add feature"}
@@ -290,6 +354,183 @@ function FeaturesCard({
         </div>
       ) : null}
       {adding ? <FeatureModal onClose={() => setAdding(false)} /> : null}
+    </Card>
+  );
+}
+
+const SHAPES = [
+  { value: "phone", label: "Phone", icon: Smartphone },
+  { value: "laptop", label: "Laptop", icon: Laptop },
+] as const;
+
+function ShotTile({
+  shot,
+  onRemove,
+}: {
+  shot: ProductFeature["screenshots"][number];
+  onRemove: () => void;
+}) {
+  return (
+    <span
+      className={`group relative shrink-0 overflow-hidden border border-line bg-fill-quiet rounded-ops-sm ${
+        shot.shape === "laptop" ? "aspect-[16/10] w-44" : "aspect-[9/16] w-24"
+      }`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={shot.url} alt="" className="h-full w-full object-cover" />
+      {shot.source === "noni" ? (
+        <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 bg-white/90 px-1.5 py-0.5 text-[10.5px] font-bold text-blue-700 rounded-pill">
+          <Sparkles size={9} /> Noni
+        </span>
+      ) : null}
+      <button
+        type="button"
+        aria-label="Remove screenshot"
+        onClick={onRemove}
+        className="absolute right-1 top-1 hidden h-5 w-5 cursor-pointer items-center justify-center border border-line bg-white rounded-pill group-hover:inline-flex"
+      >
+        <X size={11} className="text-slate-500" />
+      </button>
+    </span>
+  );
+}
+
+function LibraryCard({ features }: { features: ProductFeature[] }) {
+  const [shape, setShape] = useState<ScreenshotShape>("phone");
+  const [error, setError] = useState<string | null>(null);
+  const [makingId, setMakingId] = useState<string | null>(null);
+  const [uploadTarget, setUploadTarget] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [, startTransition] = useTransition();
+
+  if (features.length === 0) return null;
+
+  const make = (featureId: string) => {
+    if (makingId) return;
+    setError(null);
+    setMakingId(featureId);
+    startTransition(async () => {
+      const result = await makeNoniScreenshot({ featureId, shape });
+      if (!result.ok) setError(result.error);
+      setMakingId(null);
+    });
+  };
+
+  const upload = (featureId: string, files: FileList | null) => {
+    if (!files?.length) return;
+    const images = Array.from(files);
+    setError(null);
+    startTransition(async () => {
+      const result = await addFeatureScreenshots({ featureId, images });
+      if (!result.ok) setError(result.error);
+    });
+  };
+
+  const remove = (id: string) => {
+    setError(null);
+    startTransition(async () => {
+      const result = await removeFeatureScreenshot({ id });
+      if (!result.ok) setError(result.error);
+    });
+  };
+
+  return (
+    <Card pad={0} className="mt-3.5">
+      <div className="flex items-center gap-2.5 px-5 py-4">
+        <span className="flex-1">
+          <Label>Noni screenshot library</Label>
+          <span className="mt-[3px] block text-[13px] font-semibold text-slate-400">
+            Video-ready shots per feature. Campaign managers drop these into
+            brief clips, so keep the best ones here.
+          </span>
+        </span>
+        <Segmented options={SHAPES} value={shape} onSelect={setShape} />
+      </div>
+      {error ? (
+        <p className="m-0 border-t border-line px-5 py-3 text-[13px] font-semibold text-danger">
+          {error}
+        </p>
+      ) : null}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (uploadTarget) upload(uploadTarget, e.target.files);
+          e.target.value = "";
+        }}
+      />
+      <div className="grid grid-cols-2 gap-3.5 border-t border-line p-5">
+        {features.map((f) => (
+          <div key={f.id} className="border border-line bg-white p-4 rounded-ops-sm">
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px] font-bold text-ink">
+                {f.name || "New feature"}
+              </span>
+              {f.score != null ? (
+                <Chip
+                  tone={scoreChip(f.score).tone}
+                  style={{ padding: "3px 9px", fontSize: 11.5 }}
+                >
+                  {f.score}
+                </Chip>
+              ) : null}
+            </div>
+            {f.ideaTitle ? (
+              <div className="mt-2 border border-line bg-fill-quiet px-3 py-2.5 rounded-ops-sm">
+                <span className="block text-[12.5px] font-bold text-ink">
+                  Video idea: {f.ideaTitle}
+                </span>
+                {f.ideaExample ? (
+                  <span className="mt-0.5 block text-[12.5px] font-semibold leading-[1.45] text-slate-500">
+                    {f.ideaExample}
+                  </span>
+                ) : null}
+                {f.ideaAction ? (
+                  <span className="mt-0.5 block text-[12.5px] font-bold text-blue-700">
+                    {f.ideaAction}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {f.screenshots.length === 0 ? (
+                <span className="text-[12.5px] font-semibold text-slate-400">
+                  No screenshots yet.
+                </span>
+              ) : (
+                f.screenshots.map((shot) => (
+                  <ShotTile key={shot.id} shot={shot} onRemove={() => remove(shot.id)} />
+                ))
+              )}
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              <Pill
+                size="sm"
+                variant="tint"
+                icon={Sparkles}
+                onClick={() => make(f.id)}
+                disabled={makingId != null}
+              >
+                {makingId === f.id ? "Noni is drawing…" : "Make with Noni"}
+              </Pill>
+              <Pill
+                size="sm"
+                variant="quiet"
+                icon={ImagePlus}
+                onClick={() => {
+                  setUploadTarget(f.id);
+                  inputRef.current?.click();
+                }}
+              >
+                Add screenshots
+              </Pill>
+            </div>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 }
@@ -554,6 +795,7 @@ export function BrainView({
         ))}
       </div>
       <FeaturesCard features={features} templates={templates} />
+      <LibraryCard features={features} />
       <Card pad={0} className="mt-3.5">
         <div data-tour="brain-inspiration" className="flex items-center gap-2.5 px-5 py-4">
           <span className="flex-1">

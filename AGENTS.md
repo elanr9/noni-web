@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Supabase access
+
+You HAVE full admin access to the live Noni Supabase project. Read `SUPABASE_ACCESS.md` in this repo before claiming otherwise or asking for credentials. Migrations in `supabase/migrations/` are not auto applied; apply them via the Management API as documented there.

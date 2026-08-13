@@ -16,8 +16,15 @@ import {
   inspirationDigest,
   type FetchedPost,
 } from "@/lib/admin/inspiration-fetch";
+import { renderNoniScreenshot, type ScreenshotReference } from "@/lib/admin/feature-screenshot";
 import { MOCK_DATASET } from "@/lib/admin/mock-data";
-import type { InspirationPost, Platform, ProductFeature } from "@/lib/admin/types";
+import type {
+  FeatureScreenshot,
+  InspirationPost,
+  Platform,
+  ProductFeature,
+  ScreenshotShape,
+} from "@/lib/admin/types";
 import { getSessionProfile, isCompanyAdmin, isPlatformAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -254,6 +261,9 @@ function applyRankedToMock(ranked: RankedFeature[]) {
     feature.score = row.score;
     feature.reason = row.reason;
     feature.rank = i + 1;
+    feature.ideaTitle = row.title;
+    feature.ideaExample = row.example;
+    feature.ideaAction = row.action;
   }
   MOCK_DATASET.features.sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99));
   stampMockTemplates(ranked);
@@ -272,6 +282,9 @@ async function applyRankedToDb(
         score: row.score,
         reason: row.reason,
         rank: i + 1,
+        idea_title: row.title,
+        idea_example: row.example,
+        idea_action: row.action,
         updated_at: new Date().toISOString(),
       })
       .eq("id", row.id)
@@ -385,38 +398,111 @@ async function rankAllFeatures(
   return applyRankedToDb(companyId, result.ranked);
 }
 
+const MAX_SHOTS_PER_ADD = 6;
+
+function validImages(files: File[]): { ok: true; files: File[] } | { ok: false; error: string } {
+  const list = files.filter((f) => f && f.size >= 50);
+  if (list.length === 0) {
+    return { ok: false, error: "Upload at least one screenshot of the feature." };
+  }
+  if (list.length > MAX_SHOTS_PER_ADD) {
+    return { ok: false, error: `Keep it to ${MAX_SHOTS_PER_ADD} screenshots at a time.` };
+  }
+  for (const file of list) {
+    if (file.size > 8 * 1024 * 1024) {
+      return { ok: false, error: "Keep each screenshot under 8 MB." };
+    }
+    if (!IMAGE_TYPES.has(file.type || "image/jpeg")) {
+      return { ok: false, error: "Use JPG, PNG, WEBP, or GIF screenshots." };
+    }
+  }
+  return { ok: true, files: list };
+}
+
+async function uploadShots(input: {
+  companyId: string;
+  featureId: string;
+  files: File[];
+  startOrder: number;
+}): Promise<{ ok: true; paths: string[] } | { ok: false; error: string }> {
+  const supabase = createServiceClient();
+  const paths: string[] = [];
+  for (const [i, file] of input.files.entries()) {
+    const type = file.type || "image/jpeg";
+    const path = `${input.companyId}/${input.featureId}/${crypto.randomUUID()}.${extFor(type)}`;
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const { error: uploadError } = await supabase.storage
+      .from("product-features")
+      .upload(path, bytes, { contentType: type, upsert: false });
+    if (uploadError) return { ok: false, error: uploadError.message };
+    const { error: insertError } = await supabase.from("feature_screenshots").insert({
+      company_id: input.companyId,
+      feature_id: input.featureId,
+      path,
+      source: "upload",
+      shape: "phone",
+      sort_order: input.startOrder + i,
+    });
+    if (insertError) return { ok: false, error: insertError.message };
+    paths.push(path);
+  }
+  return { ok: true, paths };
+}
+
+async function nextShotOrder(featureId: string): Promise<number> {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("feature_screenshots")
+    .select("sort_order")
+    .eq("feature_id", featureId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return ((data as { sort_order?: number } | null)?.sort_order ?? -1) + 1;
+}
+
+async function mockShots(files: File[]): Promise<FeatureScreenshot[]> {
+  const shots: FeatureScreenshot[] = [];
+  for (const file of files) {
+    const { mime, imageBase64 } = await fileToBase64(file);
+    shots.push({
+      id: crypto.randomUUID(),
+      url: `data:${mime};base64,${imageBase64}`,
+      source: "upload",
+      shape: "phone",
+    });
+  }
+  return shots;
+}
+
 export async function addProductFeature(input: {
   sentence: string;
-  image: File;
+  images: File[];
 }): Promise<BrainActionResult> {
   const gate = await requireCompanyAdmin();
   if (!gate.ok) return { ok: false, error: gate.error };
 
   const sentence = input.sentence.trim();
   if (!sentence) return { ok: false, error: "Add one sentence about this feature." };
-  if (!input.image || input.image.size < 50) {
-    return { ok: false, error: "Upload a screenshot of the feature." };
-  }
-  if (input.image.size > 8 * 1024 * 1024) {
-    return { ok: false, error: "Keep screenshots under 8 MB." };
-  }
-  const type = input.image.type || "image/jpeg";
-  if (!IMAGE_TYPES.has(type)) {
-    return { ok: false, error: "Use a JPG, PNG, WEBP, or GIF screenshot." };
-  }
+  const checked = validImages(input.images);
+  if (!checked.ok) return checked;
 
   const id = crypto.randomUUID();
 
   if (gate.mock) {
-    const { mime, imageBase64 } = await fileToBase64(input.image);
+    const shots = await mockShots(checked.files);
     const feature: ProductFeature = {
       id,
       name: "",
       sentence,
-      screenshotUrl: `data:${mime};base64,${imageBase64}`,
+      screenshotUrl: shots[0].url,
+      screenshots: shots,
       score: null,
       reason: "",
       rank: null,
+      ideaTitle: "",
+      ideaExample: "",
+      ideaAction: "",
     };
     MOCK_DATASET.features.push(feature);
     const rankError = await rankAllFeatures(gate.companyId, true);
@@ -425,25 +511,230 @@ export async function addProductFeature(input: {
     return { ok: true };
   }
 
-  const path = `${gate.companyId}/${id}.${extFor(type)}`;
   const supabase = createServiceClient();
-  const bytes = Buffer.from(await input.image.arrayBuffer());
-  const { error: uploadError } = await supabase.storage
-    .from("product-features")
-    .upload(path, bytes, { contentType: type, upsert: false });
-  if (uploadError) return { ok: false, error: uploadError.message };
-
   const { error: insertError } = await supabase.from("product_features").insert({
     id,
     company_id: gate.companyId,
     sentence,
-    screenshot_path: path,
+    screenshot_path: "",
   });
   if (insertError) return { ok: false, error: insertError.message };
+
+  const uploaded = await uploadShots({
+    companyId: gate.companyId,
+    featureId: id,
+    files: checked.files,
+    startOrder: 0,
+  });
+  if (!uploaded.ok) {
+    await supabase.from("product_features").delete().eq("id", id);
+    return uploaded;
+  }
+
+  /* First upload is the cover the ranking and the feature list show. */
+  const { error: coverError } = await supabase
+    .from("product_features")
+    .update({ screenshot_path: uploaded.paths[0] })
+    .eq("id", id);
+  if (coverError) return { ok: false, error: coverError.message };
 
   const rankError = await rankAllFeatures(gate.companyId, false);
   revalidatePath("/admin", "layout");
   if (rankError) return { ok: false, error: rankError };
+  return { ok: true };
+}
+
+export async function addFeatureScreenshots(input: {
+  featureId: string;
+  images: File[];
+}): Promise<BrainActionResult> {
+  const gate = await requireCompanyAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+  const checked = validImages(input.images);
+  if (!checked.ok) return checked;
+
+  if (gate.mock) {
+    const feature = MOCK_DATASET.features.find((f) => f.id === input.featureId);
+    if (!feature) return { ok: false, error: "Feature not found." };
+    feature.screenshots.push(...(await mockShots(checked.files)));
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  }
+
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("product_features")
+    .select("id")
+    .eq("id", input.featureId)
+    .eq("company_id", gate.companyId)
+    .maybeSingle();
+  if (!data) return { ok: false, error: "Feature not found." };
+
+  const uploaded = await uploadShots({
+    companyId: gate.companyId,
+    featureId: input.featureId,
+    files: checked.files,
+    startOrder: await nextShotOrder(input.featureId),
+  });
+  if (!uploaded.ok) return uploaded;
+
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+export async function makeNoniScreenshot(input: {
+  featureId: string;
+  shape: ScreenshotShape;
+}): Promise<BrainActionResult> {
+  const gate = await requireCompanyAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+  const shape: ScreenshotShape = input.shape === "laptop" ? "laptop" : "phone";
+  const { product } = await loadBrainCopy(gate.companyId, gate.mock);
+
+  if (gate.mock) {
+    const feature = MOCK_DATASET.features.find((f) => f.id === input.featureId);
+    if (!feature) return { ok: false, error: "Feature not found." };
+    const references: ScreenshotReference[] = [];
+    for (const s of feature.screenshots.filter((x) => x.source === "upload").slice(0, 4)) {
+      const parts = dataUrlParts(s.url);
+      if (parts) {
+        references.push({ mime: parts.mime, bytes: Buffer.from(parts.imageBase64, "base64") });
+      }
+    }
+    const made = await renderNoniScreenshot({
+      shape,
+      featureName: feature.name,
+      sentence: feature.sentence,
+      product,
+      references,
+    });
+    if (!made.ok) return made;
+    feature.screenshots.push({
+      id: crypto.randomUUID(),
+      url: `data:image/png;base64,${made.png.toString("base64")}`,
+      source: "noni",
+      shape,
+    });
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  }
+
+  const supabase = createServiceClient();
+  const [{ data: featureRow }, { data: shotRows }] = await Promise.all([
+    supabase
+      .from("product_features")
+      .select("id, name, sentence")
+      .eq("id", input.featureId)
+      .eq("company_id", gate.companyId)
+      .maybeSingle(),
+    supabase
+      .from("feature_screenshots")
+      .select("path")
+      .eq("feature_id", input.featureId)
+      .eq("source", "upload")
+      .order("sort_order")
+      .limit(4),
+  ]);
+  const feature = featureRow as { id: string; name: string; sentence: string } | null;
+  if (!feature) return { ok: false, error: "Feature not found." };
+
+  const references: ScreenshotReference[] = [];
+  for (const row of (shotRows ?? []) as Array<{ path: string }>) {
+    const { data: file } = await supabase.storage
+      .from("product-features")
+      .download(row.path);
+    if (!file) continue;
+    references.push({
+      mime: file.type || "image/jpeg",
+      bytes: Buffer.from(await file.arrayBuffer()),
+    });
+  }
+
+  const made = await renderNoniScreenshot({
+    shape,
+    featureName: feature.name,
+    sentence: feature.sentence,
+    product,
+    references,
+  });
+  if (!made.ok) return made;
+
+  const path = `${gate.companyId}/${input.featureId}/noni-${crypto.randomUUID()}.png`;
+  const { error: uploadError } = await supabase.storage
+    .from("product-features")
+    .upload(path, made.png, { contentType: "image/png", upsert: false });
+  if (uploadError) return { ok: false, error: uploadError.message };
+
+  const { error: insertError } = await supabase.from("feature_screenshots").insert({
+    company_id: gate.companyId,
+    feature_id: input.featureId,
+    path,
+    source: "noni",
+    shape,
+    sort_order: await nextShotOrder(input.featureId),
+  });
+  if (insertError) return { ok: false, error: insertError.message };
+
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+export async function removeFeatureScreenshot(input: {
+  id: string;
+}): Promise<BrainActionResult> {
+  const gate = await requireCompanyAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  if (gate.mock) {
+    for (const feature of MOCK_DATASET.features) {
+      const kept = feature.screenshots.filter((s) => s.id !== input.id);
+      if (kept.length !== feature.screenshots.length) {
+        feature.screenshots = kept;
+        feature.screenshotUrl = kept[0]?.url ?? "";
+      }
+    }
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  }
+
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("feature_screenshots")
+    .select("id, feature_id, path")
+    .eq("id", input.id)
+    .eq("company_id", gate.companyId)
+    .maybeSingle();
+  const shot = data as { id: string; feature_id: string; path: string } | null;
+  if (!shot) return { ok: false, error: "Screenshot not found." };
+
+  const { error } = await supabase
+    .from("feature_screenshots")
+    .delete()
+    .eq("id", shot.id);
+  if (error) return { ok: false, error: error.message };
+  await supabase.storage.from("product-features").remove([shot.path]);
+
+  /* If the cover was deleted, promote the next remaining shot. */
+  const { data: coverRow } = await supabase
+    .from("product_features")
+    .select("screenshot_path")
+    .eq("id", shot.feature_id)
+    .maybeSingle();
+  if ((coverRow as { screenshot_path?: string } | null)?.screenshot_path === shot.path) {
+    const { data: nextRow } = await supabase
+      .from("feature_screenshots")
+      .select("path")
+      .eq("feature_id", shot.feature_id)
+      .order("sort_order")
+      .limit(1)
+      .maybeSingle();
+    await supabase
+      .from("product_features")
+      .update({ screenshot_path: (nextRow as { path?: string } | null)?.path ?? "" })
+      .eq("id", shot.feature_id);
+  }
+
+  revalidatePath("/admin", "layout");
   return { ok: true };
 }
 
@@ -463,20 +754,35 @@ export async function removeProductFeature(input: {
   }
 
   const supabase = createServiceClient();
-  const { data } = await supabase
-    .from("product_features")
-    .select("screenshot_path")
-    .eq("id", input.id)
-    .eq("company_id", gate.companyId)
-    .maybeSingle();
-  const path = (data as { screenshot_path?: string } | null)?.screenshot_path;
+  const [{ data: featureRow }, { data: shotRows }] = await Promise.all([
+    supabase
+      .from("product_features")
+      .select("screenshot_path")
+      .eq("id", input.id)
+      .eq("company_id", gate.companyId)
+      .maybeSingle(),
+    supabase
+      .from("feature_screenshots")
+      .select("path")
+      .eq("feature_id", input.id)
+      .eq("company_id", gate.companyId),
+  ]);
+  const cover = (featureRow as { screenshot_path?: string } | null)?.screenshot_path;
+  const paths = new Set(
+    ((shotRows ?? []) as Array<{ path: string }>).map((r) => r.path),
+  );
+  if (cover) paths.add(cover);
+
+  /* feature_screenshots rows cascade with the feature. */
   const { error } = await supabase
     .from("product_features")
     .delete()
     .eq("id", input.id)
     .eq("company_id", gate.companyId);
   if (error) return { ok: false, error: error.message };
-  if (path) await supabase.storage.from("product-features").remove([path]);
+  if (paths.size > 0) {
+    await supabase.storage.from("product-features").remove([...paths]);
+  }
   const rankError = await rankAllFeatures(gate.companyId, false);
   revalidatePath("/admin", "layout");
   if (rankError) return { ok: false, error: rankError };

@@ -29,6 +29,7 @@ import type {
   BriefTemplate,
   DayActivity,
   DayActivityMap,
+  FeatureScreenshot,
   InspirationAccount,
   Member,
   OnboardingAnswers,
@@ -391,6 +392,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     briefsRes,
     companyMembersRes,
     featuresRes,
+    featureScreenshotsRes,
     briefTemplatesRes,
     sourcePostsRes,
   ] = await Promise.all([
@@ -461,9 +463,16 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       .eq("company_id", companyId),
     supabase
       .from("product_features")
-      .select("id, name, sentence, screenshot_path, score, reason, rank")
+      .select(
+        "id, name, sentence, screenshot_path, score, reason, rank, idea_title, idea_example, idea_action",
+      )
       .eq("company_id", companyId)
       .order("rank", { ascending: true }),
+    supabase
+      .from("feature_screenshots")
+      .select("id, feature_id, path, source, shape, sort_order")
+      .eq("company_id", companyId)
+      .order("sort_order"),
     supabase
       .from("brief_templates")
       .select(
@@ -505,6 +514,17 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     score: number | null;
     reason: string | null;
     rank: number | null;
+    idea_title: string | null;
+    idea_example: string | null;
+    idea_action: string | null;
+  }>;
+  const featureScreenshotRows = (featureScreenshotsRes.data ?? []) as Array<{
+    id: string;
+    feature_id: string;
+    path: string;
+    source: string;
+    shape: string;
+    sort_order: number;
   }>;
   const templateRows = (briefTemplatesRes.data ?? []) as Array<{
     id: string;
@@ -785,17 +805,37 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     };
   });
 
+  const publicShotUrl = (path: string): string =>
+    path
+      ? supabase.storage.from("product-features").getPublicUrl(path).data.publicUrl
+      : "";
+
+  const shotsByFeature = new Map<string, FeatureScreenshot[]>();
+  for (const row of featureScreenshotRows) {
+    const list = shotsByFeature.get(row.feature_id) ?? [];
+    list.push({
+      id: row.id,
+      url: publicShotUrl(row.path),
+      source: row.source === "noni" ? "noni" : "upload",
+      shape: row.shape === "laptop" ? "laptop" : "phone",
+    });
+    shotsByFeature.set(row.feature_id, list);
+  }
+
   const features: ProductFeature[] = featureRows.map((row) => {
     const path = row.screenshot_path ?? "";
-    const { data } = supabase.storage.from("product-features").getPublicUrl(path);
     return {
       id: row.id,
       name: row.name?.trim() ?? "",
       sentence: row.sentence ?? "",
-      screenshotUrl: path ? data.publicUrl : "",
+      screenshotUrl: publicShotUrl(path),
+      screenshots: shotsByFeature.get(row.id) ?? [],
       score: row.score,
       reason: row.reason ?? "",
       rank: row.rank,
+      ideaTitle: row.idea_title ?? "",
+      ideaExample: row.idea_example ?? "",
+      ideaAction: row.idea_action ?? "",
     };
   });
 

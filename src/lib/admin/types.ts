@@ -155,14 +155,30 @@ export interface InspirationAccount {
   posts: InspirationPost[];
 }
 
+export type ScreenshotShape = "phone" | "laptop";
+export type ScreenshotSource = "upload" | "noni";
+
+export interface FeatureScreenshot {
+  id: string;
+  url: string;
+  source: ScreenshotSource;
+  shape: ScreenshotShape;
+}
+
 export interface ProductFeature {
   id: string;
   name: string;
   sentence: string;
   screenshotUrl: string;
+  /** Full library for this feature: admin uploads plus Noni-made shots. */
+  screenshots: FeatureScreenshot[];
   score: number | null;
   reason: string;
   rank: number | null;
+  /** One video idea per feature, stamped by the AI ranking. */
+  ideaTitle: string;
+  ideaExample: string;
+  ideaAction: string;
 }
 
 export interface BriefTemplate {
