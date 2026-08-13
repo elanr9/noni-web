@@ -25,7 +25,6 @@ import {
   runAutoTopUpCheck,
   signConnectState,
   STRIPE_NOT_CONFIGURED,
-  stripeSimulated,
   writeBilling,
 } from "@/lib/admin/billing";
 import { MOCK_STRIPE_ACCOUNT_ID } from "@/lib/admin/mock-data";
@@ -64,7 +63,7 @@ export async function startCheckout(
     return { ok: true };
   }
 
-  if (stripeSimulated()) {
+  if (ctx.simulated) {
     const error = await activateSubscription(ctx.companyId, {
       plan,
       renewsAtIso: planRenewalIso(plan),
@@ -120,7 +119,7 @@ export async function switchPlan(
     return { ok: true };
   }
 
-  if (!stripeSimulated()) {
+  if (!ctx.simulated) {
     const stripe = getStripe();
     if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
     const priceId = process.env[PLAN_PRICING[plan].priceEnv];
@@ -169,7 +168,7 @@ export async function cancelPlan(): Promise<BillingActionResult> {
     return { ok: true };
   }
 
-  if (!stripeSimulated()) {
+  if (!ctx.simulated) {
     const stripe = getStripe();
     if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
     const row = await readBillingRow(ctx.companyId);
@@ -223,7 +222,7 @@ export async function topUpCredit(dollars: number): Promise<BillingActionResult>
     return { ok: true };
   }
 
-  if (!stripeSimulated()) {
+  if (!ctx.simulated) {
     const chargeError = await chargeSavedCard(ctx.companyId, amountCents);
     if (chargeError) return { ok: false, error: chargeError };
   }
@@ -265,7 +264,7 @@ export async function startStripeConnect(): Promise<BillingActionResult> {
     return { ok: true };
   }
 
-  if (stripeSimulated()) {
+  if (ctx.simulated) {
     const error = await writeBilling(ctx.companyId, {
       stripe_connected: true,
       stripe_account_id: "acct_simulated_dev",

@@ -63,15 +63,23 @@ export interface BillingContext {
   companyId: string;
   /** True routes every write to MOCK_DATASET.billing instead of the DB. */
   mock: boolean;
+  /** True when billing must pretend Stripe succeeded: dev without keys, or
+      a pilot company with company_billing.billing_simulated set. */
+  simulated: boolean;
 }
 
 /** The signed-in company admin's company, or the mock company in QA mock
     mode. Null means the caller may not touch billing. */
 export async function getBillingContext(): Promise<BillingContext | null> {
-  if (mockMode()) return { companyId: MOCK_DATASET.company.id, mock: true };
+  if (mockMode()) {
+    return { companyId: MOCK_DATASET.company.id, mock: true, simulated: true };
+  }
   const { profile } = await getSessionProfile();
   if (!isCompanyAdmin(profile) || !profile?.company_id) return null;
-  return { companyId: profile.company_id, mock: false };
+  const simulated =
+    stripeSimulated() ||
+    rowBool(await readBillingRow(profile.company_id), "billing_simulated");
+  return { companyId: profile.company_id, mock: false, simulated };
 }
 
 /* ── Formatting ── */
@@ -346,7 +354,7 @@ export async function runAutoTopUpCheck(ctx: BillingContext): Promise<void> {
     rowNum(row, "credit_balance_cents") < AUTO_TOP_UP_THRESHOLD_CENTS;
   if (!due) return;
 
-  if (!stripeSimulated()) {
+  if (!ctx.simulated) {
     const chargeError = await chargeSavedCard(ctx.companyId, AUTO_TOP_UP_AMOUNT_CENTS);
     /* A failed auto charge must not break reading the page; the balance
        simply stays low and the next check retries. */

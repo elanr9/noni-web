@@ -70,7 +70,7 @@ export function PlanModal({
   onClose,
 }: {
   subscription: Subscription;
-  /** Dev without Stripe keys: mark the interstitial as simulated. */
+  /** Dev without Stripe keys, or a pilot company: simulated checkout. */
   simulated: boolean;
   /** Resolves true when the flow moved on (redirected or state written). */
   onPurchase: (plan: SubscriptionPlan) => Promise<boolean>;
@@ -114,7 +114,7 @@ export function PlanModal({
           <p className="mb-0 mt-[7px] text-[13.5px] font-semibold leading-[1.55] text-slate-400">
             {redirecting === "annual" ? "$1,200 billed once a year." : "$200 billed monthly."}{" "}
             {simulated
-              ? "Stripe keys are not configured, so nothing is charged."
+              ? "Billing is in simulated mode, so nothing is charged."
               : "You'll come right back here."}
           </p>
         </div>

@@ -38,7 +38,7 @@ export default async function AdminBillingPage({
     <BillingView
       billing={data.billing}
       companyName={data.company.name}
-      simulated={stripeSimulated()}
+      simulated={ctx?.simulated ?? stripeSimulated()}
       notice={notice}
     />
   );

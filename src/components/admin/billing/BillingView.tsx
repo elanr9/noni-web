@@ -41,7 +41,7 @@ export function BillingView({
 }: {
   billing: AdminBilling;
   companyName: string;
-  /** Dev without Stripe keys: everything runs in simulated mode. */
+  /** Dev without Stripe keys, or a pilot company: simulated billing. */
   simulated: boolean;
   /** Return-trip message from ?checkout= or ?connect= query params. */
   notice: string | null;
@@ -96,9 +96,9 @@ export function BillingView({
         {simulated ? (
           <Card pad={14} className="bg-fill-quiet" style={{ borderColor: "transparent" }}>
             <p className="m-0 text-[12.5px] font-semibold text-slate-500">
-              Simulated Stripe: no keys are configured, so checkout, top-ups and
-              Connect update billing state without charging anything. Development
-              only.
+              Billing is running in simulated mode for your company. Checkout,
+              top-ups and Connect update your billing state without charging
+              anything.
             </p>
           </Card>
         ) : null}
