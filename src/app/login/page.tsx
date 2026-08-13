@@ -58,7 +58,7 @@ function LoginForm() {
           className="display inline-flex items-center gap-2 text-2xl font-semibold text-ink"
         >
           <img
-            src="/brand/marlin-blue.svg"
+            src="/brand/noni-logo.svg"
             alt=""
             width={28}
             height={28}

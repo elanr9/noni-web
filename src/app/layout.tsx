@@ -32,7 +32,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/icon.svg",
-    apple: "/brand/app-icon.svg",
+    apple: "/brand/app-icon.png",
   },
   applicationName: "Noni",
   description: "Automated UGC Content Submissions.",

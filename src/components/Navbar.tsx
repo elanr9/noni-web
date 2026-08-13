@@ -25,7 +25,7 @@ export function Navbar() {
           className="display flex shrink-0 items-center gap-1.5 text-[24px] font-semibold text-ink md:gap-2 md:text-[28px]"
         >
           <img
-            src="/brand/marlin-blue.svg"
+            src="/brand/noni-logo.svg"
             alt=""
             width={28}
             height={28}
