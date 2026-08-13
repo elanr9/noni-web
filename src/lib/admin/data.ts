@@ -54,6 +54,7 @@ interface InviteRow {
   id: string;
   email: string;
   role: string | null;
+  invited_name: string | null;
   accepted_at: string | null;
   expires_at: string | null;
   created_at: string;
@@ -425,7 +426,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     supabase
       .from("company_invites")
-      .select("id, email, role, accepted_at, expires_at, created_at")
+      .select("id, email, role, invited_name, accepted_at, expires_at, created_at")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false }),
     /* posts carry no company_id; company lives on the joined assignment or
@@ -700,9 +701,10 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     const role = iv.role === "campaign_manager" ? "Campaign manager" : "Creator";
     if (iv.role !== "campaign_manager" && iv.role !== "creator") continue;
     const expired = Boolean(iv.expires_at && new Date(iv.expires_at) < now);
+    const inviteName = iv.invited_name?.trim() || nameFromEmail(iv.email);
     invites.push({
       id: iv.id,
-      name: nameFromEmail(iv.email),
+      name: inviteName,
       email: iv.email,
       role,
       sent: fmtRelative(iv.created_at),
@@ -714,7 +716,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     const row: Member = {
       id: `invite-${iv.id}`,
       role,
-      name: nameFromEmail(iv.email),
+      name: inviteName,
       email: iv.email,
       status: "Invite sent",
       joined: fmtRelative(iv.created_at),

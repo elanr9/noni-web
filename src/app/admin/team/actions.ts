@@ -12,6 +12,7 @@ import { MOCK_DATASET } from "@/lib/admin/mock-data";
 import type { MemberRole } from "@/lib/admin/types";
 import { getSessionProfile, isCompanyAdmin, isPlatformAdmin } from "@/lib/auth";
 import { callEdgeFunction, type InviteResponse } from "@/lib/edge";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export type TeamActionResult = { ok: true } | { ok: false; error: string };
 
@@ -90,7 +91,7 @@ export async function sendTeamInvite(input: {
     }
   }
 
-  const { error } = await callEdgeFunction<InviteResponse>(
+  const { data, error } = await callEdgeFunction<InviteResponse>(
     "invite-campaign-manager",
     {
       action: "invite",
@@ -99,7 +100,14 @@ export async function sendTeamInvite(input: {
       role: input.role === "Campaign manager" ? "campaign_manager" : "creator",
     },
   );
-  if (error) return { ok: false, error };
+  if (error !== null) return { ok: false, error };
+
+  /* The invite edge function keys on email only, so the typed name is
+     stored here; Team rows and onboarding read it (same as ops-side). */
+  await createServiceClient()
+    .from("company_invites")
+    .update({ invited_name: name })
+    .eq("id", data.invite.id);
 
   /* Team rows, the setup to-do and the nav badge all shift with an invite. */
   revalidatePath("/admin", "layout");
