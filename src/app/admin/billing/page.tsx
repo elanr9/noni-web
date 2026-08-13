@@ -37,9 +37,9 @@ export default async function AdminBillingPage({
   return (
     <BillingView
       billing={data.billing}
-      companyName={data.company.name}
       simulated={ctx?.simulated ?? stripeSimulated()}
       notice={notice}
+      tourStep={typeof sp.tour === "string" ? Number(sp.tour) : null}
     />
   );
 }

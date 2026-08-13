@@ -164,6 +164,12 @@ const TOUR: TourStep[] = [
   },
 ];
 
+/** Target for a 1-based ?tour= step, so pages with tab-hidden sections can
+    force the section holding the target open while the tour points at it. */
+export function tourStepTarget(step: number): string | null {
+  return TOUR[step - 1]?.target ?? null;
+}
+
 const CUTOUT_PAD = 5;
 const POPOVER_WIDTH = 320;
 /* Rough popover height used only to pick below vs above placement. */
