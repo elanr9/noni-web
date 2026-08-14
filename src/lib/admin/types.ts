@@ -20,7 +20,8 @@ export type SubscriptionPlan =
 export type BriefStatus = "Active" | "Archived";
 
 /* Answers captured by the onboarding question flow (Agent B persists them).
-   They drive the setup to-do titles and completion thresholds. */
+   Zero manager/creator counts omit those setup steps; otherwise one invite
+   is enough to mark the step done. */
 export interface OnboardingAnswers {
   /** "Founder" | "Marketing" | "Content" | "Growth" | "Operations" | "Something else". */
   adminRole: string;

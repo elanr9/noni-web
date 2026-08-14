@@ -124,7 +124,7 @@ describe("deriveSetupStatus", () => {
     ]);
   });
 
-  it("titles invite steps with the onboarding counts", () => {
+  it("titles invite steps as first invite, not the onboarding counts", () => {
     const status = deriveSetupStatus(
       withAnswers(dataset({ managers: [], creators: [] }), {
         managerCount: 2,
@@ -132,25 +132,28 @@ describe("deriveSetupStatus", () => {
       }),
     );
     expect(status.steps.find((s) => s.key === "managers")?.title).toBe(
-      "Invite your 2 campaign managers",
+      "Invite first campaign manager",
     );
     expect(status.steps.find((s) => s.key === "creators")?.title).toBe(
-      "Invite your 3 creators",
+      "Invite first Creator",
     );
   });
 
-  it("tracks invited-so-far in the subtitle while partway there", () => {
+  it("marks invite steps done after the first person, even if the onboarding count is higher", () => {
     const status = deriveSetupStatus(
       withAnswers(
         dataset({
+          managers: [member({ id: "m1", role: "Campaign manager" })],
           creators: [member({ id: "c1" })],
         }),
-        { creatorCount: 2 },
+        { managerCount: 3, creatorCount: 5 },
       ),
     );
-    const creators = status.steps.find((s) => s.key === "creators");
-    expect(creators?.done).toBe(false);
-    expect(creators?.sub).toContain("1 of 2 invited so far.");
+    expect(status.steps.find((s) => s.key === "managers")?.done).toBe(true);
+    expect(status.steps.find((s) => s.key === "creators")?.done).toBe(true);
+    expect(status.steps.find((s) => s.key === "creators")?.sub).not.toContain(
+      "invited so far",
+    );
   });
 
   it("defaults both invite requirements to 1 when the company is new to UGC", () => {

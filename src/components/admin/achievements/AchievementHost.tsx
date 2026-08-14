@@ -55,20 +55,16 @@ function writeFired(key: string, fired: Set<string>): void {
   }
 }
 
-/* Toast copy from the prototype. Manager and creator step titles include
-   the required count ("Invite your 2 creators") only when it is above one,
-   so a digit in the title selects the plural copy. */
 function toastTitle(step: AchievementStep): string {
-  const plural = /\d/.test(step.title);
   switch (step.key) {
     case "brain":
       return "Company brain filled in";
     case "billing":
       return "Budget and subscription set";
     case "managers":
-      return plural ? "Campaign managers invited" : "Campaign manager invited";
+      return "Campaign manager invited";
     case "creators":
-      return plural ? "Creators invited" : "First creator invited";
+      return "First creator invited";
   }
 }
 
