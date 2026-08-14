@@ -30,11 +30,55 @@ export interface OnboardingAnswers {
   selfIsManager: boolean;
 }
 
+/* Campaign manager access in the app. Company admins toggle these on Team.
+   Persisted at companies.settings.manager_access:
+   { view_financials, view_signups, invite_creators }. */
+export interface ManagerAccess {
+  viewFinancials: boolean;
+  viewSignups: boolean;
+  inviteCreators: boolean;
+}
+
+export const DEFAULT_MANAGER_ACCESS: ManagerAccess = {
+  viewFinancials: false,
+  viewSignups: true,
+  inviteCreators: false,
+};
+
+export function parseManagerAccess(settings: unknown): ManagerAccess {
+  const root =
+    settings && typeof settings === "object" && !Array.isArray(settings)
+      ? (settings as Record<string, unknown>)
+      : {};
+  const raw =
+    root.manager_access &&
+    typeof root.manager_access === "object" &&
+    !Array.isArray(root.manager_access)
+      ? (root.manager_access as Record<string, unknown>)
+      : {};
+  return {
+    viewFinancials: raw.view_financials === true,
+    viewSignups: raw.view_signups !== false,
+    inviteCreators: raw.invite_creators === true,
+  };
+}
+
+export function managerAccessPayload(
+  access: ManagerAccess,
+): Record<string, boolean> {
+  return {
+    view_financials: access.viewFinancials,
+    view_signups: access.viewSignups,
+    invite_creators: access.inviteCreators,
+  };
+}
+
 export interface AdminCompany {
   id: string;
   name: string;
   website: string;
   onboarding: OnboardingAnswers;
+  managerAccess: ManagerAccess;
 }
 
 export interface Member {

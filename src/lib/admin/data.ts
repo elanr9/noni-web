@@ -40,6 +40,7 @@ import type {
   StatStrip,
   Subscription,
 } from "./types";
+import { parseManagerAccess } from "./types";
 
 /* ── Raw row shapes (typed columns we rely on) ── */
 
@@ -362,6 +363,7 @@ function emptyDataset(companyId: string): AdminDataset {
       name: "Your company",
       website: "",
       onboarding: EMPTY_ONBOARDING,
+      managerAccess: parseManagerAccess(null),
     },
     managers: [],
     creators: [],
@@ -611,6 +613,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     name: readStr(companyRow, "name") ?? "Your company",
     website: readStr(companyRow, "website") ?? "",
     onboarding,
+    managerAccess: parseManagerAccess(companyRow?.settings),
   };
 
   /* Posts */

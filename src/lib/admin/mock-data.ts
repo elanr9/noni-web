@@ -21,6 +21,7 @@ import type {
   PlatformStats,
   StatStrip,
 } from "./types";
+import { DEFAULT_MANAGER_ACCESS } from "./types";
 
 export const MOCK_COMPANY: AdminCompany = {
   id: "mock-fieldvision",
@@ -33,6 +34,7 @@ export const MOCK_COMPANY: AdminCompany = {
     managerCount: 1,
     selfIsManager: false,
   },
+  managerAccess: { ...DEFAULT_MANAGER_ACCESS },
 };
 
 export const MOCK_MANAGERS: Member[] = [

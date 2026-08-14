@@ -11,6 +11,7 @@ export default async function AdminTeamPage() {
       companyName={data.company.name}
       managers={data.managers}
       creators={data.creators}
+      managerAccess={data.company.managerAccess}
     />
   );
 }

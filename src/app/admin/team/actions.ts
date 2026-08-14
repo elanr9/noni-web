@@ -9,7 +9,12 @@ import {
   PLAN_TIER_LABEL,
 } from "@/lib/admin/billing";
 import { MOCK_DATASET } from "@/lib/admin/mock-data";
-import type { MemberRole } from "@/lib/admin/types";
+import {
+  managerAccessPayload,
+  parseManagerAccess,
+  type ManagerAccess,
+  type MemberRole,
+} from "@/lib/admin/types";
 import { getSessionProfile, isCompanyAdmin, isPlatformAdmin } from "@/lib/auth";
 import { callEdgeFunction, type InviteResponse } from "@/lib/edge";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -197,6 +202,67 @@ export async function removeTeamMember(
     .eq("id", memberId)
     .eq("company_id", companyId);
   if (profileError) return { ok: false, error: profileError.message };
+
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+const ACCESS_KEYS = [
+  "viewFinancials",
+  "viewSignups",
+  "inviteCreators",
+] as const satisfies ReadonlyArray<keyof ManagerAccess>;
+
+/* Company-wide campaign manager access in the app. Stored on
+   companies.settings.manager_access so the iOS app can read the same flags. */
+export async function updateManagerAccess(
+  patch: Partial<ManagerAccess>,
+): Promise<TeamActionResult> {
+  const keys = Object.keys(patch) as Array<keyof ManagerAccess>;
+  if (keys.length === 0 || keys.some((k) => !ACCESS_KEYS.includes(k))) {
+    return { ok: false, error: "Unknown setting." };
+  }
+  if (keys.some((k) => typeof patch[k] !== "boolean")) {
+    return { ok: false, error: "Each setting must be on or off." };
+  }
+
+  if (mockMode()) {
+    MOCK_DATASET.company.managerAccess = {
+      ...MOCK_DATASET.company.managerAccess,
+      ...patch,
+    };
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  }
+
+  const { profile } = await getSessionProfile();
+  if (!isCompanyAdmin(profile) && !isPlatformAdmin(profile)) {
+    return { ok: false, error: "Company admins only." };
+  }
+  const companyId = profile?.company_id;
+  if (!companyId) return { ok: false, error: "No company on this account." };
+
+  const service = createServiceClient();
+  const { data: row, error: readError } = await service
+    .from("companies")
+    .select("settings")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  if (!row) return { ok: false, error: "Company not found." };
+
+  const settings =
+    row.settings && typeof row.settings === "object" && !Array.isArray(row.settings)
+      ? { ...(row.settings as Record<string, unknown>) }
+      : {};
+  const next = { ...parseManagerAccess(settings), ...patch };
+  settings.manager_access = managerAccessPayload(next);
+
+  const { error } = await service
+    .from("companies")
+    .update({ settings })
+    .eq("id", companyId);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/admin", "layout");
   return { ok: true };

@@ -4,9 +4,9 @@ import { ChevronRight, Clock, Plus, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { sendTeamInvite } from "@/app/admin/team/actions";
+import { sendTeamInvite, updateManagerAccess } from "@/app/admin/team/actions";
 import { Avatar, Card, Chip, Field, Label, Modal, PageHead, Pill } from "@/components/kit";
-import type { Member, MemberRole } from "@/lib/admin/types";
+import type { ManagerAccess, Member, MemberRole } from "@/lib/admin/types";
 
 /* Team tab (TeamPage in AdminSetupTabs.jsx): Campaign managers + Creators
    cards with counts, invite modal with a role-aware success state, and
@@ -178,12 +178,31 @@ export function TeamView({
   companyName,
   managers,
   creators,
+  managerAccess,
 }: {
   companyName: string;
   managers: Member[];
   creators: Member[];
+  managerAccess: ManagerAccess;
 }) {
   const [inviting, setInviting] = useState<MemberRole | null>(null);
+  const [access, setAccess] = useState(managerAccess);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const toggle = (key: keyof ManagerAccess) => {
+    if (pending) return;
+    const next = !access[key];
+    setAccess((prev) => ({ ...prev, [key]: next }));
+    setAccessError(null);
+    startTransition(async () => {
+      const result = await updateManagerAccess({ [key]: next });
+      if (!result.ok) {
+        setAccess((prev) => ({ ...prev, [key]: !next }));
+        setAccessError(result.error);
+      }
+    });
+  };
 
   return (
     <div>
@@ -201,6 +220,37 @@ export function TeamView({
             onInvite={() => setInviting("Campaign manager")}
           />
         </div>
+        <Card pad={0}>
+          <div className="px-5 py-4">
+            <Label>Campaign manager access</Label>
+            <span className="mt-[3px] block text-[13px] font-semibold text-slate-400">
+              What they can see and do in the app.
+            </span>
+          </div>
+          <AccessToggle
+            label="Financials"
+            hint="Spend and payout numbers"
+            on={access.viewFinancials}
+            onToggle={() => toggle("viewFinancials")}
+          />
+          <AccessToggle
+            label="Sign ups"
+            hint="Attributed sign up counts"
+            on={access.viewSignups}
+            onToggle={() => toggle("viewSignups")}
+          />
+          <AccessToggle
+            label="Creator invites"
+            hint="Send creator invites from the app"
+            on={access.inviteCreators}
+            onToggle={() => toggle("inviteCreators")}
+          />
+          {accessError ? (
+            <p className="m-0 border-t border-line px-5 py-3 text-[13px] font-semibold text-danger">
+              {accessError}
+            </p>
+          ) : null}
+        </Card>
         <div data-tour="team-creators">
           <TeamSection
             label="Creators"
@@ -218,6 +268,45 @@ export function TeamView({
           onClose={() => setInviting(null)}
         />
       ) : null}
+    </div>
+  );
+}
+
+function AccessToggle({
+  label,
+  hint,
+  on,
+  onToggle,
+}: {
+  label: string;
+  hint: string;
+  on: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 border-t border-line px-5 py-3.5">
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-bold text-ink">{label}</span>
+        <span className="mt-px block text-[12.5px] font-semibold text-slate-400">
+          {hint}
+        </span>
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        onClick={onToggle}
+        className={`relative h-[22px] w-[38px] shrink-0 cursor-pointer border-none transition-colors duration-[160ms] ease-om rounded-pill ${
+          on ? "bg-blue-500" : "bg-slate-200"
+        }`}
+      >
+        <span
+          className={`absolute top-[3px] left-[3px] block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-[160ms] ease-om ${
+            on ? "translate-x-4" : "translate-x-0"
+          }`}
+        />
+      </button>
     </div>
   );
 }
