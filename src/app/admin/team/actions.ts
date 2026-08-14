@@ -113,3 +113,91 @@ export async function sendTeamInvite(input: {
   revalidatePath("/admin", "layout");
   return { ok: true };
 }
+
+const INVITE_ID_PREFIX = "invite-";
+
+/* Detaches a campaign manager from this company, or cancels a pending
+   invite. The company admin cannot remove themselves. A later invite to
+   the same Google account reattaches via claim_pending_invite. */
+export async function removeTeamMember(
+  memberId: string,
+): Promise<TeamActionResult> {
+  if (!memberId) return { ok: false, error: "Missing member." };
+
+  if (mockMode()) {
+    MOCK_DATASET.managers = MOCK_DATASET.managers.filter((m) => m.id !== memberId);
+    MOCK_DATASET.creators = MOCK_DATASET.creators.filter((m) => m.id !== memberId);
+    MOCK_DATASET.invites = MOCK_DATASET.invites.filter(
+      (i) => i.id !== memberId && `${INVITE_ID_PREFIX}${i.id}` !== memberId,
+    );
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  }
+
+  const { userId, profile } = await getSessionProfile();
+  if (!isCompanyAdmin(profile) && !isPlatformAdmin(profile)) {
+    return { ok: false, error: "Company admins only." };
+  }
+  const companyId = profile?.company_id;
+  if (!companyId) return { ok: false, error: "No company on this account." };
+  if (memberId === userId) {
+    return { ok: false, error: "You cannot remove yourself." };
+  }
+
+  const service = createServiceClient();
+
+  if (memberId.startsWith(INVITE_ID_PREFIX)) {
+    const inviteId = memberId.slice(INVITE_ID_PREFIX.length);
+    const { data: invite } = await service
+      .from("company_invites")
+      .select("id, company_id, accepted_at")
+      .eq("id", inviteId)
+      .maybeSingle();
+    if (!invite || invite.company_id !== companyId) {
+      return { ok: false, error: "Invite not found." };
+    }
+    if (invite.accepted_at) {
+      return { ok: false, error: "That invite was already accepted." };
+    }
+    const { error } = await service
+      .from("company_invites")
+      .delete()
+      .eq("id", inviteId)
+      .eq("company_id", companyId);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  }
+
+  const { data: target } = await service
+    .from("profiles")
+    .select("id, role, company_id")
+    .eq("id", memberId)
+    .maybeSingle();
+  if (!target || target.company_id !== companyId) {
+    return { ok: false, error: "Member not found." };
+  }
+  if (target.role === "company_admin") {
+    return { ok: false, error: "The company admin cannot be removed." };
+  }
+  if (target.role !== "campaign_manager") {
+    return { ok: false, error: "Only campaign managers can be removed here." };
+  }
+
+  const { error: memberError } = await service
+    .from("company_members")
+    .delete()
+    .eq("company_id", companyId)
+    .eq("profile_id", memberId);
+  if (memberError) return { ok: false, error: memberError.message };
+
+  const { error: profileError } = await service
+    .from("profiles")
+    .update({ company_id: null })
+    .eq("id", memberId)
+    .eq("company_id", companyId);
+  if (profileError) return { ok: false, error: profileError.message };
+
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}

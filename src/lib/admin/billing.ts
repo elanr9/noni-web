@@ -251,19 +251,29 @@ export async function clearSubscription(companyId: string): Promise<string | nul
     subscription_price_cents: null,
     subscription_renews_at: null,
     stripe_subscription_id: null,
+    stripe_budget_subscription_id: null,
+    monthly_budget_cents: null,
   });
 }
 
-/** Ledger entry (kind topup, feeds topUpHistory) plus balance increment. */
-export async function recordTopUp(
+/** Ledger entry (kind topup or budget, feeds the credit history) plus
+    balance increment. Budget credits from the invoice.paid webhook pass the
+    invoice id, whose unique constraint makes Stripe retries a no-op. */
+export async function recordCredit(
   companyId: string,
   amountCents: number,
+  kind: "topup" | "budget",
+  stripeInvoiceId?: string,
 ): Promise<string | null> {
   const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("company_credit_ledger")
-    .insert({ company_id: companyId, kind: "topup", amount_cents: amountCents });
-  if (error) return `The top-up could not be recorded: ${error.message}`;
+  const { error } = await supabase.from("company_credit_ledger").insert({
+    company_id: companyId,
+    kind,
+    amount_cents: amountCents,
+    ...(stripeInvoiceId ? { stripe_invoice_id: stripeInvoiceId } : {}),
+  });
+  if (error?.code === "23505") return null;
+  if (error) return `The credit could not be recorded: ${error.message}`;
 
   const row = await readBillingRow(companyId);
   return writeBilling(companyId, {
@@ -323,15 +333,53 @@ export function mockActivateSubscription(plan: SubscriptionPlan): void {
   };
 }
 
-export function mockTopUp(amountCents: number): void {
+export function mockTopUp(
+  amountCents: number,
+  kind: "topup" | "budget" = "topup",
+): void {
   MOCK_DATASET.billing.creditBalance += amountCents / 100;
   MOCK_DATASET.billing.topUpHistory.unshift({
     amt: amountCents / 100,
     date: "Just now",
+    kind,
   });
 }
 
 /* ── Live Stripe helpers ── */
+
+/** FieldVision, the in-house testing company. It runs on a seeded credit
+    balance, so the monthly budget flow never creates a Stripe budget
+    subscription or touches its balance. */
+export const IN_HOUSE_COMPANY_ID = "59f83fa9-8c5b-44aa-814e-f7cc863eac3b";
+
+/** Fixed-id Stripe product behind every monthly budget subscription.
+    Subscription price_data needs a real product id, so create it once. */
+export async function ensureBudgetProduct(stripe: Stripe): Promise<string> {
+  const id = "noni_creator_budget";
+  try {
+    await stripe.products.retrieve(id);
+  } catch {
+    await stripe.products.create({ id, name: "Noni creator budget" });
+  }
+  return id;
+}
+
+/** Cancels the company's Stripe budget subscription if one exists. An
+    already-cancelled subscription is fine, so Stripe errors are swallowed. */
+export async function cancelStripeBudgetSubscription(
+  companyId: string,
+): Promise<void> {
+  const stripe = getStripe();
+  if (!stripe) return;
+  const row = await readBillingRow(companyId);
+  const budgetId = rowStr(row, "stripe_budget_subscription_id");
+  if (!budgetId || !budgetId.startsWith("sub_")) return;
+  try {
+    await stripe.subscriptions.cancel(budgetId);
+  } catch {
+    /* Already cancelled or gone at Stripe; clearing our state is enough. */
+  }
+}
 
 /** Charges the subscription's saved card off session (PaymentIntents).
     Returns an error message, or null when the charge succeeded. */
@@ -483,5 +531,5 @@ export async function runAutoTopUpCheck(ctx: BillingContext): Promise<void> {
        simply stays low and the next check retries. */
     if (chargeError) return;
   }
-  await recordTopUp(ctx.companyId, AUTO_TOP_UP_AMOUNT_CENTS);
+  await recordCredit(ctx.companyId, AUTO_TOP_UP_AMOUNT_CENTS, "topup");
 }

@@ -5,16 +5,23 @@
      renewal, card on file and the Stripe customer/subscription ids.
    - customer.subscription.updated: plan switches and renewals.
    - customer.subscription.deleted: cancellation, clears subscription state.
+   - invoice.paid: a monthly budget subscription charge (metadata kind
+     "budget") converts into credits on the company's balance.
    The company is resolved from metadata.company_id, which the checkout
-   action stamps on both the session and the subscription. */
+   action stamps on both the session and the subscription. Budget
+   subscriptions carry metadata kind "budget" so the plan handlers skip
+   them instead of overwriting the plan state. */
 
 import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
 
 import {
   applyStripeSubscription,
+  cancelStripeBudgetSubscription,
   clearSubscription,
   getStripe,
+  recordCredit,
+  writeBilling,
 } from "@/lib/admin/billing";
 
 async function subscriptionCard(
@@ -74,7 +81,7 @@ export async function POST(request: Request): Promise<Response> {
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
       const companyId = subscription.metadata?.company_id;
-      if (companyId) {
+      if (companyId && subscription.metadata?.kind !== "budget") {
         const card = await subscriptionCard(stripe, subscription);
         error = await applyStripeSubscription(companyId, subscription, card);
       }
@@ -83,7 +90,36 @@ export async function POST(request: Request): Promise<Response> {
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
       const companyId = subscription.metadata?.company_id;
-      if (companyId) error = await clearSubscription(companyId);
+      if (!companyId) break;
+      if (subscription.metadata?.kind === "budget") {
+        error = await writeBilling(companyId, {
+          stripe_budget_subscription_id: null,
+          monthly_budget_cents: null,
+        });
+      } else {
+        /* The plan is gone, so the budget subscription must not keep
+           charging a company that can no longer run creators. */
+        await cancelStripeBudgetSubscription(companyId);
+        error = await clearSubscription(companyId);
+      }
+      break;
+    }
+    case "invoice.paid": {
+      const invoice = event.data.object as Stripe.Invoice;
+      const details = invoice.parent?.subscription_details;
+      const companyId = details?.metadata?.company_id;
+      if (
+        details?.metadata?.kind === "budget" &&
+        companyId &&
+        invoice.amount_paid > 0
+      ) {
+        error = await recordCredit(
+          companyId,
+          invoice.amount_paid,
+          "budget",
+          invoice.id,
+        );
+      }
       break;
     }
     default:

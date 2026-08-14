@@ -2,11 +2,12 @@
 
 import { ChevronRight, Images, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
+import { removeTeamMember } from "@/app/admin/team/actions";
 import { PostDetailCard } from "@/components/admin/analytics/PostDetailCard";
 import { fmtK, money } from "@/components/admin/posts/format";
-import { Avatar, Card, Chip, Label, PageHead } from "@/components/kit";
+import { Avatar, Card, Chip, Label, Modal, PageHead, Pill } from "@/components/kit";
 import type { AdminBrief, AdminPost, Member } from "@/lib/admin/types";
 
 /* Full member profile page (ProfilePage in AdminAnalytics.jsx): back arrow,
@@ -17,15 +18,35 @@ export function MemberProfile({
   companyName,
   posts,
   briefs,
+  canRemove = false,
 }: {
   member: Member;
   companyName: string;
   posts: AdminPost[];
   briefs: AdminBrief[];
+  canRemove?: boolean;
 }) {
   const router = useRouter();
   const [post, setPost] = useState<AdminPost | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const isCreator = member.role === "Creator";
+  const pendingInvite = member.id.startsWith("invite-");
+
+  const remove = () => {
+    if (pending) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await removeTeamMember(member.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.push("/admin/team");
+      router.refresh();
+    });
+  };
 
   if (post) {
     return (
@@ -44,14 +65,21 @@ export function MemberProfile({
         title={member.name}
         sub={`${member.role} · joined ${member.joined}`}
         right={
-          member.status === "Active" ? (
-            <Chip tone="green">Active</Chip>
-          ) : (
-            <Chip tone="amber">Invite sent</Chip>
-          )
+          <div className="flex items-center gap-2.5">
+            {member.status === "Active" ? (
+              <Chip tone="green">Active</Chip>
+            ) : (
+              <Chip tone="amber">Invite sent</Chip>
+            )}
+            {canRemove ? (
+              <Pill size="sm" variant="danger" onClick={() => setConfirming(true)}>
+                Remove
+              </Pill>
+            ) : null}
+          </div>
         }
       />
-      <div className="grid grid-cols-[300px_1fr] items-start gap-3.5">
+      <div className="grid grid-cols-1 items-start gap-3.5 lg:grid-cols-[300px_1fr]">
         <Card pad={0}>
           <div className="flex items-center gap-3 px-5 py-4">
             <Avatar name={member.name} size={42} />
@@ -78,7 +106,7 @@ export function MemberProfile({
               <span className="w-16 shrink-0 text-[12.5px] font-semibold text-slate-400">
                 {label}
               </span>
-              <span className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px] font-bold text-ink">
+              <span className="min-w-0 flex-1 break-words text-[13.5px] font-bold text-ink">
                 {value}
               </span>
             </div>
@@ -87,7 +115,7 @@ export function MemberProfile({
         <div className="flex min-w-0 flex-col gap-3.5">
           {isCreator ? (
             <>
-              <Card pad={22} className="flex gap-[18px]">
+              <Card pad={22} className="flex flex-wrap gap-[18px]">
                 {(
                   [
                     ["Posts this month", String(member.posts ?? 0)],
@@ -95,7 +123,7 @@ export function MemberProfile({
                     ["Earned", money(member.earned ?? 0)],
                   ] as const
                 ).map(([label, value]) => (
-                  <span key={label} className="min-w-0 flex-1">
+                  <span key={label} className="min-w-[130px] flex-1">
                     <span className="block text-[12px] font-semibold text-slate-400">
                       {label}
                     </span>
@@ -166,8 +194,8 @@ export function MemberProfile({
                 ) : (
                   briefs.map((b) => (
                     <div key={b.id} className="border-t border-line px-5 py-[13px]">
-                      <div className="flex items-center gap-2">
-                        <span className="flex-1 text-[14px] font-bold text-ink">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="min-w-[160px] flex-1 text-[14px] font-bold text-ink">
                           {b.title}
                         </span>
                         <Chip tone="blue" style={{ padding: "3px 9px", fontSize: 11.5 }}>
@@ -195,6 +223,47 @@ export function MemberProfile({
           )}
         </div>
       </div>
+      {confirming ? (
+        <Modal
+          title={pendingInvite ? `Cancel invite to ${member.name}?` : `Remove ${member.name}?`}
+          onClose={() => !pending && setConfirming(false)}
+        >
+          <div className="flex flex-col gap-3.5">
+            <p className="m-0 text-[14px] font-semibold leading-[1.55] text-slate-500">
+              {pendingInvite
+                ? `They will not be able to join ${companyName} until you invite them again.`
+                : `They lose access to Noni for ${companyName}. You can invite them again later.`}
+            </p>
+            {error ? (
+              <p className="m-0 text-[13px] font-semibold text-danger">{error}</p>
+            ) : null}
+            <div className="flex gap-2.5">
+              <Pill
+                variant="quiet"
+                disabled={pending}
+                onClick={() => setConfirming(false)}
+                className="flex-1"
+              >
+                Keep them
+              </Pill>
+              <Pill
+                variant="danger"
+                disabled={pending}
+                onClick={remove}
+                className="flex-1"
+              >
+                {pending
+                  ? pendingInvite
+                    ? "Canceling…"
+                    : "Removing…"
+                  : pendingInvite
+                    ? "Cancel invite"
+                    : "Remove"}
+              </Pill>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

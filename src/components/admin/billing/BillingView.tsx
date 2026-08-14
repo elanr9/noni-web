@@ -7,7 +7,7 @@ import { useState } from "react";
 import {
   cancelPlan,
   setAutoTopUp,
-  setSpendLimit,
+  setMonthlyBudget,
   startCheckout,
   startStripeConnect,
   switchPlan,
@@ -34,12 +34,11 @@ function resetsLabel(): string {
 
 type ModalKind = "limit" | "topup" | null;
 
-type Section = "plan" | "budget" | "topups" | "stripe";
+type Section = "plan" | "budget" | "stripe";
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "plan", label: "Plan" },
   { id: "budget", label: "Budget" },
-  { id: "topups", label: "Top-ups" },
   { id: "stripe", label: "Stripe" },
 ];
 
@@ -49,7 +48,7 @@ const SECTIONS: { id: Section; label: string }[] = [
 const TOUR_SECTION: Record<string, Section> = {
   "billing-subscription": "plan",
   "billing-budget": "budget",
-  "billing-top-up": "topups",
+  "billing-top-up": "budget",
 };
 
 export function BillingView({
@@ -169,7 +168,7 @@ export function BillingView({
           </Card>
         ) : null}
 
-        {active && limit === 0 ? (
+        {active && limit === 0 && billing.creditBalance === 0 ? (
           <Card
             pad={16}
             className="flex items-center gap-[13px]"
@@ -177,8 +176,8 @@ export function BillingView({
           >
             <CircleAlert size={19} className="shrink-0 text-amber" />
             <span className="flex-1 text-[13.5px] font-semibold text-ink">
-              No monthly budget yet. Set a spend limit so Noni can pay creator
-              bounties.
+              No monthly budget yet. Set one so Noni has funds to pay your
+              creators.
             </span>
             <Pill size="sm" onClick={() => setModal("limit")}>
               Set monthly budget
@@ -244,61 +243,58 @@ export function BillingView({
         ) : null}
 
         {shown === "budget" ? (
-          <div data-tour="billing-budget">
-            <Card pad={0}>
-              <div className="px-[22px] pb-4 pt-[18px]">
-                <Label className="mb-3 block">Creator budget</Label>
-                <div className="flex items-center gap-4">
-                  <span className="min-w-0">
-                    <span className="display block text-[24px] font-bold tracking-[-0.6px] text-ink">
-                      {money(billing.spentThisMonth)} spent
-                    </span>
-                    <span className="mt-0.5 block text-[12.5px] font-semibold text-slate-400">
-                      {resetsLabel()}
-                    </span>
-                  </span>
-                  <span className="h-2 flex-1 overflow-hidden bg-fill-quiet rounded-pill">
-                    <span
-                      className={`block h-full transition-[width] duration-[400ms] ease-om rounded-pill ${
-                        pctUsed > 0.85 ? "bg-danger" : pctUsed > 0.6 ? "bg-amber" : "bg-blue-500"
-                      }`}
-                      style={{ width: Math.round(pctUsed * 100) + "%" }}
-                    />
-                  </span>
-                  <span className="whitespace-nowrap text-[13px] font-semibold text-slate-400">
-                    {Math.round(pctUsed * 100)}% used
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 border-t border-line px-[22px] py-3.5">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[16px] font-bold text-ink">
-                    {limit > 0 ? money(limit) : "Not set"}
-                  </span>
-                  <span className="mt-px block text-[12.5px] font-semibold text-slate-400">
-                    Monthly spend limit
-                  </span>
-                </span>
-                <Pill size="sm" variant="quiet" onClick={() => setModal("limit")}>
-                  {limit > 0 ? "Adjust limit" : "Set limit"}
-                </Pill>
-              </div>
-            </Card>
-          </div>
-        ) : null}
-
-        {shown === "topups" ? (
           <>
-            <div data-tour="billing-top-up">
-              <Card pad={22}>
-                <Label className="mb-3 block">Credit</Label>
-                <div className="flex items-center gap-3">
-                  <span className="min-w-0 flex-1">
-                    <span className="display block text-[24px] font-bold tracking-[-0.6px] text-ink">
-                      {money(billing.creditBalance)}
+            <div data-tour="billing-budget">
+              <Card pad={0}>
+                <div className="px-[22px] pb-4 pt-[18px]">
+                  <Label className="mb-3 block">Creator budget</Label>
+                  <div className="flex items-center gap-4">
+                    <span className="min-w-0">
+                      <span className="display block text-[24px] font-bold tracking-[-0.6px] text-ink">
+                        {money(billing.creditBalance)}
+                      </span>
+                      <span className="mt-0.5 block text-[12.5px] font-semibold text-slate-400">
+                        Credit balance. Noni pays your creators from this.
+                      </span>
                     </span>
-                    <span className="mt-0.5 flex items-center gap-2 text-[12.5px] font-semibold text-slate-400">
-                      Extra credit balance · Auto top-up {billing.autoTopUp ? "on" : "off"}
+                    <span className="h-2 flex-1 overflow-hidden bg-fill-quiet rounded-pill">
+                      <span
+                        className={`block h-full transition-[width] duration-[400ms] ease-om rounded-pill ${
+                          pctUsed > 0.85 ? "bg-danger" : pctUsed > 0.6 ? "bg-amber" : "bg-blue-500"
+                        }`}
+                        style={{ width: Math.round(pctUsed * 100) + "%" }}
+                      />
+                    </span>
+                    <span className="whitespace-nowrap text-[13px] font-semibold text-slate-400">
+                      {money(billing.spentThisMonth)} spent · {resetsLabel()}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 border-t border-line px-[22px] py-3.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[16px] font-bold text-ink">
+                      {limit > 0 ? `${money(limit)}/mo` : "Not set"}
+                    </span>
+                    <span className="mt-px block text-[12.5px] font-semibold text-slate-400">
+                      Monthly budget, charged to your card and added to your
+                      balance as credits
+                    </span>
+                  </span>
+                  <Pill size="sm" onClick={() => setModal("limit")}>
+                    {limit > 0 ? "Adjust monthly budget" : "Set monthly budget"}
+                  </Pill>
+                </div>
+                <div
+                  data-tour="billing-top-up"
+                  className="flex items-center gap-3 border-t border-line px-[22px] py-3.5"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13.5px] font-bold text-ink">
+                      Backup top up
+                    </span>
+                    <span className="mt-px flex items-center gap-2 text-[12.5px] font-semibold text-slate-400">
+                      One-off credit if you run low between cycles · Auto
+                      top-up {billing.autoTopUp ? "on" : "off"}
                       <button
                         type="button"
                         onClick={() => void run(() => setAutoTopUp(!billing.autoTopUp))}
@@ -308,7 +304,7 @@ export function BillingView({
                       </button>
                     </span>
                   </span>
-                  <Pill size="sm" icon={Plus} onClick={() => setModal("topup")}>
+                  <Pill size="sm" variant="quiet" icon={Plus} onClick={() => setModal("topup")}>
                     Top up
                   </Pill>
                 </div>
@@ -317,14 +313,17 @@ export function BillingView({
 
             {billing.topUpHistory.length > 0 ? (
               <Card pad={0}>
-                <Label className="block px-5 pb-1.5 pt-4">Top-ups</Label>
+                <Label className="block px-5 pb-1.5 pt-4">Credit history</Label>
                 {billing.topUpHistory.map((t, i) => (
                   <div key={i} className="flex items-center gap-3 border-t border-line px-5 py-3">
                     <span className="inline-flex h-8 w-8 items-center justify-center bg-green-soft rounded-pill">
                       <Plus size={14} className="text-green" />
                     </span>
                     <span className="flex-1 text-[14px] font-bold text-ink">
-                      {money(t.amt)} top-up
+                      {money(t.amt)}
+                      <span className="ml-2 font-semibold text-slate-400">
+                        {t.kind === "budget" ? "Monthly budget" : "Top-up"}
+                      </span>
                     </span>
                     <span className="text-[13px] font-semibold text-slate-400">
                       {cardOnFile ? `${cardOnFile} · ` : ""}
@@ -372,20 +371,20 @@ export function BillingView({
 
       {modal === "limit" ? (
         <AmountModal
-          title="Monthly spend limit"
-          description="The most Noni spends on creator bounties each month. Spend resets on the 1st."
-          customLabel="Or a custom limit"
-          ctaLabel={(v) => `Set limit to ${money(v)}/mo`}
-          busyLabel="Saving limit…"
+          title="Monthly budget"
+          description="Charged to your card automatically each month and added to your balance as credits. Noni pays your creators from that balance."
+          customLabel="Or a custom amount"
+          ctaLabel={(v) => `Set budget to ${money(v)}/mo`}
+          busyLabel="Setting up budget…"
           initial={limit > 0 ? limit : 1000}
-          onSubmit={(v) => run(() => setSpendLimit(v))}
+          onSubmit={(v) => run(() => setMonthlyBudget(v))}
           onClose={() => setModal(null)}
         />
       ) : null}
       {modal === "topup" ? (
         <AmountModal
-          title="Top up your budget"
-          description={`One-off credit on top of your monthly budget. Goes straight to creator bounties, charged to ${cardOnFile ?? "your card on file"}.`}
+          title="Backup top up"
+          description={`A one-off charge that adds credit to your balance right away if you run low between monthly cycles. Charged to ${cardOnFile ?? "your card on file"}.`}
           customLabel="Or a custom amount"
           ctaLabel={(v) => `Add ${money(v)}`}
           busyLabel="Adding credit…"

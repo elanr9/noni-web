@@ -122,6 +122,9 @@ export interface TopUp {
   amt: number;
   /** Display date, e.g. "Aug 4" or "Just now". */
   date: string;
+  /** "topup" is a one-off backup top-up; "budget" is a monthly budget
+      charge converted into credits. */
+  kind: "topup" | "budget";
 }
 
 export interface AdminBilling {

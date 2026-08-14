@@ -221,7 +221,7 @@ export function AdminShell({
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex shrink-0 justify-center px-11 pt-4">
+        <div className="flex shrink-0 justify-center px-4 pt-4 md:px-11">
           <div data-tour="search" className="flex w-full max-w-[560px] justify-center">
             <CommandSearch index={searchIndex} onSelect={onSearchSelect} />
           </div>
@@ -229,7 +229,7 @@ export function AdminShell({
         <div className="scrollbar-none flex-1 overflow-y-auto">
           <div
             key={pathname}
-            className="mx-auto max-w-[1100px] px-11 pb-[72px] pt-[30px] animate-om-rise"
+            className="mx-auto w-full max-w-[1100px] px-4 pb-[72px] pt-[30px] animate-om-rise md:px-11"
           >
             {children}
           </div>

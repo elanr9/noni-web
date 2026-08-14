@@ -11,11 +11,14 @@ import { headers } from "next/headers";
 import {
   activateSubscription,
   applyStripeSubscription,
+  cancelStripeBudgetSubscription,
   chargeSavedCard,
   clearSubscription,
   companyCreatorCount,
+  ensureBudgetProduct,
   getBillingContext,
   getStripe,
+  IN_HOUSE_COMPANY_ID,
   mockActivateSubscription,
   mockBilling,
   mockTopUp,
@@ -24,7 +27,7 @@ import {
   PLAN_TIER_LABEL,
   planRenewalIso,
   readBillingRow,
-  recordTopUp,
+  recordCredit,
   runAutoTopUpCheck,
   signConnectState,
   STRIPE_NOT_CONFIGURED,
@@ -194,6 +197,7 @@ export async function cancelPlan(): Promise<BillingActionResult> {
     if (typeof subscriptionId === "string" && subscriptionId.startsWith("sub_")) {
       await stripe.subscriptions.cancel(subscriptionId);
     }
+    await cancelStripeBudgetSubscription(ctx.companyId);
   }
 
   const error = await clearSubscription(ctx.companyId);
@@ -202,13 +206,17 @@ export async function cancelPlan(): Promise<BillingActionResult> {
   return { ok: true };
 }
 
-/** Set limit modal: writes the monthly spend limit in whole dollars. */
-export async function setSpendLimit(dollars: number): Promise<BillingActionResult> {
+/** Monthly budget modal: the company prepays its creator budget. Live mode
+    creates (or resizes) a second Stripe subscription that charges $X every
+    month; the invoice.paid webhook converts each charge into +$X of credits.
+    Noni never fronts payouts. */
+export async function setMonthlyBudget(dollars: number): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
   if (!Number.isInteger(dollars) || dollars <= 0) {
-    return { ok: false, error: "The limit must be a positive dollar amount." };
+    return { ok: false, error: "The budget must be a positive dollar amount." };
   }
+  const amountCents = dollars * 100;
 
   if (ctx.mock) {
     mockBilling().monthlySpendLimit = dollars;
@@ -216,8 +224,100 @@ export async function setSpendLimit(dollars: number): Promise<BillingActionResul
     return { ok: true };
   }
 
+  /* FieldVision tests in house on a seeded credit balance: record the
+     budget number but never create a Stripe subscription or touch the
+     balance. */
+  if (ctx.companyId === IN_HOUSE_COMPANY_ID) {
+    const error = await writeBilling(ctx.companyId, {
+      monthly_budget_cents: amountCents,
+    });
+    if (error) return { ok: false, error };
+    refresh();
+    return { ok: true };
+  }
+
+  if (ctx.simulated) {
+    const error =
+      (await writeBilling(ctx.companyId, { monthly_budget_cents: amountCents })) ??
+      (await recordCredit(ctx.companyId, amountCents, "budget"));
+    if (error) return { ok: false, error };
+    refresh();
+    return { ok: true };
+  }
+
+  const stripe = getStripe();
+  if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
+  const row = await readBillingRow(ctx.companyId);
+  const customerId = row?.stripe_customer_id;
+  const planSubId = row?.stripe_subscription_id;
+  if (
+    row?.subscription_status !== "active" ||
+    typeof customerId !== "string" ||
+    typeof planSubId !== "string"
+  ) {
+    return {
+      ok: false,
+      error:
+        "Pick a plan first. The monthly budget is charged to the same card as your subscription.",
+    };
+  }
+
+  const budgetSubId = row.stripe_budget_subscription_id;
+  let createdSubId: string | null = null;
+  try {
+    if (typeof budgetSubId === "string" && budgetSubId.startsWith("sub_")) {
+      /* Resize the existing budget subscription. No proration: the new
+         amount simply applies from the next monthly charge. */
+      const budgetSub = await stripe.subscriptions.retrieve(budgetSubId);
+      const item = budgetSub.items.data[0];
+      if (!item) {
+        return { ok: false, error: "The budget subscription has no item." };
+      }
+      await stripe.subscriptions.update(budgetSubId, {
+        items: [{ id: item.id, quantity: dollars }],
+        proration_behavior: "none",
+      });
+    } else {
+      const planSub = await stripe.subscriptions.retrieve(planSubId);
+      const paymentMethod =
+        typeof planSub.default_payment_method === "string"
+          ? planSub.default_payment_method
+          : planSub.default_payment_method?.id;
+      if (!paymentMethod) {
+        return { ok: false, error: "No card on file for your subscription." };
+      }
+      const product = await ensureBudgetProduct(stripe);
+      /* $1-per-unit price with quantity = dollars, so resizing the budget
+         later is a quantity update instead of a new price. The creation
+         invoice is the first month's charge; error_if_incomplete surfaces
+         a declined card here instead of leaving a half-open subscription. */
+      const created = await stripe.subscriptions.create({
+        customer: customerId,
+        default_payment_method: paymentMethod,
+        payment_behavior: "error_if_incomplete",
+        items: [
+          {
+            price_data: {
+              currency: "usd",
+              product,
+              recurring: { interval: "month" },
+              unit_amount: 100,
+            },
+            quantity: dollars,
+          },
+        ],
+        metadata: { company_id: ctx.companyId, kind: "budget" },
+      });
+      createdSubId = created.id;
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "The charge failed.";
+    return { ok: false, error: `The budget could not be set: ${message}` };
+  }
+
   const error = await writeBilling(ctx.companyId, {
-    monthly_budget_cents: dollars * 100,
+    monthly_budget_cents: amountCents,
+    ...(createdSubId ? { stripe_budget_subscription_id: createdSubId } : {}),
   });
   if (error) return { ok: false, error };
   refresh();
@@ -245,7 +345,7 @@ export async function topUpCredit(dollars: number): Promise<BillingActionResult>
     if (chargeError) return { ok: false, error: chargeError };
   }
 
-  const error = await recordTopUp(ctx.companyId, amountCents);
+  const error = await recordCredit(ctx.companyId, amountCents, "topup");
   if (error) return { ok: false, error };
   refresh();
   return { ok: true };

@@ -47,6 +47,7 @@ interface ProfileRow {
   id: string;
   role: string | null;
   full_name: string | null;
+  onboarded: boolean | null;
   created_at: string;
 }
 
@@ -421,7 +422,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     supabase.from("companies").select("*").eq("id", companyId).maybeSingle(),
     supabase
       .from("profiles")
-      .select("id, role, full_name, created_at")
+      .select("id, role, full_name, onboarded, created_at")
       .eq("company_id", companyId),
     supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     supabase
@@ -652,7 +653,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
         role: "Campaign manager",
         name: profileNames.get(p.id) ?? "User",
         email: emailById.get(p.id) ?? "",
-        status: "Active",
+        status: p.onboarded ? "Active" : "Invite sent",
         joined: fmtLongDate(p.created_at),
       });
     } else if (p.role === "creator") {
@@ -662,7 +663,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
         role: "Creator",
         name: profileNames.get(p.id) ?? "User",
         email: emailById.get(p.id) ?? "",
-        status: "Active",
+        status: p.onboarded ? "Active" : "Invite sent",
         joined: fmtLongDate(p.created_at),
         posts: s?.posts ?? 0,
         viewsN: s?.views ?? 0,
@@ -686,7 +687,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       role: "Campaign manager",
       name: profileNames.get(p.id) ?? "User",
       email: emailById.get(p.id) ?? "",
-      status: "Active",
+      status: p.onboarded ? "Active" : "Invite sent",
       joined: fmtLongDate(p.created_at),
     });
   }
@@ -786,10 +787,13 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       ? "····" + rawAccountId.slice(-4).toUpperCase()
       : null,
     topUpHistory: creditRows
-      .filter((r) => r.kind === "topup" && r.amount_cents > 0)
+      .filter(
+        (r) => (r.kind === "topup" || r.kind === "budget") && r.amount_cents > 0,
+      )
       .map((r) => ({
         amt: Math.round(r.amount_cents / 100),
         date: fmtShortDate(r.created_at),
+        kind: r.kind === "budget" ? ("budget" as const) : ("topup" as const),
       })),
   };
 

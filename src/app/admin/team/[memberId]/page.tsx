@@ -31,6 +31,9 @@ export default async function MemberProfilePage({
       companyName={data.company.name}
       posts={posts}
       briefs={data.briefs}
+      canRemove={
+        member.role === "Campaign manager" && member.id !== profile?.id
+      }
     />
   );
 }
