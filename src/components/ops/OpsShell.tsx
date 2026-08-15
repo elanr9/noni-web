@@ -4,7 +4,6 @@ import {
   CircleUserRound,
   Gauge,
   LayoutGrid,
-  LogOut,
   Send,
   Users,
 } from "lucide-react";
@@ -21,10 +20,9 @@ import {
   type ReactNode,
 } from "react";
 
+import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { CommandSearch, type CommandItem } from "@/components/kit";
-import { Avatar } from "@/components/kit/Avatar";
 import type { Company, Invite, Person } from "@/lib/ops/types";
-import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
   { href: "/ops", label: "Overview", icon: Gauge },
@@ -185,13 +183,6 @@ export function OpsShell({
     [router, openUserProfile],
   );
 
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.replace("/login");
-    router.refresh();
-  }
-
   return (
     <OpsShellContext.Provider value={contextValue}>
       <div className="flex h-screen overflow-hidden bg-ground text-ink font-ops">
@@ -220,25 +211,8 @@ export function OpsShell({
               />
             ))}
           </nav>
-          <div className="mt-3 flex items-center gap-2.5 border-t border-line px-[9px] pt-3">
-            <Avatar name={name ?? "Noni"} size={32} />
-            <div className="min-w-0 flex-1">
-              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-bold text-ink">
-                {name ?? "Noni ops"}
-              </div>
-              <div className="text-[11.5px] font-semibold text-slate-400">
-                Noni admin
-              </div>
-            </div>
-            <button
-              type="button"
-              title="Sign out"
-              aria-label="Sign out"
-              onClick={() => void signOut()}
-              className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center border-none bg-transparent rounded-pill hover:bg-fill-quiet"
-            >
-              <LogOut size={15} className="text-slate-400" />
-            </button>
+          <div className="mt-3 border-t border-line">
+            <AccountSwitcher name={name ?? "Noni ops"} subtitle="Noni admin" />
           </div>
         </aside>
         <main className="flex min-w-0 flex-1 flex-col">

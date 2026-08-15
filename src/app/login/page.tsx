@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 function LoginForm() {
   const params = useSearchParams();
-  const next = params.get("next") ?? "/admin";
+  const next = params.get("next") ?? "/dash";
   const authError =
     params.get("error") === "auth"
       ? params.get("error_description") ||

@@ -5,6 +5,7 @@ type Search = Promise<{
   code?: string;
   next?: string;
   app?: string;
+  add?: string;
   sb_flow_id?: string;
 }>;
 
@@ -24,8 +25,9 @@ export default async function AuthCallbackPage({
   return (
     <AuthCallbackClient
       code={params.code ?? null}
-      next={params.next ?? "/admin"}
+      next={params.next ?? "/dash"}
       flowId={params.sb_flow_id ?? null}
+      forceNew={params.add === "1"}
     />
   );
 }

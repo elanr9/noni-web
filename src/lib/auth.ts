@@ -61,8 +61,12 @@ export function isCompanyAdmin(profile: Profile | null): boolean {
   return profile?.role === "company_admin";
 }
 
-// The web dashboard is for the company admin (and the platform account).
-// Campaign managers and creators live in the iOS app.
+export function isCampaignManager(profile: Profile | null): boolean {
+  return profile?.role === "campaign_manager";
+}
+
+// The web dashboards serve company admins (/admin), campaign managers
+// (/manager), and the platform account (/ops). Creators live in the iOS app.
 export function canUseWebDashboard(profile: Profile | null): boolean {
   return isCompanyAdmin(profile) || isPlatformAdmin(profile);
 }

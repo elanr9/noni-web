@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
+import { rememberCurrentAccount } from "@/lib/accounts";
+
 /** Survives React Strict Mode remounts in the same page load. */
 const handledCodes = new Set<string>();
 
@@ -11,10 +13,13 @@ export function AuthCallbackClient({
   code,
   next,
   flowId,
+  forceNew = false,
 }: {
   code: string | null;
   next: string;
   flowId: string | null;
+  /** Add-account flow: exchange even when a session already exists. */
+  forceNew?: boolean;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState("Signing you in…");
@@ -22,8 +27,13 @@ export function AuthCallbackClient({
   useEffect(() => {
     let cancelled = false;
 
-    async function finish(path: string) {
+    async function finish(
+      path: string,
+      supabase?: ReturnType<typeof createBrowserClient>,
+    ) {
       if (cancelled) return;
+      /* Remember this account so the sidebar switcher can offer it later. */
+      if (supabase) await rememberCurrentAccount(supabase).catch(() => null);
       setMessage("Signed in. Redirecting…");
       router.replace(path);
       router.refresh();
@@ -39,7 +49,7 @@ export function AuthCallbackClient({
     }
 
     async function run() {
-      const safeNext = next.startsWith("/") ? next : "/admin";
+      const safeNext = next.startsWith("/") ? next : "/dash";
       if (!code) {
         await fail("Missing auth code.");
         return;
@@ -60,9 +70,9 @@ export function AuthCallbackClient({
       const {
         data: { session: existing },
       } = await supabase.auth.getSession();
-      if (existing) {
+      if (existing && !(forceNew && !handledCodes.has(code))) {
         handledCodes.add(code);
-        await finish(safeNext);
+        await finish(safeNext, supabase);
         return;
       }
 
@@ -73,7 +83,7 @@ export function AuthCallbackClient({
             data: { session },
           } = await supabase.auth.getSession();
           if (session) {
-            await finish(safeNext);
+            await finish(safeNext, supabase);
             return;
           }
           await new Promise((r) => setTimeout(r, 50));
@@ -96,7 +106,7 @@ export function AuthCallbackClient({
           data: { session },
         } = await supabase.auth.getSession();
         if (session) {
-          await finish(safeNext);
+          await finish(safeNext, supabase);
           return;
         }
         handledCodes.delete(code);
@@ -104,14 +114,14 @@ export function AuthCallbackClient({
         return;
       }
 
-      await finish(safeNext);
+      await finish(safeNext, supabase);
     }
 
     void run();
     return () => {
       cancelled = true;
     };
-  }, [code, flowId, next, router]);
+  }, [code, flowId, next, router, forceNew]);
 
   return (
     <div className="grid min-h-screen place-items-center bg-soft text-[15px] text-muted">

@@ -208,13 +208,13 @@ export function TeamView({
     <div>
       <PageHead
         title="Team"
-        sub={`Everyone on ${companyName}. Invites land by email; Noni knows their role the moment they sign in.`}
+        sub={`Everyone on ${companyName}. A company admin can also be a campaign manager and a creator. Campaign managers can be creators too.`}
       />
       <div className="flex flex-col gap-3.5">
         <div data-tour="team-managers">
           <TeamSection
             label="Campaign managers"
-            hint="They run weekly briefs and keep creators on pace."
+            hint="They run weekly briefs and keep creators on pace. Company admins can be campaign managers too."
             people={managers}
             inviteLabel="Invite manager"
             onInvite={() => setInviting("Campaign manager")}
@@ -254,7 +254,7 @@ export function TeamView({
         <div data-tour="team-creators">
           <TeamSection
             label="Creators"
-            hint="They record. Their first tasks are waiting when they sign in."
+            hint="They record. Company admins and campaign managers can be creators too."
             people={creators}
             inviteLabel="Invite creator"
             onInvite={() => setInviting("Creator")}

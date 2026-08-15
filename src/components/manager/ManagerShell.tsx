@@ -1,13 +1,12 @@
 "use client";
 
 import {
+  CalendarDays,
   ChartColumn,
   CircleUserRound,
-  DollarSign,
-  House,
-  Images,
+  FolderOpen,
+  ListChecks,
   Menu,
-  Sparkles,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -23,38 +22,29 @@ interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  tour: string;
 }
 
 const NAV_SECTIONS: ReadonlyArray<{ label: string; items: NavItem[] }> = [
   {
     label: "Workspace",
     items: [
-      { href: "/admin", label: "Onboarding", icon: House, tour: "nav-onboarding" },
-      { href: "/admin/analytics", label: "Analytics", icon: ChartColumn, tour: "nav-analytics" },
-      { href: "/admin/team", label: "Team", icon: Users, tour: "nav-team" },
-      { href: "/admin/posts", label: "Posts", icon: Images, tour: "nav-posts" },
-    ],
-  },
-  {
-    label: "Company",
-    items: [
-      { href: "/admin/brain", label: "Company Brain", icon: Sparkles, tour: "nav-brain" },
-      { href: "/admin/billing", label: "Billing", icon: DollarSign, tour: "nav-billing" },
+      { href: "/manager", label: "Review", icon: ListChecks },
+      { href: "/manager/briefs", label: "Briefs", icon: CalendarDays },
+      { href: "/manager/creators", label: "Creators", icon: Users },
+      { href: "/manager/library", label: "Library", icon: FolderOpen },
+      { href: "/manager/analytics", label: "Analytics", icon: ChartColumn },
     ],
   },
 ];
 
-/* ⌘K reaches every page and team member. Person hits open the member's
-   profile page. */
-export interface AdminSearchPerson {
+/* ⌘K reaches every page and creator, same behavior as the admin shell. */
+export interface ManagerSearchPerson {
   id: string;
   name: string;
-  role: string;
   status: string;
 }
 
-interface AdminSearchEntry extends CommandItem {
+interface ManagerSearchEntry extends CommandItem {
   href: string;
 }
 
@@ -73,7 +63,6 @@ function SideItem({
   return (
     <Link
       href={item.href}
-      data-tour={item.tour}
       onClick={onNavigate}
       className={`flex w-full items-center gap-[11px] px-[11px] py-[9px] text-[13.5px] font-bold transition-colors duration-[160ms] ease-om rounded-[11px] ${
         active ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-fill-quiet"
@@ -94,59 +83,54 @@ function SideItem({
   );
 }
 
-export function AdminShell({
+export function ManagerShell({
   children,
   companyName,
   name,
   people,
-  setupRemaining,
-  setupComplete,
+  reviewCount,
 }: {
   children: ReactNode;
   companyName: string;
   name?: string | null;
-  people: AdminSearchPerson[];
-  /** Setup steps left; badge on the Onboarding nav item. */
-  setupRemaining: number;
-  /** True retires the Onboarding tab from nav and search. */
-  setupComplete: boolean;
+  people: ManagerSearchPerson[];
+  /** Items waiting in the review queues; badge on the Review nav item. */
+  reviewCount: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const searchIndex = useMemo<AdminSearchEntry[]>(
+  const searchIndex = useMemo<ManagerSearchEntry[]>(
     () => [
       ...NAV_SECTIONS.flatMap((section) =>
-        section.items
-          .filter((it) => it.label !== "Onboarding" || !setupComplete)
-          .map(
-            (it): AdminSearchEntry => ({
-              id: "nav-" + it.href,
-              section: "Go to",
-              icon: it.icon,
-              title: it.label,
-              meta: section.label,
-              href: it.href,
-            }),
-          ),
+        section.items.map(
+          (it): ManagerSearchEntry => ({
+            id: "nav-" + it.href,
+            section: "Go to",
+            icon: it.icon,
+            title: it.label,
+            meta: section.label,
+            href: it.href,
+          }),
+        ),
       ),
       ...people.map(
-        (p): AdminSearchEntry => ({
+        (p): ManagerSearchEntry => ({
           id: "pe-" + p.id,
-          section: "Team",
+          section: "Creators",
           icon: CircleUserRound,
           title: p.name,
-          meta: `${p.role} · ${p.status}`,
-          href: `/admin/team/${p.id}`,
+          meta: p.status,
+          href: `/manager/creators/${p.id}`,
         }),
       ),
     ],
-    [people, setupComplete],
+    [people],
   );
 
   const onSearchSelect = useCallback(
-    (item: AdminSearchEntry) => router.push(item.href),
+    (item: ManagerSearchEntry) => router.push(item.href),
     [router],
   );
 
@@ -165,38 +149,37 @@ export function AdminShell({
         </span>
       </div>
       <nav className="scrollbar-none flex flex-1 flex-col gap-5 overflow-y-auto pt-3.5">
-        {NAV_SECTIONS.map((section) => {
-          const items = section.items.filter(
-            (it) => it.label !== "Onboarding" || !setupComplete,
-          );
-          return (
-            <div key={section.label} className="flex flex-col gap-0.5">
-              <span className="px-[11px] pb-1.5 text-[11px] font-extrabold uppercase tracking-[0.9px] text-slate-400">
-                {section.label}
-              </span>
-              {items.map((it) => (
-                <SideItem
-                  key={it.href}
-                  item={it}
-                  active={
-                    it.href === "/admin"
-                      ? pathname === "/admin"
-                      : pathname.startsWith(it.href)
-                  }
-                  badge={
-                    it.label === "Onboarding" && setupRemaining > 0
-                      ? setupRemaining
-                      : undefined
-                  }
-                  onNavigate={() => setDrawerOpen(false)}
-                />
-              ))}
-            </div>
-          );
-        })}
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label} className="flex flex-col gap-0.5">
+            <span className="px-[11px] pb-1.5 text-[11px] font-extrabold uppercase tracking-[0.9px] text-slate-400">
+              {section.label}
+            </span>
+            {section.items.map((it) => (
+              <SideItem
+                key={it.href}
+                item={it}
+                active={
+                  it.href === "/manager"
+                    ? pathname === "/manager" ||
+                      pathname.startsWith("/manager/review")
+                    : pathname.startsWith(it.href)
+                }
+                badge={
+                  it.label === "Review" && reviewCount > 0
+                    ? reviewCount
+                    : undefined
+                }
+                onNavigate={() => setDrawerOpen(false)}
+              />
+            ))}
+          </div>
+        ))}
       </nav>
       <div className="mt-3 border-t border-line">
-        <AccountSwitcher name={name ?? "Admin"} subtitle="Company admin" />
+        <AccountSwitcher
+          name={name ?? "Campaign manager"}
+          subtitle="Campaign manager"
+        />
       </div>
     </>
   );
@@ -231,14 +214,14 @@ export function AdminShell({
           >
             <Menu size={18} className="text-slate-500" />
           </button>
-          <div data-tour="search" className="flex w-full max-w-[560px] justify-center">
+          <div className="flex w-full max-w-[560px] justify-center">
             <CommandSearch index={searchIndex} onSelect={onSearchSelect} />
           </div>
         </div>
         <div className="scrollbar-none flex-1 overflow-y-auto">
           <div
             key={pathname}
-            className="mx-auto w-full max-w-[1100px] px-4 pb-[72px] pt-[30px] animate-om-rise md:px-11"
+            className="mx-auto w-full max-w-[1100px] px-4 pb-[72px] pt-[24px] animate-om-rise md:px-11 md:pt-[30px]"
           >
             {children}
           </div>

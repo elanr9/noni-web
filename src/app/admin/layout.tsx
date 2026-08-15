@@ -7,6 +7,7 @@ import { TourHost } from "@/components/admin/tour/TourHost";
 import {
   canUseWebDashboard,
   getSessionProfile,
+  isCampaignManager,
   isCompanyAdmin,
   isPlatformAdmin,
 } from "@/lib/auth";
@@ -30,6 +31,8 @@ export default async function AdminLayout({
     /* The noni platform account runs the ops console, not the company
        dashboard. It has no company here, so /admin is always wrong for it. */
     if (isPlatformAdmin(profile)) redirect("/ops");
+    /* Campaign managers get their own dashboard. */
+    if (isCampaignManager(profile)) redirect("/manager");
     /* Company admins run this dashboard; everyone else gets a friendly gate. */
     if (!canUseWebDashboard(profile)) {
       return (
@@ -39,9 +42,9 @@ export default async function AdminLayout({
               Company admins only
             </h1>
             <p className="mt-3 text-[15px] text-muted">
-              This account is signed in but is not a company admin. Campaign
-              managers and creators run their work from the Noni app. If you
-              should have admin access, ask your company admin for an invite.
+              This account is signed in but is not a company admin. Creators
+              run their work from the Noni app. If you should have admin
+              access, ask your company admin for an invite.
             </p>
             <Link
               href="/"
