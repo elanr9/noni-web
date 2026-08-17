@@ -414,6 +414,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     sourceAccountsRes,
     briefsRes,
     companyMembersRes,
+    creatorWalletsRes,
     featuresRes,
     featureScreenshotsRes,
     briefTemplatesRes,
@@ -490,6 +491,12 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       .from("company_members")
       .select("profile_id")
       .eq("company_id", companyId),
+    /* A wallet row only exists once someone has used the creator side of
+       the mobile app, so it marks admins/managers who also record. */
+    supabase
+      .from("creator_wallets")
+      .select("creator_id")
+      .eq("company_id", companyId),
     supabase
       .from("brain_features")
       .select(
@@ -541,6 +548,9 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
   const briefRows = (briefsRes.data ?? []) as BriefRow[];
   const companyMemberRows = (companyMembersRes.data ?? []) as Array<{
     profile_id: string;
+  }>;
+  const creatorWalletRows = (creatorWalletsRes.data ?? []) as Array<{
+    creator_id: string;
   }>;
   const featureRows = (featuresRes.data ?? []) as Array<{
     id: string;
@@ -692,6 +702,26 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       email: emailById.get(p.id) ?? "",
       status: p.onboarded ? "Active" : "Invite sent",
       joined: fmtLongDate(p.created_at),
+    });
+  }
+
+  /* Dual-role members: admins and campaign managers who also record show
+     in the creators list too. */
+  const creatorWalletIds = new Set(creatorWalletRows.map((r) => r.creator_id));
+  for (const p of profileRows) {
+    if (p.role !== "campaign_manager" && p.role !== "company_admin") continue;
+    if (!creatorWalletIds.has(p.id)) continue;
+    const s = statsByCreator.get(p.id);
+    creators.push({
+      id: p.id,
+      role: "Creator",
+      name: profileNames.get(p.id) ?? "User",
+      email: emailById.get(p.id) ?? "",
+      status: p.onboarded ? "Active" : "Invite sent",
+      joined: fmtLongDate(p.created_at),
+      posts: s?.posts ?? 0,
+      viewsN: s?.views ?? 0,
+      earned: s?.earned ?? 0,
     });
   }
 
