@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getSessionProfile, isCampaignManager } from "@/lib/auth";
+import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -30,7 +30,7 @@ export async function reviewPost(input: {
   }
 
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !isCampaignManager(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
   const companyId = profile.company_id;

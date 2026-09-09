@@ -65,6 +65,12 @@ export function isCampaignManager(profile: Profile | null): boolean {
   return profile?.role === "campaign_manager";
 }
 
+// Guards the /manager mutations: campaign managers, plus company admins
+// who work that dashboard too (admins hold every permission implicitly).
+export function canManageCampaigns(profile: Profile | null): boolean {
+  return isCampaignManager(profile) || isCompanyAdmin(profile);
+}
+
 // The web dashboards serve company admins (/admin), campaign managers
 // (/manager), and the platform account (/ops). Creators live in the iOS app.
 export function canUseWebDashboard(profile: Profile | null): boolean {

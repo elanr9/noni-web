@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getSessionProfile, isCampaignManager } from "@/lib/auth";
+import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
 import { callEdgeFunction, type InviteResponse } from "@/lib/edge";
 import { getManagerContext } from "@/lib/manager/context";
 import { signedMediaUrl } from "@/lib/manager/storage";
@@ -25,7 +25,7 @@ export async function sendCreatorInvite(input: {
   if (!email) return { ok: false, error: "Email is required." };
 
   const { profile } = await getSessionProfile();
-  if (!isCampaignManager(profile)) {
+  if (!canManageCampaigns(profile)) {
     return { ok: false, error: "Campaign managers only." };
   }
   const companyId = profile?.company_id;
@@ -64,7 +64,7 @@ export async function sendCreatorInvite(input: {
 export async function signChatMedia(path: string): Promise<string | null> {
   if (!path) return null;
   const { profile } = await getSessionProfile();
-  if (!isCampaignManager(profile) || !profile?.company_id) return null;
+  if (!canManageCampaigns(profile) || !profile?.company_id) return null;
   /* Chat media paths are minted as {companyId}/chat/{creatorId}/... by the
      apps; refuse to sign anything outside this manager's company. */
   if (!path.startsWith(`${profile.company_id}/`)) return null;

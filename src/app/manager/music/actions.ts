@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getSessionProfile, isCampaignManager } from "@/lib/auth";
+import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -19,7 +19,7 @@ export async function approveMusicAction(
   assignmentId: string,
 ): Promise<MusicActionResult> {
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !isCampaignManager(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
   const service = createServiceClient();
@@ -54,7 +54,7 @@ export async function requestMusicChangesAction(input: {
   note: string | null;
 }): Promise<MusicActionResult> {
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !isCampaignManager(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
   const service = createServiceClient();

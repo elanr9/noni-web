@@ -20,7 +20,7 @@ import {
   type TalkingPoint,
   type WeekPostItem,
 } from "@/components/manager/briefs/lib";
-import { getSessionProfile, isCampaignManager } from "@/lib/auth";
+import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import {
   listPostTypes,
@@ -44,7 +44,7 @@ type Gate =
 
 async function requireManager(): Promise<Gate> {
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !isCampaignManager(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
   return { ok: true, userId, companyId: profile.company_id };

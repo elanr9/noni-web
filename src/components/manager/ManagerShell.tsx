@@ -89,6 +89,8 @@ export function ManagerShell({
   name,
   people,
   reviewCount,
+  roleLabel = "Campaign manager",
+  dualRole = false,
 }: {
   children: ReactNode;
   companyName: string;
@@ -96,6 +98,10 @@ export function ManagerShell({
   people: ManagerSearchPerson[];
   /** Items waiting in the review queues; badge on the Review nav item. */
   reviewCount: number;
+  /** Footer subtitle; "Company admin" when an admin runs this dashboard. */
+  roleLabel?: string;
+  /** Company admin who is also a campaign manager: offer version cards. */
+  dualRole?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -177,8 +183,9 @@ export function ManagerShell({
       </nav>
       <div className="mt-3 border-t border-line">
         <AccountSwitcher
-          name={name ?? "Campaign manager"}
-          subtitle="Campaign manager"
+          name={name ?? roleLabel}
+          subtitle={roleLabel}
+          modes={dualRole ? { active: "manager" } : undefined}
         />
       </div>
     </>

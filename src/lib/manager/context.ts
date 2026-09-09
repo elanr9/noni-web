@@ -5,17 +5,23 @@ import {
   parseManagerAccess,
   type ManagerAccess,
 } from "@/lib/admin/types";
+import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /* Shared context for every /manager page: which company the signed-in
-   campaign manager works for and which extras the company admin has
-   unlocked (companies.settings.manager_access). The role gate itself runs
-   in src/app/manager/layout.tsx before any of this. */
+   manager works for and which extras the company admin has unlocked
+   (companies.settings.manager_access). The role gate itself runs in
+   src/app/manager/layout.tsx before any of this. A company admin whose
+   company marked them as also a campaign manager (self_is_manager from
+   onboarding) uses these pages too and implicitly holds every access
+   flag, mirroring has_permission(). */
 
 export interface ManagerContext {
   companyId: string;
   companyName: string;
   access: ManagerAccess;
+  /** The admin said they run campaigns themselves during onboarding. */
+  selfIsManager: boolean;
 }
 
 /* Creators in this company, for the shell's command search. */
@@ -74,18 +80,25 @@ export const countReviewQueue = cache(
 export const getManagerContext = cache(
   async (companyId: string): Promise<ManagerContext> => {
     const supabase = createServiceClient();
-    const { data } = await supabase
-      .from("companies")
-      .select("id, name, settings")
-      .eq("id", companyId)
-      .maybeSingle();
+    const [{ data }, { profile }] = await Promise.all([
+      supabase
+        .from("companies")
+        .select("id, name, settings, self_is_manager")
+        .eq("id", companyId)
+        .maybeSingle(),
+      getSessionProfile(),
+    ]);
 
+    const adminViewer = isCompanyAdmin(profile);
     return {
       companyId,
       companyName: (data?.name as string | null) ?? "Your company",
-      access: data
-        ? parseManagerAccess(data.settings)
-        : DEFAULT_MANAGER_ACCESS,
+      access: adminViewer
+        ? { viewFinancials: true, viewSignups: true, inviteCreators: true }
+        : data
+          ? parseManagerAccess(data.settings)
+          : DEFAULT_MANAGER_ACCESS,
+      selfIsManager: data?.self_is_manager === true,
     };
   },
 );

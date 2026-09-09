@@ -73,6 +73,7 @@ export default async function AdminLayout({
       people={people}
       setupRemaining={setup.remaining}
       setupComplete={setup.complete}
+      dualRole={data.company.onboarding.selfIsManager}
     >
       {children}
       <TourHost />

@@ -10,7 +10,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getSessionProfile, isCampaignManager } from "@/lib/auth";
+import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -26,7 +26,7 @@ function isCaptureUrl(raw: string): boolean {
 
 export async function captureLibraryItem(raw: string): Promise<CaptureResult> {
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !isCampaignManager(profile)) {
+  if (!userId || !canManageCampaigns(profile)) {
     return { ok: false, error: "Campaign managers only." };
   }
   const companyId = profile?.company_id;

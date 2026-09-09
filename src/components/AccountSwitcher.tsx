@@ -1,6 +1,14 @@
 "use client";
 
-import { Check, ChevronsUpDown, LogOut, Plus } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronsUpDown,
+  LogOut,
+  Plus,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/kit/Avatar";
@@ -15,16 +23,33 @@ import {
 } from "@/lib/accounts";
 import { createClient } from "@/lib/supabase/client";
 
+export type DashboardMode = "admin" | "manager";
+
+const MODE_CARDS: Array<{
+  mode: DashboardMode;
+  title: string;
+  icon: typeof ShieldCheck;
+  href: string;
+}> = [
+  { mode: "admin", title: "Company admin", icon: ShieldCheck, href: "/admin" },
+  { mode: "manager", title: "Campaign manager", icon: Users, href: "/manager" },
+];
+
 /* Sidebar footer for every web shell (ops, admin, manager): shows who is
    signed in and opens a popover to swap between remembered admin and
    campaign manager accounts, add another one, or sign out. Creator
-   accounts never appear; they live in the iOS app. */
+   accounts never appear; they live in the iOS app. When the signed-in
+   account is a company admin who also runs campaigns (modes set), a This
+   account section switches between the admin and campaign manager
+   versions, mirroring the mobile switcher sheet. */
 export function AccountSwitcher({
   name,
   subtitle,
+  modes,
 }: {
   name: string;
   subtitle: string;
+  modes?: { active: DashboardMode };
 }) {
   const [open, setOpen] = useState(false);
   const [accounts, setAccounts] = useState<StoredAccount[]>([]);
@@ -115,6 +140,47 @@ export function AccountSwitcher({
     <div ref={rootRef} className="relative">
       {open ? (
         <div className="absolute bottom-full left-0 right-0 z-50 mb-2 rounded-[16px] border border-line bg-white p-2 shadow-lg animate-om-pop">
+          {modes ? (
+            <div className="mb-1.5 border-b border-line pb-1.5">
+              <span className="block px-2.5 pb-1.5 pt-1 text-[11px] font-extrabold uppercase tracking-[0.9px] text-slate-400">
+                This account
+              </span>
+              <div className="flex flex-col gap-0.5">
+                {MODE_CARDS.map((card) => {
+                  const active = card.mode === modes.active;
+                  const Icon = card.icon;
+                  return (
+                    <a
+                      key={card.mode}
+                      href={active ? undefined : card.href}
+                      aria-current={active ? "true" : undefined}
+                      onClick={active ? () => setOpen(false) : undefined}
+                      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-[11px] px-2.5 py-2 text-left no-underline transition-colors duration-[160ms] ease-om ${
+                        active ? "bg-blue-100" : "hover:bg-fill-quiet"
+                      }`}
+                    >
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-pill bg-white shadow-sm">
+                        <Icon
+                          size={14}
+                          className={active ? "text-blue-700" : "text-slate-500"}
+                        />
+                      </span>
+                      <span className="min-w-0 flex-1 text-[12.5px] font-bold text-ink">
+                        {card.title}
+                      </span>
+                      {active ? (
+                        <span className="rounded-pill bg-white px-2 py-0.5 text-[10.5px] font-extrabold text-blue-700">
+                          Using
+                        </span>
+                      ) : (
+                        <ArrowRight size={14} className="shrink-0 text-slate-400" />
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <span className="block px-2.5 pb-1.5 pt-1 text-[11px] font-extrabold uppercase tracking-[0.9px] text-slate-400">
             Accounts
           </span>

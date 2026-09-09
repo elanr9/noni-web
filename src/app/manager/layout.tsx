@@ -22,8 +22,11 @@ export default async function ManagerLayout({
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login?next=/manager");
   if (isPlatformAdmin(profile)) redirect("/ops");
-  if (isCompanyAdmin(profile)) redirect("/admin");
-  if (!isCampaignManager(profile) || !profile?.company_id) {
+  const adminViewer = isCompanyAdmin(profile);
+  if (
+    !profile?.company_id ||
+    (!adminViewer && !isCampaignManager(profile))
+  ) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-soft px-5">
         <div className="max-w-md rounded-[28px] border border-line bg-white p-8 text-center shadow-sm">
@@ -52,12 +55,19 @@ export default async function ManagerLayout({
     countReviewQueue(profile.company_id),
   ]);
 
+  /* A company admin works this dashboard only when onboarding said they
+     also run campaigns themselves; they switch versions from the sidebar
+     footer. Other admins belong on /admin. */
+  if (adminViewer && !context.selfIsManager) redirect("/admin");
+
   return (
     <ManagerShell
       companyName={context.companyName}
       name={profile.full_name}
       people={people}
       reviewCount={reviewCount}
+      roleLabel={adminViewer ? "Company admin" : "Campaign manager"}
+      dualRole={adminViewer && context.selfIsManager}
     >
       {children}
     </ManagerShell>

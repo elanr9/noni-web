@@ -101,6 +101,7 @@ export function AdminShell({
   people,
   setupRemaining,
   setupComplete,
+  dualRole = false,
 }: {
   children: ReactNode;
   companyName: string;
@@ -110,6 +111,8 @@ export function AdminShell({
   setupRemaining: number;
   /** True retires the Onboarding tab from nav and search. */
   setupComplete: boolean;
+  /** Admin who is also a campaign manager: offer version cards. */
+  dualRole?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -196,7 +199,11 @@ export function AdminShell({
         })}
       </nav>
       <div className="mt-3 border-t border-line">
-        <AccountSwitcher name={name ?? "Admin"} subtitle="Company admin" />
+        <AccountSwitcher
+          name={name ?? "Admin"}
+          subtitle="Company admin"
+          modes={dualRole ? { active: "admin" } : undefined}
+        />
       </div>
     </>
   );
