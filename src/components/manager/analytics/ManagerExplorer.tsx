@@ -38,7 +38,7 @@ type SortMode = (typeof SORTS)[number];
 
 const ALL_FORMATS = "All formats";
 const ALL_CREATORS = "All creators";
-const FORMAT_LABELS = ["Video", "Carousel"] as const;
+const FORMAT_LABELS = ["Reel", "Slideshow"] as const;
 
 interface CreatorRank {
   id: string;
@@ -224,7 +224,7 @@ export function ManagerExplorer({
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {topPosts.map((q) => {
-                  const Icon = q.format === "Video" ? Play : Images;
+                  const Icon = q.format === "Reel" ? Play : Images;
                   const money = showFinancials && moneyOn(gate, q.day);
                   return (
                     <div

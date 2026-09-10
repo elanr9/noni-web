@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { WeekSetupView } from "@/components/manager/briefs/WeekSetupView";
 import { getSessionProfile } from "@/lib/auth";
 import { listCampaigns } from "@/lib/manager/briefs";
@@ -7,7 +8,8 @@ import { listCampaigns } from "@/lib/manager/briefs";
    targets. Ported from the mobile week-setup screen. */
 export default async function WeekSetupPage() {
   const { profile } = await getSessionProfile();
-  const companyId = profile?.company_id ?? "";
+  if (!profile?.company_id) redirect("/login?next=/manager");
+  const companyId = profile.company_id;
   const campaigns = await listCampaigns(companyId);
 
   return <WeekSetupView weekNumber={campaigns.length + 1} />;

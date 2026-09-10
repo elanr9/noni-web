@@ -6,12 +6,14 @@
    the company admin has not unlocked are omitted entirely: sign-ups need
    viewSignups, anything in dollars needs viewFinancials, and dollars also
    start on the Stripe connect day (mobile analytics.tsx semantics). */
-import { CalendarDays, ChartColumn } from "lucide-react";
+import { CalendarDays, ChartColumn, ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
-import { Card, PageHead } from "@/components/kit";
+import { Avatar, Card, PageHead } from "@/components/kit";
 import type { ManagerAccess } from "@/lib/admin/types";
+import type { ApprovedCreator } from "@/lib/manager/analytics";
 
 import {
   fmtViews,
@@ -60,12 +62,42 @@ function ModeToggle({
   );
 }
 
+/* Mobile CreatorsPill: avatar stack of the first three approved creators,
+   "{n} creators", opens the Creators list. */
+function CreatorsPill({ creators }: { creators: ApprovedCreator[] }) {
+  const shown = creators.slice(0, 3);
+  return (
+    <Link
+      href="/manager/creators"
+      aria-label={`${creators.length} creators`}
+      className="mb-3.5 inline-flex h-[38px] items-center gap-1.5 border border-line bg-white pl-1.5 pr-3 shadow-card rounded-pill transition-colors duration-[160ms] ease-om hover:bg-fill-quiet"
+    >
+      {shown.length > 0 ? (
+        <span className="flex items-center">
+          {shown.map((c, i) => (
+            <span
+              key={c.id}
+              className={`inline-flex rounded-pill border-2 border-white ${i > 0 ? "-ml-2" : ""}`}
+            >
+              <Avatar name={c.name} size={26} />
+            </span>
+          ))}
+        </span>
+      ) : null}
+      <span className="text-[13px] font-bold text-ink">{creators.length} creators</span>
+      <ChevronRight size={14} className="text-slate-400" />
+    </Link>
+  );
+}
+
 export function ManagerAnalyticsView({
   data,
   access,
+  approvedCreators,
 }: {
   data: ManagerAnalytics;
   access: ManagerAccess;
+  approvedCreators: ApprovedCreator[];
 }) {
   const [mode, setMode] = useState<ViewMode>("Graph");
   const { posts, days, totals, payouts, gate } = data;
@@ -94,7 +126,7 @@ export function ManagerAnalyticsView({
     ...(showSignups
       ? [
           {
-            label: "Sign-ups attributed",
+            label: "Sign-ups",
             value: totals.signups.toLocaleString("en-US"),
             delta: pct(totals.signupsDeltaPct),
           },
@@ -103,7 +135,7 @@ export function ManagerAnalyticsView({
     ...(showFinancials
       ? [
           {
-            label: "Paid to creators",
+            label: "Paid out",
             value:
               gate.connectedDay !== null ? formatMoney(paidOutCents) : "Not tracked",
             delta: gate.sinceLabel !== null ? `since ${gate.sinceLabel}` : "",
@@ -128,6 +160,7 @@ export function ManagerAnalyticsView({
         </Card>
       ) : (
         <>
+          <CreatorsPill creators={approvedCreators} />
           <Card pad={22} className="mb-3.5 flex flex-wrap gap-[18px]">
             {stats.map((s) => (
               <span key={s.label} className="min-w-[140px] flex-1">

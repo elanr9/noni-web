@@ -1,6 +1,6 @@
 "use client";
 
-import { Link2, Send } from "lucide-react";
+import { Bell, Link2, Send, VolumeX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   useCallback,
@@ -177,6 +177,7 @@ export function ChatThread({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [muted, setMuted] = useState(false);
   /* Signed URL per media path; undefined while signing. */
   const [mediaUrls, setMediaUrls] = useState<Map<string, string | null>>(
     new Map(),
@@ -205,14 +206,37 @@ export function ChatThread({
     }));
   }, [supabase, companyId, creatorId]);
 
+  /* Same row mobile markCreatorThreadRead writes (message_reads keyed on
+     creator_id + profile_id), so the app's unread badges clear too. */
+  const markRead = useCallback(() => {
+    void supabase.from("message_reads").upsert({
+      company_id: companyId,
+      creator_id: creatorId,
+      profile_id: meId,
+      last_read_at: new Date().toISOString(),
+    });
+  }, [supabase, companyId, creatorId, meId]);
+
   useEffect(() => {
     let cancelled = false;
     const apply = (rows: ThreadMessage[] | null) => {
       if (cancelled) return;
-      if (rows) setMessages(rows);
+      if (rows) {
+        setMessages(rows);
+        markRead();
+      }
       setLoading(false);
     };
     fetchThread().then(apply, () => apply(null));
+    void supabase
+      .from("chat_mutes")
+      .select("creator_id")
+      .eq("creator_id", creatorId)
+      .eq("profile_id", meId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setMuted(data !== null);
+      });
     const channel = supabase
       .channel(`manager-chat-${creatorId}`)
       .on(
@@ -230,7 +254,24 @@ export function ChatThread({
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [supabase, creatorId, fetchThread]);
+  }, [supabase, creatorId, meId, fetchThread, markRead]);
+
+  const toggleMuted = async () => {
+    const next = !muted;
+    setMuted(next);
+    const { error: muteError } = next
+      ? await supabase.from("chat_mutes").insert({
+          creator_id: creatorId,
+          profile_id: meId,
+          company_id: companyId,
+        })
+      : await supabase
+          .from("chat_mutes")
+          .delete()
+          .eq("creator_id", creatorId)
+          .eq("profile_id", meId);
+    if (muteError && muteError.code !== "23505") setMuted(!next);
+  };
 
   /* Sign chat media paths as they appear in the thread. */
   useEffect(() => {
@@ -268,7 +309,11 @@ export function ChatThread({
     }
     /* Mirrors mobile: notify routes to the creator's device. */
     void supabase.functions.invoke("notify", {
-      body: { creator_id: creatorId, event: "message" },
+      body: {
+        creator_id: creatorId,
+        event: "message",
+        preview: body.slice(0, 120),
+      },
     });
     setDraft("");
     setSending(false);
@@ -287,6 +332,21 @@ export function ChatThread({
             <CreatorAvatar name={creatorName} url={creatorAvatarUrl} size={36} />
             {creatorName}
           </span>
+        }
+        right={
+          <button
+            type="button"
+            aria-label={muted ? "Unmute notifications" : "Mute notifications"}
+            aria-pressed={muted}
+            onClick={() => void toggleMuted()}
+            className="inline-flex h-9 w-9 cursor-pointer items-center justify-center border-none bg-white shadow-card rounded-pill"
+          >
+            {muted ? (
+              <VolumeX size={18} className="text-slate-400" />
+            ) : (
+              <Bell size={18} className="text-ink" />
+            )}
+          </button>
         }
       />
       <Card

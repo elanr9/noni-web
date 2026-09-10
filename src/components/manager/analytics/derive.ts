@@ -9,7 +9,7 @@ export type ViewSnapshot = { t: number; views: number };
 
 export type PlatformStats = { views: number; likes: number; saves: number };
 
-export type ManagerPostFormat = "Video" | "Carousel";
+export type ManagerPostFormat = "Reel" | "Slideshow";
 
 /** One piece of content. Platform rows (TikTok + Instagram) that share an
     assignment or task are folded into a single post. */
@@ -118,11 +118,11 @@ export function formatMoney(cents: number): string {
   return `$${Math.round(cents / 100).toLocaleString("en-US")}`;
 }
 
-/** 53600 to "54k", 1200000 to "1.2M", 640 to "640" (admin web convention). */
+/** 1500 to "1.5k", 53600 to "54k", 1200000 to "1.2M" (mobile formatMetric). */
 export function fmtViews(n: number): string {
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
-  if (n >= 1e3) return Math.round(n / 1e3) + "k";
-  return String(Math.round(n));
+  if (n >= 1_000_000) return `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+  return `${n}`;
 }
 
 export function pctDelta(current: number, previous: number): number | null {

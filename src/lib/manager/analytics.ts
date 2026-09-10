@@ -22,6 +22,7 @@ import {
   type PlatformStats,
   type ViewSnapshot,
 } from "@/components/manager/analytics/derive";
+import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /* ── Raw row shapes ── */
@@ -80,8 +81,38 @@ interface CampaignDateRow {
 }
 
 function asFormat(raw: string | null | undefined): ManagerPostFormat {
-  return raw === "photo_carousel" || raw === "carousel" ? "Carousel" : "Video";
+  return raw === "photo_carousel" ? "Slideshow" : "Reel";
 }
+
+/** Day one for money data: when the company's payment method first
+    attached (mobile getStripeConnectedAt). The rpc reads auth.uid(), so it
+    runs on the session client; any failure falls back on the first payout. */
+async function getStripeConnectedAt(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("stripe_connected_at");
+  if (error) return null;
+  return typeof data === "string" ? data : null;
+}
+
+export type ApprovedCreator = { id: string; name: string };
+
+/** Creators whose account passed review, alphabetical (mobile
+    listApprovedCreators). Drives the Analytics creators pill. */
+export const listApprovedCreators = cache(
+  async (companyId: string): Promise<ApprovedCreator[]> => {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+      .from("creator_accounts")
+      .select("creator_id, profiles:creator_id ( full_name )")
+      .eq("company_id", companyId)
+      .eq("status", "approved");
+    if (error) throw error;
+    type Row = { creator_id: string; profiles: { full_name: string | null } | null };
+    return ((data ?? []) as unknown as Row[])
+      .map((r) => ({ id: r.creator_id, name: r.profiles?.full_name?.trim() || "Creator" }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+);
 
 /** The day the company started its first campaign on Noni (YYYY-MM-DD).
     Sign-ups and sales only count from that day, so Stripe history predating
@@ -102,7 +133,7 @@ async function fetchAnalytics(companyId: string): Promise<ManagerAnalytics> {
 
   /* Posts carry no date filter: old posts still accrue views inside the
      window. Company scope is applied while grouping. */
-  const [postsRes, conversionsRes, ledgerRes, payoutsRes, campaignsRes, billingRes] =
+  const [postsRes, conversionsRes, ledgerRes, payoutsRes, campaignsRes, connectedAt] =
     await Promise.all([
       supabase
         .from("posts")
@@ -132,11 +163,7 @@ async function fetchAnalytics(companyId: string): Promise<ManagerAnalytics> {
         .from("campaigns")
         .select("starts_on, created_at")
         .eq("company_id", companyId),
-      supabase
-        .from("company_billing")
-        .select("*")
-        .eq("company_id", companyId)
-        .maybeSingle(),
+      getStripeConnectedAt(),
     ]);
 
   const firstCampaignDay = firstCampaignDayOf(
@@ -255,14 +282,17 @@ async function fetchAnalytics(companyId: string): Promise<ManagerAnalytics> {
 
   const days: ManagerAnalyticsDay[] = [];
   for (let i = 0; i < WINDOW_DAYS; i++) {
-    const date = new Date(windowStart.getTime() + i * DAY_MS);
-    const endOfDay = date.getTime() + DAY_MS - 1;
+    const date = new Date(windowStart);
+    date.setDate(windowStart.getDate() + i);
+    const nextDay = new Date(date);
+    nextDay.setDate(date.getDate() + 1);
+    const endOfDay = nextDay.getTime() - 1;
     const key = localDayKey(date);
     let views = 0;
     for (const post of posts) {
       views += Math.max(
         0,
-        viewsAt(post.series, endOfDay) - viewsAt(post.series, endOfDay - DAY_MS),
+        viewsAt(post.series, endOfDay) - viewsAt(post.series, date.getTime() - 1),
       );
     }
     const conversion = conversionByDay.get(key);
@@ -305,19 +335,7 @@ async function fetchAnalytics(companyId: string): Promise<ManagerAnalytics> {
     }))
     .sort((a, b) => (a.day < b.day ? -1 : 1));
 
-  /* Money gate: the mobile app reads the Stripe connect moment from the
-     company-billing status (stripe_customer_id set means connected, dated
-     by the row's updated_at) and falls back on the first completed payout.
-     Same semantics here off company_billing directly. */
-  const billing = (billingRes.data ?? null) as Record<string, unknown> | null;
-  const connected =
-    typeof billing?.stripe_customer_id === "string" ||
-    billing?.stripe_connected === true;
-  const connectedAtIso =
-    connected && typeof billing?.updated_at === "string"
-      ? billing.updated_at
-      : null;
-  const gate = buildMoneyGate(connectedAtIso, payouts[0]?.day);
+  const gate = buildMoneyGate(connectedAt, payouts[0]?.day);
 
   return { posts, days, totals, payouts, gate };
 }

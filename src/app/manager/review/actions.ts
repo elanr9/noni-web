@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
+import { parseNotes } from "@/lib/manager/review";
+import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type ReviewActionResult = { ok: true } | { ok: false; error: string };
@@ -18,7 +20,8 @@ function sendNotify(body: Record<string, unknown>): void {
    reviewAssignment. The status moves through the same guarded transition
    (submitted -> approved | changes_requested, compare and swap on the
    current status) and the review_events row is written the same way.
-   Approval also runs the post-approved pipeline, exactly like mobile. */
+   Approval stamps assignments.publish_at through schedule_assignment_publish;
+   the publish-due cron posts it at the slot time (migration 081). */
 export async function reviewPost(input: {
   assignmentId: string;
   submissionId: string;
@@ -75,8 +78,8 @@ export async function reviewPost(input: {
     return { ok: false, error: "This post has no video to review yet." };
   }
 
-  /* Approving posts the finished edit, so a video mid render cannot be
-     approved (mobile blocks this with the Still editing alert). */
+  /* The finished edit is what gets scheduled, so a video mid render cannot
+     be approved (mobile blocks this with the Still editing alert). */
   const isVideo = assignment.briefs?.format !== "photo_carousel";
   if (
     input.action === "approved" &&
@@ -87,7 +90,7 @@ export async function reviewPost(input: {
     return {
       ok: false,
       error:
-        "The final video is not ready yet. It gets posted the moment you approve so wait for the edit to finish.",
+        "The final video is not ready yet. Wait for the edit to finish before you approve.",
     };
   }
 
@@ -96,6 +99,7 @@ export async function reviewPost(input: {
     author_id: userId,
     action: input.action,
     note: input.note,
+    notes: input.action === "changes_requested" ? parseNotes(input.note) : null,
   });
   if (eventError) return { ok: false, error: eventError.message };
 
@@ -114,24 +118,22 @@ export async function reviewPost(input: {
     return { ok: false, error: "This post was just reviewed by someone else." };
   }
 
-  sendNotify({ assignment_id: assignment.id, event: input.action });
-
   if (input.action === "approved") {
-    const { data: postResult, error: postError } = await callEdgeFunction<{
-      error?: string;
-    }>("post-approved", { assignment_id: assignment.id });
-    if (postError !== null) {
+    /* The rpc reads auth.uid() for is_campaign_manager and
+       current_company_id, so it runs on the session client, not the
+       service role. */
+    const userClient = await createClient();
+    const { error: scheduleError } = await userClient.rpc(
+      "schedule_assignment_publish",
+      { p_assignment_id: assignment.id },
+    );
+    if (scheduleError) {
       revalidatePath("/manager", "layout");
-      return { ok: false, error: postError };
+      return { ok: false, error: scheduleError.message };
     }
-    if (postResult?.error) {
-      revalidatePath("/manager", "layout");
-      return { ok: false, error: postResult.error };
-    }
-    /* The post is through Upload-Post: tell the creator, with deep links to
-       both platforms resolved server side by notify. */
-    sendNotify({ assignment_id: assignment.id, event: "post_live" });
   }
+
+  sendNotify({ assignment_id: assignment.id, event: input.action });
 
   revalidatePath("/manager", "layout");
   return { ok: true };

@@ -383,16 +383,16 @@ export function PostReviewView({ detail }: { detail: PostReviewDetail | null }) 
   if (phase === "approved") {
     return (
       <DoneCard
-        title="Approved and posting"
-        body={`The post goes out automatically. ${short} gets notified once it is live.`}
+        title="Approved"
+        body={`${detail.briefTitle} is out of your hands. Noni posts it to TikTok and Instagram at the slot time and ${short} gets notified once it is live.`}
       />
     );
   }
   if (phase === "sent") {
     return (
       <DoneCard
-        title={`Sent back to ${short}`}
-        body="They see your notes in the app and record a new take. It lands back in this queue."
+        title="Sent back"
+        body={`${short} gets this post back with your notes on the sections you marked. Nothing else has to be re-recorded.`}
       />
     );
   }

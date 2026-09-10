@@ -3,6 +3,7 @@
 import {
   ChartColumn,
   CircleUserRound,
+  Clapperboard,
   DollarSign,
   House,
   Images,
@@ -40,6 +41,7 @@ const NAV_SECTIONS: ReadonlyArray<{ label: string; items: NavItem[] }> = [
     label: "Company",
     items: [
       { href: "/admin/brain", label: "Company Brain", icon: Sparkles, tour: "nav-brain" },
+      { href: "/admin/media", label: "Media", icon: Clapperboard, tour: "nav-media" },
       { href: "/admin/billing", label: "Billing", icon: DollarSign, tour: "nav-billing" },
     ],
   },

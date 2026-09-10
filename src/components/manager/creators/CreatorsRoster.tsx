@@ -15,10 +15,10 @@ import { fmtViews, formatCents, shortDate } from "./format";
    and earnings this month, sortable the same way the app sorts, plus the
    invites still waiting on an email. */
 
-type SortKey = "views" | "posts" | "earnedMonthCents";
+type SortKey = "views" | "posts" | "earnedCents";
 
 const ALL_SORTS: Array<{ key: SortKey; label: string }> = [
-  { key: "earnedMonthCents", label: "Earnings" },
+  { key: "earnedCents", label: "Earnings" },
   { key: "views", label: "Views" },
   { key: "posts", label: "Posts" },
 ];
@@ -151,9 +151,9 @@ export function CreatorsRoster({
 
   const sorts = viewFinancials
     ? ALL_SORTS
-    : ALL_SORTS.filter((s) => s.key !== "earnedMonthCents");
+    : ALL_SORTS.filter((s) => s.key !== "earnedCents");
   const activeSort: SortKey =
-    sortKey === "earnedMonthCents" && !viewFinancials ? "views" : sortKey;
+    sortKey === "earnedCents" && !viewFinancials ? "views" : sortKey;
 
   const sorted = useMemo(
     () => [...roster.creators].sort((a, b) => b[activeSort] - a[activeSort]),
@@ -164,7 +164,7 @@ export function CreatorsRoster({
     <div>
       <PageHead
         title="Creators"
-        sub={`Everyone recording for ${companyName}, with what they have posted and earned this month.`}
+        sub={`Approved creators recording for ${companyName}, with what they have posted and earned.`}
         right={
           canInvite ? (
             <Pill size="sm" icon={Plus} onClick={() => setInviting(true)}>
@@ -192,7 +192,7 @@ export function CreatorsRoster({
           <div className="px-5 py-4">
             <Label>
               Creators
-              {sorted.length ? ` · ${sorted.length}` : ""}
+              {sorted.length ? ` · ${sorted.length} approved` : ""}
             </Label>
           </div>
           {sorted.length === 0 ? (
@@ -214,7 +214,11 @@ export function CreatorsRoster({
                   <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-bold text-ink">
                     {c.name}
                   </span>
-                  {c.status === "Active" ? (
+                  {c.handle ? (
+                    <span className="mt-px block overflow-hidden text-ellipsis whitespace-nowrap text-[12px] font-semibold text-slate-400">
+                      @{c.handle}
+                    </span>
+                  ) : c.status === "Active" ? (
                     <span className="mt-px block text-[12px] font-semibold text-slate-400">
                       Active
                     </span>
@@ -232,8 +236,9 @@ export function CreatorsRoster({
                 <Stat value={fmtViews(c.views)} label="Views" />
                 {viewFinancials ? (
                   <Stat
-                    value={formatCents(c.earnedMonthCents)}
-                    label="This month"
+                    value={formatCents(c.earnedCents)}
+                    label="Earned"
+                    className="[&>span:first-child]:text-green"
                   />
                 ) : null}
                 <ChevronRight size={15} className="shrink-0 text-slate-400" />

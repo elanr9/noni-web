@@ -3,15 +3,23 @@
 import { revalidatePath } from "next/cache";
 
 import {
+  BRIEF_WEEK_DAYS,
+  formatDropDate,
+  hasOverlayBoxes,
+  newOverlayBox,
   parseHookOptions,
+  parseOverlayBoxes,
+  parsePointMedia,
   parseTalkingPoints,
-  splitFamily,
+  serializeOverlayBoxes,
   type BriefDraft,
   type BriefFormat,
   type BriefReviewResult,
   type BriefSaveInput,
   type BriefSegment,
+  type FillSourceKind,
   type Json,
+  type PointMedia,
   type PublishResult,
   type RegenDraftPayload,
   type RegenField,
@@ -22,13 +30,15 @@ import {
 } from "@/components/manager/briefs/lib";
 import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
+import { BUCKET_MIMES, extensionForContentType } from "@/lib/media-library-shared";
 import {
+  getOverlayThemeColor,
   listPostTypes,
-  listSearchQueries,
   listWeekPosts,
   segmentScreenshotUrls,
   stampedCampaignIds,
 } from "@/lib/manager/briefs";
+import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /* Server actions for the manager Briefs pages. Mutations follow the
@@ -87,8 +97,9 @@ async function campaignInCompany(
 }
 
 // ---------------------------------------------------------------------------
-// Week setup: ported from mobile createWeek. One campaign per drop date,
-// stamped rows from the type split, phrases from the search bank.
+// Week setup: ported from mobile createWeek. One campaign per start day with
+// one stamped brief per slot, videos first, then slideshows. Rows carry a
+// format and nothing else; the kind of post is chosen in the editor.
 
 export type StartWeekResult =
   | { ok: true; campaignId: string }
@@ -96,8 +107,8 @@ export type StartWeekResult =
 
 export async function startWeek(input: {
   dropDate: string;
-  videoTarget: number;
-  slideshowTarget: number;
+  videosPerDay: number;
+  slideshowsPerDay: number;
 }): Promise<StartWeekResult> {
   const gate = await requireManager();
   if (!gate.ok) return gate;
@@ -106,32 +117,15 @@ export async function startWeek(input: {
   if (!ISO_DAY.test(input.dropDate)) {
     return { ok: false, error: "Pick a start day." };
   }
-  const videoTarget = clampTarget(input.videoTarget);
-  const slideshowTarget = clampTarget(input.slideshowTarget);
+  const videoTarget = clampTarget(input.videosPerDay) * BRIEF_WEEK_DAYS;
+  const slideshowTarget = clampTarget(input.slideshowsPerDay) * BRIEF_WEEK_DAYS;
   if (videoTarget + slideshowTarget === 0) {
-    return { ok: false, error: "Set at least one post." };
+    return { ok: false, error: "Pick at least one post a day." };
   }
 
   const service = createServiceClient();
-  const postTypes = await listPostTypes(companyId);
-  if (postTypes.length === 0) {
-    return {
-      ok: false,
-      error: "Post types are missing for this company. Contact support.",
-    };
-  }
-  const typeSplit: Record<string, number> = {
-    ...splitFamily(
-      postTypes.filter((t) => t.family === "video"),
-      videoTarget,
-    ),
-    ...splitFamily(
-      postTypes.filter((t) => t.family === "photo_carousel"),
-      slideshowTarget,
-    ),
-  };
 
-  /* A stamped campaign already on this Sunday is the week; reuse it. */
+  /* A stamped campaign already on this start day is the week; reuse it. */
   const { data: existing, error: existingError } = await service
     .from("campaigns")
     .select("id")
@@ -174,101 +168,34 @@ export async function startWeek(input: {
     if (deleteError) return { ok: false, error: deleteError.message };
   }
 
-  /* Phrase pool: fresh phrases first, deduped against the last four weeks. */
-  const since = new Date(
-    new Date(`${input.dropDate}T00:00:00`).getTime() - 28 * 86400000,
-  )
-    .toISOString()
-    .slice(0, 10);
-  const [{ data: recent, error: recentError }, queries] = await Promise.all([
-    service
-      .from("campaigns")
-      .select("id")
-      .eq("company_id", companyId)
-      .gte("drop_date", since),
-    listSearchQueries(companyId),
-  ]);
-  if (recentError) return { ok: false, error: recentError.message };
-
-  const usedPhrases = new Set<string>();
-  const recentIds = ((recent ?? []) as { id: string }[]).map((c) => c.id);
-  if (recentIds.length > 0) {
-    const { data: links, error: linksError } = await service
-      .from("campaign_briefs")
-      .select("briefs(search_phrase)")
-      .eq("company_id", companyId)
-      .in("campaign_id", recentIds);
-    if (linksError) return { ok: false, error: linksError.message };
-    type LinkRow = {
-      briefs:
-        | { search_phrase: string | null }
-        | { search_phrase: string | null }[]
-        | null;
-    };
-    for (const link of (links ?? []) as LinkRow[]) {
-      const brief = Array.isArray(link.briefs) ? link.briefs[0] : link.briefs;
-      if (brief?.search_phrase) usedPhrases.add(brief.search_phrase);
-    }
-  }
-  const fresh = queries.filter((q) => !usedPhrases.has(q.query));
-  const stale = queries.filter((q) => usedPhrases.has(q.query));
-  const pool = [...fresh, ...stale];
-  const phraseFor = (slot: number): string | null =>
-    pool.length > 0 ? pool[slot % pool.length].query : null;
-
-  const dropLabel = new Date(`${input.dropDate}T00:00:00`);
-  const monthNames = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  const name = `Week of ${monthNames[dropLabel.getMonth()]} ${dropLabel.getDate()}`;
-
   const { data: campaign, error: campaignError } = await service
     .from("campaigns")
     .insert({
       company_id: companyId,
-      name,
+      name: `Week of ${formatDropDate(input.dropDate)}`,
       drop_date: input.dropDate,
       status: "draft",
       video_target: videoTarget,
       slideshow_target: slideshowTarget,
-      type_split: typeSplit,
+      type_split: {},
     })
     .select("id")
     .single();
   if (campaignError) return { ok: false, error: campaignError.message };
   const campaignId = (campaign as { id: string }).id;
 
-  /* One pre-stamped brief per slot: videos first, then slideshows, types in
-     sort order. The phrase doubles as the provisional title. */
-  const orderedTypes = [
-    ...postTypes.filter((t) => t.family === "video"),
-    ...postTypes.filter((t) => t.family === "photo_carousel"),
+  const formats: BriefFormat[] = [
+    ...Array.from({ length: videoTarget }, (): BriefFormat => "video"),
+    ...Array.from({ length: slideshowTarget }, (): BriefFormat => "photo_carousel"),
   ];
-  const slots: { postTypeId: string; format: string; title: string; phrase: string | null }[] = [];
-  for (const postType of orderedTypes) {
-    const count = typeSplit[postType.key] ?? 0;
-    for (let i = 0; i < count; i += 1) {
-      const phrase = phraseFor(slots.length);
-      slots.push({
-        postTypeId: postType.id,
-        format: postType.family,
-        title: phrase ?? postType.label,
-        phrase,
-      });
-    }
-  }
-
   const { data: briefs, error: briefsError } = await service
     .from("briefs")
     .insert(
-      slots.map((slot) => ({
+      formats.map((format) => ({
         company_id: companyId,
         created_by: userId,
-        title: slot.title,
-        format: slot.format,
-        post_type_id: slot.postTypeId,
-        search_phrase: slot.phrase,
+        title: "Untitled post",
+        format,
       })),
     )
     .select("id");
@@ -451,6 +378,7 @@ export async function saveBrief(
       generation_id: input.generation_id,
       example_url: input.example_url,
       text_overlay: input.text_overlay,
+      subtitles: input.format === "video" && input.subtitles,
     })
     .eq("company_id", gate.companyId)
     .eq("id", briefId);
@@ -459,17 +387,13 @@ export async function saveBrief(
   let segments: BriefSegment[] | null = null;
   let screenshotUrls: Record<string, string> | null = null;
   if (options.deriveSegments && input.post_type_id !== null) {
-    const { data, error: deriveError } = await callEdgeFunction<{
-      error?: string;
-      segments?: BriefSegment[];
-    }>("brief-assist", {
-      action: "derive_segments",
-      brief_id: briefId,
-      ...(options.overlayLabels ? { overlay_labels: options.overlayLabels } : {}),
-    });
-    if (deriveError !== null) return { ok: false, error: deriveError };
-    if (data.error) return { ok: false, error: data.error };
-    segments = data.segments ?? [];
+    const derived = await deriveSegments(
+      gate.companyId,
+      briefId,
+      options.overlayLabels ?? undefined,
+    );
+    if (!derived.ok) return derived;
+    segments = derived.segments;
     screenshotUrls = await segmentScreenshotUrls(segments);
   }
 
@@ -477,15 +401,70 @@ export async function saveBrief(
   return { ok: true, segments, screenshotUrls };
 }
 
+/** brief-assist derive_segments, then one auto placed text box per new row like mobile. */
+async function deriveSegments(
+  companyId: string,
+  briefId: string,
+  overlayLabels: (string | null)[] | undefined,
+): Promise<{ ok: true; segments: BriefSegment[] } | { ok: false; error: string }> {
+  const { data, error } = await callEdgeFunction<{
+    error?: string;
+    segments?: BriefSegment[];
+  }>("brief-assist", {
+    action: "derive_segments",
+    brief_id: briefId,
+    ...(overlayLabels ? { overlay_labels: overlayLabels } : {}),
+  });
+  if (error !== null) return { ok: false, error };
+  if (data.error) return { ok: false, error: data.error };
+  const themeColor = await getOverlayThemeColor(companyId);
+  const segments = await seedOverlayBoxes(companyId, data.segments ?? [], themeColor);
+  return { ok: true, segments };
+}
+
+/**
+ * One auto placed text box per segment the AI wrote copy for. Rows that
+ * already carry boxes (survivors of a re-derive, possibly hand placed) are
+ * left alone. Ported from mobile lib/post-fill.ts seedOverlayBoxes.
+ */
+async function seedOverlayBoxes(
+  companyId: string,
+  rows: BriefSegment[],
+  themeColor: string | null,
+): Promise<BriefSegment[]> {
+  const service = createServiceClient();
+  return Promise.all(
+    rows.map(async (row) => {
+      const text = row.overlay_text?.trim() ?? "";
+      if (!row.show_on_screen || text.length === 0 || hasOverlayBoxes(row.overlay_style)) {
+        return row;
+      }
+      const patch = serializeOverlayBoxes([
+        newOverlayBox({ id: `${row.kind}-${row.slot_index}-box-0`, text, themeColor }),
+      ]);
+      await service
+        .from("brief_segments")
+        .update(patch)
+        .eq("company_id", companyId)
+        .eq("id", row.id);
+      return { ...row, ...patch };
+    }),
+  );
+}
+
 // ---------------------------------------------------------------------------
-// AI fill through the deployed ingest-brief function. A kill is a
-// first-class outcome: the reason is persisted so the grid row renders it.
+// AI fill through the deployed ingest-brief function, ported from the mobile
+// fillPostSlot: the draft is written into the slot, clips are derived and
+// seeded, feature screenshots are placed, then the AI's version is frozen
+// through snapshot_ai_brief for the learning loop. A kill is a first-class
+// outcome: the reason is persisted so the grid row renders it.
 
 type RawDraftResponse = Partial<{
   title: string;
   format: string;
   hook_options: string[];
   talking_points: TalkingPoint[];
+  point_media: unknown;
   hashtags: string[];
   search_phrase: string | null;
   point_count: number | null;
@@ -503,9 +482,24 @@ type RawDraftResponse = Partial<{
 }> & { error?: string; kill_reason?: string };
 
 export type FillBriefResult =
-  | { ok: true; kind: "draft"; draft: BriefDraft }
+  | {
+      ok: true;
+      kind: "draft";
+      draft: BriefDraft;
+      /** What landed on the row: the family and hook written, the derived clips. */
+      saved: { format: BriefFormat; hook: string | null; postTypeId: string | null };
+      segments: BriefSegment[];
+      screenshotUrls: Record<string, string>;
+    }
   | { ok: true; kind: "kill"; killReason: string }
   | { ok: false; error: string };
+
+/** The editor stores the body and its hashtags merged into briefs.caption. */
+function mergeCaption(caption: string, hashtags: string[]): string {
+  const body = caption.replace(/#\w+/g, " ").replace(/\s+/g, " ").trim();
+  const tags = hashtags.map((t) => (t.startsWith("#") ? t : `#${t}`)).join(" ");
+  return [body, tags].filter(Boolean).join("\n\n");
+}
 
 export async function fillBrief(params: {
   briefId: string;
@@ -513,6 +507,8 @@ export async function fillBrief(params: {
   url?: string;
   context?: string;
   postTypeKey?: string;
+  /** False when the idea already lives in library_items (Make post from Library). */
+  saveIdea?: boolean;
 }): Promise<FillBriefResult> {
   const gate = await requireManager();
   if (!gate.ok) return gate;
@@ -525,6 +521,7 @@ export async function fillBrief(params: {
   if (params.url?.trim()) body.url = params.url.trim();
   if (params.postTypeKey) body.post_type = params.postTypeKey;
   if (params.context?.trim()) body.context = params.context.trim();
+  const sourceKind: FillSourceKind = body.url ? "example" : "idea";
 
   const { data, error } = await callEdgeFunction<RawDraftResponse>(
     "ingest-brief",
@@ -533,76 +530,180 @@ export async function fillBrief(params: {
   if (error !== null) return { ok: false, error };
   if (data.error) return { ok: false, error: data.error };
 
+  const service = createServiceClient();
   if (data.kill_reason) {
-    /* Persist immediately so the row shows the reason even if the manager
-       backs out without saving. */
-    const service = createServiceClient();
-    await service
-      .from("briefs")
-      .update({ kill_reason: data.kill_reason })
-      .eq("company_id", gate.companyId)
-      .eq("id", params.briefId);
-    revalidatePath("/manager/briefs", "layout");
     return { ok: true, kind: "kill", killReason: data.kill_reason };
   }
 
   if (!data.title) return { ok: false, error: "Draft came back incomplete." };
 
-  /* A fill from a bank phrase counts as a use; a stamp alone never does. */
-  if (params.query?.trim()) {
-    await markSearchQueryUsedByText(gate.companyId, params.query);
+  const draft: BriefDraft = {
+    title: data.title,
+    format: data.format === "photo_carousel" ? "photo_carousel" : "video",
+    hook_options: data.hook_options ?? [],
+    talking_points: data.talking_points ?? [],
+    point_media: parsePointMedia(data.point_media),
+    hashtags: data.hashtags ?? [],
+    search_phrase: data.search_phrase ?? null,
+    point_count: data.point_count ?? null,
+    target_words: data.target_words ?? 380,
+    script: data.script ?? null,
+    caption: data.caption ?? "",
+    why_it_works: data.why_it_works ?? "",
+    cta: data.cta ?? null,
+    post_type_id: data.post_type_id ?? null,
+    overlay_labels: data.overlay_labels ?? [],
+    generation_id: data.generation_id ?? null,
+    warnings: data.warnings ?? [],
+    example_url: data.example_url ?? params.url ?? "",
+    example_transcript: data.example_transcript ?? null,
+  };
+
+  const postTypes = await listPostTypes(gate.companyId);
+  const currentType = params.postTypeKey
+    ? (postTypes.find((t) => t.key === params.postTypeKey) ?? null)
+    : null;
+  const postTypeId = currentType?.id ?? draft.post_type_id;
+  const family: BriefFormat = currentType
+    ? currentType.family === "photo_carousel"
+      ? "photo_carousel"
+      : "video"
+    : draft.format;
+  const slideshow = family === "photo_carousel";
+  const hook = slideshow ? null : (draft.hook_options[0] ?? null);
+
+  const { error: writeError } = await service
+    .from("briefs")
+    .update({
+      title: draft.title,
+      format: family,
+      subtitles: family === "video",
+      hook,
+      hook_options: slideshow ? [] : draft.hook_options,
+      talking_points: draft.talking_points,
+      hashtags: draft.hashtags,
+      search_phrase: draft.search_phrase,
+      point_count: draft.talking_points.length,
+      target_words: draft.target_words,
+      script: draft.script,
+      caption: mergeCaption(draft.caption, draft.hashtags) || null,
+      why_it_works: draft.why_it_works || null,
+      cta: slideshow ? null : draft.cta,
+      post_type_id: postTypeId,
+      kill_reason: null,
+      generation_id: draft.generation_id,
+      example_url: draft.example_url || null,
+      example_transcript: draft.example_transcript,
+    })
+    .eq("company_id", gate.companyId)
+    .eq("id", params.briefId);
+  if (writeError) return { ok: false, error: writeError.message };
+
+  let segments: BriefSegment[] = [];
+  if (postTypeId !== null) {
+    const derived = await deriveSegments(gate.companyId, params.briefId, draft.overlay_labels);
+    if (!derived.ok) return derived;
+    segments = derived.segments;
+    await applyPointMedia(gate.companyId, params.briefId, segments, draft.point_media);
   }
 
-  const format: BriefFormat =
-    data.format === "photo_carousel" ? "photo_carousel" : "video";
+  if (sourceKind === "idea" && params.saveIdea !== false) {
+    await service.from("library_items").insert({
+      company_id: gate.companyId,
+      source: "idea",
+      text: body.query,
+      created_by: gate.userId,
+      used_count: 1,
+      last_used_at: new Date().toISOString(),
+      last_brief_id: params.briefId,
+    });
+  }
+
+  await snapshotAiFill(params.briefId, sourceKind);
+  revalidatePath("/manager/briefs", "layout");
   return {
     ok: true,
     kind: "draft",
-    draft: {
-      title: data.title,
-      format,
-      hook_options: data.hook_options ?? [],
-      talking_points: data.talking_points ?? [],
-      hashtags: data.hashtags ?? [],
-      search_phrase: data.search_phrase ?? null,
-      point_count: data.point_count ?? null,
-      target_words: data.target_words ?? 380,
-      script: data.script ?? null,
-      caption: data.caption ?? "",
-      why_it_works: data.why_it_works ?? "",
-      cta: data.cta ?? null,
-      post_type_id: data.post_type_id ?? null,
-      overlay_labels: data.overlay_labels ?? [],
-      generation_id: data.generation_id ?? null,
-      warnings: data.warnings ?? [],
-      example_url: data.example_url ?? params.url ?? "",
-      example_transcript: data.example_transcript ?? null,
-    },
+    draft,
+    saved: { format: family, hook, postTypeId },
+    segments,
+    screenshotUrls: await segmentScreenshotUrls(segments),
   };
 }
 
-async function markSearchQueryUsedByText(
-  companyId: string,
-  query: string,
-): Promise<void> {
-  const q = query.trim();
-  if (!q) return;
+/**
+ * Freezes the AI's version of the post so the published version can be
+ * compared against it (the learning loop). Runs as the signed in manager
+ * because the RPC checks current_company_id() and is_admin(). Never blocks
+ * or fails a fill.
+ */
+async function snapshotAiFill(briefId: string, sourceKind: FillSourceKind): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("snapshot_ai_brief", {
+    p_brief_id: briefId,
+    p_source_kind: sourceKind,
+  });
+  if (error) console.warn("snapshot_ai_brief failed:", error.message);
+}
+
+const SEGMENT_MEDIA_EXTENSIONS = ["jpg", "png", "webp", "mp4", "mov"];
+
+function segmentMediaPath(
+  target: { companyId: string; briefId: string; segmentId: string },
+  ext: string,
+): string {
+  return `${target.companyId}/${target.briefId}/${target.segmentId}.${ext}`;
+}
+
+/** Old attaches on this segment, whatever their extension, so a swap leaves nothing behind. */
+async function clearSegmentMedia(target: {
+  companyId: string;
+  briefId: string;
+  segmentId: string;
+}): Promise<void> {
   const service = createServiceClient();
-  const { data } = await service
-    .from("search_queries")
-    .select("id, used_count")
-    .eq("company_id", companyId)
-    .eq("query", q)
-    .maybeSingle();
-  const row = data as { id: string; used_count: number | null } | null;
-  if (!row) return;
-  await service
-    .from("search_queries")
-    .update({
-      used_count: (row.used_count ?? 0) + 1,
-      last_used_at: new Date().toISOString(),
-    })
-    .eq("id", row.id);
+  await service.storage
+    .from("brief-assets")
+    .remove(SEGMENT_MEDIA_EXTENSIONS.map((ext) => segmentMediaPath(target, ext)));
+}
+
+/**
+ * Places feature screenshots from point_media onto derived rows that still
+ * have no screenshot. Company Brain shots are public URLs in another bucket:
+ * fetched and re uploaded as a JPEG. A failed row never blocks the others.
+ */
+async function applyPointMedia(
+  companyId: string,
+  briefId: string,
+  rows: BriefSegment[],
+  pointMedia: (PointMedia | null)[],
+): Promise<void> {
+  const service = createServiceClient();
+  await Promise.all(
+    rows.map(async (row) => {
+      if (row.talking_point_index === null || row.screenshot_url) return;
+      const url = pointMedia[row.talking_point_index]?.screenshot_url;
+      if (!url) return;
+      const response = await fetch(url);
+      if (!response.ok) return;
+      const target = { companyId, briefId, segmentId: row.id };
+      const path = segmentMediaPath(target, "jpg");
+      await clearSegmentMedia(target);
+      const { error } = await service.storage
+        .from("brief-assets")
+        .upload(path, await response.arrayBuffer(), {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+      if (error) return;
+      await service
+        .from("brief_segments")
+        .update({ screenshot_url: path })
+        .eq("company_id", companyId)
+        .eq("id", row.id);
+      row.screenshot_url = path;
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -848,19 +949,57 @@ export async function updateSegment(
   const segment = await segmentInCompany(gate.companyId, segmentId);
   if (!segment) return { ok: false, error: "Clip not found." };
 
-  const clean: SegmentPatch = {};
-  if ("overlay_text" in patch) clean.overlay_text = patch.overlay_text ?? null;
+  const clean: SegmentPatch & { overlay_style?: Json; text_y?: number } = {};
   if (typeof patch.show_on_screen === "boolean") {
     clean.show_on_screen = patch.show_on_screen;
   }
   if (patch.layout === "standard" || patch.layout === "green_screen") {
     clean.layout = patch.layout;
   }
+  const service = createServiceClient();
+  if ("overlay_text" in patch) {
+    /* Box 0 in overlay_style.boxes is what the mobile composer and the render
+       read; the legacy overlay_text column mirrors it, so edits rewrite both. */
+    const text = patch.overlay_text?.trim() ?? "";
+    const { data } = await service
+      .from("brief_segments")
+      .select("kind, slot_index, overlay_text, text_y, overlay_style")
+      .eq("company_id", gate.companyId)
+      .eq("id", segmentId)
+      .maybeSingle();
+    const row = data as Pick<
+      BriefSegment,
+      "kind" | "slot_index" | "overlay_text" | "text_y" | "overlay_style"
+    > | null;
+    const boxes = parseOverlayBoxes(row?.overlay_style, {
+      text: row?.overlay_text,
+      textY: row?.text_y,
+    });
+    const themeColor = await getOverlayThemeColor(gate.companyId);
+    const next =
+      text.length === 0
+        ? boxes.slice(1)
+        : boxes.length > 0
+          ? [{ ...boxes[0], text }, ...boxes.slice(1)]
+          : [
+              newOverlayBox({
+                id: `${row?.kind ?? "point"}-${row?.slot_index ?? 0}-box-0`,
+                text,
+                themeColor,
+              }),
+            ];
+    const serialized = serializeOverlayBoxes(next);
+    clean.overlay_style = serialized.overlay_style;
+    clean.overlay_text = serialized.overlay_text || null;
+    clean.text_y = serialized.text_y;
+    if (typeof patch.show_on_screen !== "boolean") {
+      clean.show_on_screen = serialized.show_on_screen;
+    }
+  }
   if (Object.keys(clean).length === 0) {
     return { ok: false, error: "Nothing to change." };
   }
 
-  const service = createServiceClient();
   const { error } = await service
     .from("brief_segments")
     .update(clean)
@@ -870,50 +1009,93 @@ export async function updateSegment(
   return { ok: true };
 }
 
-export type UploadScreenshotResult =
+export type SegmentMediaResult =
   | { ok: true; path: string; signedUrl: string }
   | { ok: false; error: string };
 
-/** Uploads to the private brief-assets bucket against the clip's segment. */
-export async function uploadSegmentScreenshot(
-  formData: FormData,
-): Promise<UploadScreenshotResult> {
+export type ReserveSegmentMediaResult =
+  | { ok: true; path: string }
+  | { ok: false; error: string };
+
+/**
+ * Segment media (a screenshot or a screen recording, up to the bucket's
+ * 200 MB) uploads straight from the browser with the manager's session so
+ * storage RLS applies and a long recording never passes through a server
+ * action. This clears any old attach and hands back the path to upload to.
+ */
+export async function reserveSegmentMediaPath(
+  segmentId: string,
+  contentType: string,
+): Promise<ReserveSegmentMediaResult> {
   const gate = await requireManager();
   if (!gate.ok) return gate;
-  const segmentId = formData.get("segmentId");
-  const file = formData.get("file");
-  if (typeof segmentId !== "string" || !(file instanceof File)) {
-    return { ok: false, error: "Pick an image first." };
+  if (!BUCKET_MIMES.includes(contentType as (typeof BUCKET_MIMES)[number])) {
+    return { ok: false, error: "Pick a JPEG, PNG, WebP, MP4 or MOV file." };
   }
   const segment = await segmentInCompany(gate.companyId, segmentId);
   if (!segment) return { ok: false, error: "Clip not found." };
+  const target = { companyId: gate.companyId, briefId: segment.brief_id, segmentId };
+  await clearSegmentMedia(target);
+  return { ok: true, path: segmentMediaPath(target, extensionForContentType(contentType)) };
+}
 
+/** Writes the uploaded path into brief_segments.screenshot_url. */
+export async function attachSegmentMedia(
+  segmentId: string,
+  path: string,
+): Promise<SegmentMediaResult> {
+  const gate = await requireManager();
+  if (!gate.ok) return gate;
+  const segment = await segmentInCompany(gate.companyId, segmentId);
+  if (!segment) return { ok: false, error: "Clip not found." };
+  const prefix = `${gate.companyId}/${segment.brief_id}/${segment.id}.`;
+  if (!path.startsWith(prefix)) return { ok: false, error: "Upload did not match this clip." };
+  return writeSegmentMedia(gate.companyId, segmentId, path);
+}
+
+/** Place a library item on a segment: one storage copy, no browser traffic. */
+export async function placeLibraryMediaOnSegment(
+  segmentId: string,
+  libraryItemId: string,
+): Promise<SegmentMediaResult> {
+  const gate = await requireManager();
+  if (!gate.ok) return gate;
+  const segment = await segmentInCompany(gate.companyId, segmentId);
+  if (!segment) return { ok: false, error: "Clip not found." };
   const service = createServiceClient();
-  const path = `${gate.companyId}/${segment.brief_id}/${segment.id}.jpg`;
-  const bytes = await file.arrayBuffer();
-  const { error: uploadError } = await service.storage
-    .from("brief-assets")
-    .upload(path, bytes, {
-      contentType: file.type || "image/jpeg",
-      upsert: true,
-    });
-  if (uploadError) return { ok: false, error: uploadError.message };
+  const { data } = await service
+    .from("media_library")
+    .select("path, kind")
+    .eq("company_id", gate.companyId)
+    .eq("id", libraryItemId)
+    .maybeSingle();
+  const item = data as { path: string; kind: string } | null;
+  if (!item) return { ok: false, error: "Library file not found." };
+  const ext = item.path.split(".").pop() ?? (item.kind === "recording" ? "mp4" : "jpg");
+  const target = { companyId: gate.companyId, briefId: segment.brief_id, segmentId };
+  const path = segmentMediaPath(target, ext);
+  await clearSegmentMedia(target);
+  const { error } = await service.storage.from("brief-assets").copy(item.path, path);
+  if (error) return { ok: false, error: error.message };
+  return writeSegmentMedia(gate.companyId, segmentId, path);
+}
 
+async function writeSegmentMedia(
+  companyId: string,
+  segmentId: string,
+  path: string,
+): Promise<SegmentMediaResult> {
+  const service = createServiceClient();
   const { error } = await service
     .from("brief_segments")
     .update({ screenshot_url: path })
-    .eq("company_id", gate.companyId)
+    .eq("company_id", companyId)
     .eq("id", segmentId);
   if (error) return { ok: false, error: error.message };
-
   const { data: signed } = await service.storage
     .from("brief-assets")
     .createSignedUrl(path, 3600);
-  return {
-    ok: true,
-    path,
-    signedUrl: signed?.signedUrl ?? "",
-  };
+  return { ok: true, path, signedUrl: signed?.signedUrl ?? "" };
 }
 
 export async function removeSegmentScreenshot(

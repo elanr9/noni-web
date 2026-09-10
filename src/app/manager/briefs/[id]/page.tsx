@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { BriefEditor } from "@/components/manager/briefs/BriefEditor";
 import { getSessionProfile } from "@/lib/auth";
@@ -7,6 +7,7 @@ import {
   getBrief,
   getHashtagBank,
   listBriefSegments,
+  listLibraryMediaOptions,
   listPostTypes,
   segmentScreenshotUrls,
   weekNumberOf,
@@ -23,16 +24,18 @@ export default async function BriefDetailPage({
 }) {
   const { id } = await params;
   const { profile } = await getSessionProfile();
-  const companyId = profile?.company_id ?? "";
+  if (!profile?.company_id) redirect("/login?next=/manager");
+  const companyId = profile.company_id;
 
   const brief = await getBrief(companyId, id);
   if (!brief) notFound();
 
-  const [postTypes, segments, hashtagBank, link] = await Promise.all([
+  const [postTypes, segments, hashtagBank, link, mediaLibrary] = await Promise.all([
     listPostTypes(companyId),
     listBriefSegments(companyId, id),
     getHashtagBank(companyId),
     briefCampaignLink(companyId, id),
+    listLibraryMediaOptions(companyId),
   ]);
   const [screenshotUrls, weekNumber] = await Promise.all([
     segmentScreenshotUrls(segments),
@@ -46,6 +49,7 @@ export default async function BriefDetailPage({
       initialSegments={segments}
       initialScreenshotUrls={screenshotUrls}
       hashtagBank={hashtagBank}
+      mediaLibrary={mediaLibrary}
       campaignId={link?.campaignId ?? null}
       postNumber={link && link.position !== null ? link.position + 1 : null}
       weekNumber={weekNumber}

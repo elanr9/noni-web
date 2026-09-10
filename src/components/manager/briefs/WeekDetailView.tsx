@@ -20,8 +20,10 @@ import { FormatThumb, PostTypeChip, ProgressBar } from "./bits";
 import {
   addDays,
   aiScore,
-  briefWeekMonday,
+  BRIEF_WEEK_DAYS,
+  briefWeekOpensLabel,
   briefWeekRangeLabel,
+  briefWeekStart,
   briefWeekStatus,
   dayTitle,
   familyOf,
@@ -186,7 +188,7 @@ function PastWeekBody({
       : posts.filter((p) =>
           fmt === 1 ? p.format === "video" : p.format === "photo_carousel",
         );
-  const monday = briefWeekMonday(dropDate);
+  const weekStart = briefWeekStart(dropDate);
   const counts = new Map<string, number>();
   for (const p of posts) {
     counts.set(p.postedDay, (counts.get(p.postedDay) ?? 0) + 1);
@@ -276,8 +278,8 @@ function PastWeekBody({
       </div>
 
       <div className="scrollbar-none flex gap-1.5 overflow-x-auto pb-0.5">
-        {Array.from({ length: 7 }, (_, i) => {
-          const d = addDays(monday, i);
+        {Array.from({ length: BRIEF_WEEK_DAYS }, (_, i) => {
+          const d = addDays(weekStart, i);
           const iso = isoDate(d);
           const n = counts.get(iso) ?? 0;
           return (
@@ -390,8 +392,7 @@ export function WeekDetailView({
   }
 
   const editable = campaign.status === "draft";
-  const hasStampedPosts = items.some((i) => i.briefs.post_type_id !== null);
-  const needsWeekSetup = editable && !hasStampedPosts;
+  const needsWeekSetup = editable && items.length === 0;
   const { status, dayOfWeek } = briefWeekStatus(campaign);
   const isDone = status === "done";
 
@@ -408,9 +409,7 @@ export function WeekDetailView({
   const videoRows = rows.filter((r) => r.family === "video");
   const slideshowRows = rows.filter((r) => r.family === "photo_carousel");
   const doneCount = (list: typeof rows) =>
-    list.filter(
-      (r) => r.state === "filled" || r.state === "complete" || r.state === "killed",
-    ).length;
+    list.filter((r) => r.state === "complete" || r.state === "killed").length;
   const activeRows = lane === "video" ? videoRows : slideshowRows;
   const visibleRows = typeFilter
     ? activeRows.filter((r) => r.item.briefs.post_types?.key === typeFilter)
@@ -458,15 +457,15 @@ export function WeekDetailView({
 
   const metaSuffix =
     status === "next"
-      ? " · opens Sunday"
+      ? campaign.drop_date !== null
+        ? ` · ${briefWeekOpensLabel(campaign.drop_date)}`
+        : ""
       : status === "current" && dayOfWeek !== null
-        ? ` · day ${dayOfWeek} of 7`
+        ? ` · day ${dayOfWeek} of ${BRIEF_WEEK_DAYS}`
         : " · done";
   const subtitle =
     campaign.drop_date !== null
-      ? isDone
-        ? `${briefWeekRangeLabel(campaign.drop_date)} · complete`
-        : `${briefWeekRangeLabel(campaign.drop_date)}${metaSuffix}`
+      ? `${briefWeekRangeLabel(campaign.drop_date)}${metaSuffix}`
       : undefined;
 
   async function saveTargets() {
@@ -500,7 +499,7 @@ export function WeekDetailView({
     router.refresh();
   }
 
-  const gridActive = editable && hasStampedPosts && rows.length > 0;
+  const gridActive = editable && rows.length > 0;
   const showFooter = gridActive && !(phase === "in_progress" && stripDismissed);
   const madeCount = rows.length - leftCount;
 
@@ -532,7 +531,7 @@ export function WeekDetailView({
             Not planned yet
           </span>
           <p className="m-0 text-[13.5px] text-slate-500">
-            Set the ratio, split the types, and the stamped rows appear.
+            Pick how many posts a day and the rows appear.
           </p>
           <Pill onClick={() => router.push("/manager/briefs/setup")}>
             {weekNumber === null ? "Start week" : `Start week ${weekNumber}`}

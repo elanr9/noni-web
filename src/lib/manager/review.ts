@@ -79,6 +79,23 @@ function slidesFromScript(script: string | null | undefined): string[] {
   return lines.length > 0 ? lines : [""];
 }
 
+export type PostNote = { label: string; text: string };
+
+/* Structured send-back notes from the flat `Label: text` blocks, ported
+   from mobile lib/post-event-labels.ts parseNotes (review_events.notes). */
+export function parseNotes(note: string | null): PostNote[] {
+  if (!note || !note.trim()) return [];
+  return note
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
+    .map((part) => {
+      const match = part.match(/^([^:\n]{1,40}):\s*([\s\S]+)$/);
+      if (match) return { label: match[1].trim(), text: match[2].trim() };
+      return { label: "Whole post", text: part };
+    });
+}
+
 /* Hook / Clip n / Outro for Reels, Cover / Slide n / Close for Slideshows. */
 function sectionLabel(index: number, count: number, isReel: boolean): string {
   if (index === 0) return isReel ? "Hook" : "Cover";
@@ -161,11 +178,15 @@ export interface MusicQueueItem {
   ageLabel: string;
   /** Cover + points + close. Null when the brief has no count. */
   slideCount: number | null;
+  /** Earliest live posted_at across platforms. Null until Upload-Post confirms. */
+  liveAgeLabel: string | null;
 }
 
 export interface AccountQueueItem {
   accountId: string;
   creatorName: string;
+  status: string;
+  reason: string | null;
   tiktokHandle: string | null;
   instagramHandle: string | null;
   ageLabel: string;
@@ -227,13 +248,13 @@ export const listReviewQueues = cache(
         .not("music_marked_by_creator_at", "is", null)
         .is("music_approved_at", null)
         .order("music_marked_by_creator_at", { ascending: true }),
-      /* Pending rows only; needs_changes rows are waiting on the creator
+      /* Pending rows plus sent back rows that carry a reason
          (mobile listAccountApprovalQueue). */
       supabase
         .from("creator_accounts")
         .select("*, profiles:creator_id ( id, full_name )")
         .eq("company_id", companyId)
-        .eq("status", "pending")
+        .or("status.eq.pending,and(status.eq.needs_changes,reason.not.is.null)")
         .order("updated_at", { ascending: true }),
     ]);
     if (postsRes.error) throw postsRes.error;
@@ -244,7 +265,29 @@ export const listReviewQueues = cache(
     const musicRows = (musicRes.data ?? []) as unknown as AssignmentRow[];
     const accountRows = (accountsRes.data ?? []) as unknown as AccountRow[];
 
-    const subs = await latestSubmissionsByAssignment(postRows.map((a) => a.id));
+    const [subs, musicPostsRes] = await Promise.all([
+      latestSubmissionsByAssignment(postRows.map((a) => a.id)),
+      musicRows.length > 0
+        ? supabase
+            .from("posts")
+            .select("assignment_id, posted_at")
+            .in("assignment_id", musicRows.map((r) => r.id))
+            .not("post_url", "is", null)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (musicPostsRes.error) throw musicPostsRes.error;
+
+    const liveAtByAssignment = new Map<string, string>();
+    for (const p of (musicPostsRes.data ?? []) as Array<{
+      assignment_id: string | null;
+      posted_at: string | null;
+    }>) {
+      if (p.assignment_id === null || p.posted_at === null) continue;
+      const earliest = liveAtByAssignment.get(p.assignment_id);
+      if (earliest === undefined || p.posted_at < earliest) {
+        liveAtByAssignment.set(p.assignment_id, p.posted_at);
+      }
+    }
 
     const posts: PostQueueItem[] = postRows.map((a) => {
       const submission = subs.get(a.id) ?? null;
@@ -264,20 +307,26 @@ export const listReviewQueues = cache(
       };
     });
 
-    const music: MusicQueueItem[] = musicRows.map((a) => ({
-      assignmentId: a.id,
-      creatorName: a.profiles?.full_name?.trim() || "Creator",
-      briefTitle: a.briefs?.title ?? "Post",
-      ageLabel: formatAge(a.music_marked_by_creator_at),
-      slideCount:
-        a.briefs !== null && a.briefs.point_count !== null
-          ? a.briefs.point_count + 2
-          : null,
-    }));
+    const music: MusicQueueItem[] = musicRows.map((a) => {
+      const liveAt = liveAtByAssignment.get(a.id);
+      return {
+        assignmentId: a.id,
+        creatorName: a.profiles?.full_name?.trim() || "Creator",
+        briefTitle: a.briefs?.title ?? "Post",
+        ageLabel: formatAge(a.music_marked_by_creator_at),
+        slideCount:
+          a.briefs !== null && a.briefs.point_count !== null
+            ? a.briefs.point_count + 2
+            : null,
+        liveAgeLabel: liveAt !== undefined ? formatAge(liveAt) : null,
+      };
+    });
 
     const accounts: AccountQueueItem[] = accountRows.map((row) => ({
       accountId: row.id,
       creatorName: row.profiles?.full_name?.trim() || "Creator",
+      status: row.status,
+      reason: row.reason,
       tiktokHandle: row.tiktok_handle,
       instagramHandle: row.instagram_handle,
       ageLabel: formatAge(row.updated_at),

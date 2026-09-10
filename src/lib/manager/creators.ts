@@ -30,11 +30,12 @@ export type CreatorStatus = "Active" | "Invite sent";
 export interface RosterCreator {
   id: string;
   name: string;
+  handle: string | null;
   avatarUrl: string | null;
   status: CreatorStatus;
   posts: number;
   views: number;
-  earnedMonthCents: number;
+  earnedCents: number;
 }
 
 export interface RosterInvite {
@@ -63,14 +64,19 @@ type AssignmentStatRow = {
   metrics: unknown;
 };
 
+type CreatorAccountRow = {
+  creator_id: string;
+  status: string;
+  tiktok_handle: string | null;
+  instagram_handle: string | null;
+};
+
 export async function listCreatorRoster(
   companyId: string,
 ): Promise<CreatorRoster> {
   const supabase = createServiceClient();
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  const [profilesRes, assignmentsRes, ledgerRes, invitesRes] = await Promise.all([
+  const [profilesRes, assignmentsRes, ledgerRes, accountsRes, invitesRes] = await Promise.all([
     /* Same population as mobile fetchCreatorLeaderboard: creators plus
        admins and managers who also record. */
     supabase
@@ -87,8 +93,11 @@ export async function listCreatorRoster(
       .from("wallet_ledger")
       .select("creator_id, amount_cents")
       .eq("company_id", companyId)
-      .gt("amount_cents", 0)
-      .gte("created_at", monthStart),
+      .gt("amount_cents", 0),
+    supabase
+      .from("creator_accounts")
+      .select("creator_id, status, tiktok_handle, instagram_handle")
+      .eq("company_id", companyId),
     supabase
       .from("company_invites")
       .select("id, email, invited_name, created_at")
@@ -98,7 +107,20 @@ export async function listCreatorRoster(
       .order("created_at", { ascending: false }),
   ]);
 
-  const profiles = (profilesRes.data ?? []) as ProfileRow[];
+  const accounts = (accountsRes.data ?? []) as CreatorAccountRow[];
+  /* Same gate as mobile app/(admin)/creators.tsx: only creators whose
+     account passed review; the rest sit in the Accounts review queue. */
+  const approved = new Set(
+    accounts.filter((a) => a.status === "approved").map((a) => a.creator_id),
+  );
+  const handles = new Map<string, string>();
+  for (const a of accounts) {
+    const handle = a.tiktok_handle ?? a.instagram_handle;
+    if (handle) handles.set(a.creator_id, handle);
+  }
+  const profiles = ((profilesRes.data ?? []) as ProfileRow[]).filter((p) =>
+    approved.has(p.id),
+  );
   const assignments = (assignmentsRes.data ?? []) as AssignmentStatRow[];
   const ledger = (ledgerRes.data ?? []) as Array<{
     creator_id: string;
@@ -111,11 +133,12 @@ export async function listCreatorRoster(
       {
         id: p.id,
         name: p.full_name?.trim() || "Creator",
+        handle: handles.get(p.id) ?? null,
         avatarUrl: null,
         status: p.onboarded ? "Active" : "Invite sent",
         posts: 0,
         views: 0,
-        earnedMonthCents: 0,
+        earnedCents: 0,
       },
     ]),
   );
@@ -128,7 +151,7 @@ export async function listCreatorRoster(
   }
   for (const entry of ledger) {
     const row = rows.get(entry.creator_id);
-    if (row) row.earnedMonthCents += entry.amount_cents;
+    if (row) row.earnedCents += entry.amount_cents;
   }
 
   await Promise.all(
@@ -176,6 +199,9 @@ export interface CreatorProfileData {
   status: CreatorStatus;
   joined: string;
   phone: string | null;
+  credential: string | null;
+  tiktokHandle: string | null;
+  instagramHandle: string | null;
   posts: number;
   views: number;
   earnedCents: number;
@@ -200,11 +226,13 @@ export async function getCreatorProfile(
 ): Promise<CreatorProfileData | null> {
   const supabase = createServiceClient();
 
-  const [profileRes, assignmentsRes, ledgerRes, streakRes, walletRes] =
+  const [profileRes, assignmentsRes, ledgerRes, streakRes, walletRes, accountRes] =
     await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, avatar_path, onboarded, created_at, phone")
+        .select(
+          "id, full_name, avatar_path, onboarded, created_at, phone, credential_line",
+        )
         .eq("company_id", companyId)
         .eq("id", creatorId)
         .maybeSingle(),
@@ -237,6 +265,12 @@ export async function getCreatorProfile(
         .eq("company_id", companyId)
         .eq("creator_id", creatorId)
         .maybeSingle(),
+      supabase
+        .from("creator_accounts")
+        .select("tiktok_handle, instagram_handle")
+        .eq("company_id", companyId)
+        .eq("creator_id", creatorId)
+        .maybeSingle(),
     ]);
 
   const profile = profileRes.data as {
@@ -246,8 +280,13 @@ export async function getCreatorProfile(
     onboarded: boolean | null;
     created_at: string;
     phone: string | null;
+    credential_line: string | null;
   } | null;
   if (!profile) return null;
+  const account = accountRes.data as {
+    tiktok_handle: string | null;
+    instagram_handle: string | null;
+  } | null;
 
   const assignments = ((assignmentsRes.data ?? []) as unknown[]).map((raw) => {
     const row = raw as AssignmentDetailRow;
@@ -284,6 +323,9 @@ export async function getCreatorProfile(
     status: profile.onboarded ? "Active" : "Invite sent",
     joined: profile.created_at,
     phone: profile.phone,
+    credential: profile.credential_line?.trim() || null,
+    tiktokHandle: account?.tiktok_handle ?? null,
+    instagramHandle: account?.instagram_handle ?? null,
     posts: assignments.filter((a) => a.status === "posted").length,
     views: assignments.reduce((sum, a) => sum + a.views, 0),
     earnedCents,

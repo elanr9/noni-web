@@ -7,32 +7,37 @@ import { Card, Label, PageHead, Pill } from "@/components/kit";
 
 import { startWeek } from "@/app/manager/briefs/actions";
 import {
+  BRIEF_WEEK_DAYS,
   briefWeekRangeLabel,
   dayChipLabel,
-  DEFAULT_SLIDESHOW_TARGET,
-  DEFAULT_VIDEO_TARGET,
+  DEFAULT_SLIDESHOWS_PER_DAY,
+  DEFAULT_VIDEOS_PER_DAY,
   nextSunday,
-  scheduleRangeLabel,
-  SLOTS_PER_DAY,
   startDayOptions,
 } from "./lib";
 
-/* Start week: the manager picks the start day and each lane's target, then
-   the grid is stamped from the post types' usual mix. Types stay editable
-   on the grid. Ported from the mobile week-setup screen. */
+/* Start week: the manager picks how many posts each creator makes a day
+   and the start day; one row per slot is stamped for the week. Each post
+   suggests its kind when opened. Ported from the mobile week-setup screen. */
 
-function parseTarget(text: string): number {
+function parsePerDay(text: string): number {
   const n = Number.parseInt(text, 10);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(99, n));
 }
 
-function TargetInput({
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function PerDayInput({
   label,
+  sub,
   value,
   onChange,
 }: {
   label: string;
+  sub: string;
   value: string;
   onChange: (v: string) => void;
 }) {
@@ -46,30 +51,34 @@ function TargetInput({
         onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ""))}
         className="w-full border border-line bg-white px-3.5 py-3 text-[14.5px] font-semibold text-ink outline-none rounded-ops-sm focus:border-blue-500 focus:[box-shadow:var(--ring-focus)]"
       />
+      <span className="text-[11.5px] font-semibold text-slate-400">{sub}</span>
     </label>
   );
 }
 
 export function WeekSetupView({ weekNumber }: { weekNumber: number }) {
   const router = useRouter();
-  const [videoText, setVideoText] = useState(String(DEFAULT_VIDEO_TARGET));
-  const [slideshowText, setSlideshowText] = useState(
-    String(DEFAULT_SLIDESHOW_TARGET),
+  const [videosText, setVideosText] = useState(String(DEFAULT_VIDEOS_PER_DAY));
+  const [slideshowsText, setSlideshowsText] = useState(
+    String(DEFAULT_SLIDESHOWS_PER_DAY),
   );
   const [dropDate, setDropDate] = useState(nextSunday);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const dayOptions = useMemo(() => startDayOptions(), []);
-  const videoTarget = parseTarget(videoText);
-  const slideshowTarget = parseTarget(slideshowText);
-  const totalPosts = videoTarget + slideshowTarget;
+  const videosPerDay = parsePerDay(videosText);
+  const slideshowsPerDay = parsePerDay(slideshowsText);
+  const perDay = videosPerDay + slideshowsPerDay;
+  const videosWeekly = videosPerDay * BRIEF_WEEK_DAYS;
+  const slideshowsWeekly = slideshowsPerDay * BRIEF_WEEK_DAYS;
+  const totalRows = videosWeekly + slideshowsWeekly;
 
   async function submit() {
-    if (submitting || totalPosts === 0) return;
+    if (submitting || totalRows === 0) return;
     setSubmitting(true);
     setError(null);
-    const result = await startWeek({ dropDate, videoTarget, slideshowTarget });
+    const result = await startWeek({ dropDate, videosPerDay, slideshowsPerDay });
     if (result.ok) {
       router.push(`/manager/briefs/week/${result.campaignId}`);
       return;
@@ -87,19 +96,28 @@ export function WeekSetupView({ weekNumber }: { weekNumber: number }) {
       />
 
       <Card pad={22} className="flex max-w-[640px] flex-col gap-4">
-        <Label>Posts</Label>
+        <Label>Posts a day</Label>
+        <p className="m-0 text-[13px] leading-relaxed text-slate-500">
+          How many should each creator post a day? That is the whole setup.
+        </p>
         <div className="flex flex-col gap-2.5 sm:flex-row">
-          <TargetInput label="Videos" value={videoText} onChange={setVideoText} />
-          <TargetInput
-            label="Slideshows"
-            value={slideshowText}
-            onChange={setSlideshowText}
+          <PerDayInput
+            label="Videos a day"
+            sub="Reels"
+            value={videosText}
+            onChange={setVideosText}
+          />
+          <PerDayInput
+            label="Slideshows a day"
+            sub="Photo carousels"
+            value={slideshowsText}
+            onChange={setSlideshowsText}
           />
         </div>
         <p className="m-0 text-[13px] leading-relaxed text-slate-500">
-          {totalPosts === 0
-            ? "Set at least one post."
-            : `${totalPosts} posts, up to ${SLOTS_PER_DAY} per creator per day: ${scheduleRangeLabel(dropDate, totalPosts)}. Types are stamped from the usual mix and stay editable on the grid.`}
+          {totalRows === 0
+            ? "Pick at least one post a day."
+            : `${plural(perDay, "post", "posts")} a day, ${totalRows} this week: ${plural(videosWeekly, "video", "videos")} and ${plural(slideshowsWeekly, "slideshow", "slideshows")}. Each post suggests its kind when you open it.`}
         </p>
 
         <Label className="mt-2">Start day</Label>
@@ -122,6 +140,9 @@ export function WeekSetupView({ weekNumber }: { weekNumber: number }) {
             );
           })}
         </div>
+        <p className="m-0 text-[12.5px] text-slate-400">
+          {`Runs ${briefWeekRangeLabel(dropDate)}. The clock starts when the first post goes live.`}
+        </p>
 
         {error ? (
           <p className="m-0 text-[13px] font-semibold text-danger">{error}</p>
@@ -131,8 +152,8 @@ export function WeekSetupView({ weekNumber }: { weekNumber: number }) {
           <Pill variant="quiet" onClick={() => router.push("/manager/briefs")}>
             Back
           </Pill>
-          <Pill disabled={submitting || totalPosts === 0} onClick={() => void submit()}>
-            {submitting ? "Setting up…" : `Start week · ${totalPosts} posts`}
+          <Pill disabled={submitting || totalRows === 0} onClick={() => void submit()}>
+            {submitting ? "Creating rows…" : `Create ${plural(totalRows, "row", "rows")}`}
           </Pill>
         </div>
       </Card>

@@ -1,6 +1,13 @@
 "use client";
 
-import { ExternalLink, Images, MessageCircle, Play } from "lucide-react";
+import {
+  AtSign,
+  ExternalLink,
+  Images,
+  MessageCircle,
+  Music2,
+  Play,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Card, Chip, Label, PageHead, Pill } from "@/components/kit";
@@ -32,6 +39,62 @@ function statusChip(status: string) {
 
 function formatLabel(format: string): string {
   return format === "video" ? "Reel" : "Slideshow";
+}
+
+function Handle({
+  platform,
+  handle,
+}: {
+  platform: "tiktok" | "instagram";
+  handle: string | null;
+}) {
+  const clean = handle?.replace(/^@/, "") ?? null;
+  const label = platform === "tiktok" ? "TikTok" : "Instagram";
+  const Icon = platform === "tiktok" ? Music2 : AtSign;
+  const href =
+    clean === null
+      ? null
+      : platform === "tiktok"
+        ? `https://www.tiktok.com/@${clean}`
+        : `https://www.instagram.com/${clean}/`;
+  const content = (
+    <>
+      <Icon
+        size={13}
+        className={clean !== null ? "text-blue-600" : "text-slate-300"}
+      />
+      <span
+        className={
+          clean !== null
+            ? "text-[12px] font-bold text-blue-700"
+            : "text-[12px] font-semibold text-slate-400"
+        }
+      >
+        {clean !== null ? `@${clean}` : "Not linked yet"}
+      </span>
+    </>
+  );
+  if (href === null) {
+    return (
+      <span
+        aria-label={`${label} not linked yet`}
+        className="inline-flex items-center gap-1.5"
+      >
+        {content}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Open @${clean} on ${label}`}
+      className="inline-flex items-center gap-1.5 no-underline hover:opacity-60"
+    >
+      {content}
+    </a>
+  );
 }
 
 function FormatIcon({ format }: { format: string }) {
@@ -154,9 +217,13 @@ export function CreatorProfile({
                 {creator.name}
               </span>
               <span className="mt-0.5 block text-[12px] font-semibold text-slate-400">
-                Creator
+                {creator.credential ?? "Creator"}
               </span>
             </span>
+          </div>
+          <div className="flex flex-wrap gap-3.5 px-5 pb-3.5">
+            <Handle platform="tiktok" handle={creator.tiktokHandle} />
+            <Handle platform="instagram" handle={creator.instagramHandle} />
           </div>
           {(
             [

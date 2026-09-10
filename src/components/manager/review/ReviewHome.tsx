@@ -13,7 +13,7 @@ import {
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
-import { Avatar, Card, Chip, PageHead } from "@/components/kit";
+import { Avatar, Card, Chip, Label, PageHead } from "@/components/kit";
 import type {
   AccountQueueItem,
   MusicQueueItem,
@@ -111,6 +111,34 @@ function QueueRow({
   );
 }
 
+function AccountQueueRow({ row }: { row: AccountQueueItem }) {
+  const sentBack = row.status === "needs_changes";
+  return (
+    <QueueRow
+      href={`/manager/accounts/${row.accountId}`}
+      name={row.creatorName}
+      title={row.creatorName}
+      meta={[
+        row.tiktokHandle ? `@${row.tiktokHandle}` : "No TikTok handle",
+        row.instagramHandle ? `@${row.instagramHandle}` : "No Instagram handle",
+        sentBack && row.reason ? row.reason : `Submitted ${row.ageLabel}`,
+      ].join(" · ")}
+      chip={
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex h-9 w-7 items-center justify-center bg-blue-100 rounded-[9px]">
+            <AtSign size={13} className="text-blue-700" />
+          </span>
+          {sentBack ? (
+            <Chip tone="amber">Sent back</Chip>
+          ) : (
+            <Chip tone="slate">Pending</Chip>
+          )}
+        </span>
+      }
+    />
+  );
+}
+
 function EmptyLane({
   icon: Icon,
   title,
@@ -144,7 +172,10 @@ export function ReviewHome({
 }) {
   const [lane, setLane] = useState<Lane>("Posts");
 
-  const total = posts.length + music.length + accounts.length;
+  const pendingAccounts = accounts.filter((a) => a.status !== "needs_changes");
+  const sentBackAccounts = accounts.filter((a) => a.status === "needs_changes");
+
+  const total = posts.length + music.length + pendingAccounts.length;
   const subtitle =
     total === 0
       ? SUBTITLE_CLEARED
@@ -171,7 +202,7 @@ export function ReviewHome({
         counts={{
           Posts: posts.length,
           Music: music.length,
-          Accounts: accounts.length,
+          Accounts: pendingAccounts.length,
         }}
         onSelect={setLane}
       />
@@ -243,7 +274,8 @@ export function ReviewHome({
                 meta={[
                   row.creatorName,
                   row.slideCount !== null ? `${row.slideCount} slides` : null,
-                  `Marked ${row.ageLabel}`,
+                  row.liveAgeLabel !== null ? `Live ${row.liveAgeLabel}` : null,
+                  `Marked added ${row.ageLabel}`,
                 ]
                   .filter(Boolean)
                   .join(" · ")}
@@ -264,29 +296,17 @@ export function ReviewHome({
         />
       ) : (
         <div className="flex flex-col gap-2.5">
-          {accounts.map((row) => (
-            <QueueRow
-              key={row.accountId}
-              href={`/manager/accounts/${row.accountId}`}
-              name={row.creatorName}
-              title={row.creatorName}
-              meta={[
-                row.tiktokHandle ? `@${row.tiktokHandle}` : null,
-                row.instagramHandle ? `@${row.instagramHandle}` : null,
-                `Submitted ${row.ageLabel}`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-              chip={
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className="inline-flex h-9 w-7 items-center justify-center bg-blue-100 rounded-[9px]">
-                    <AtSign size={13} className="text-blue-700" />
-                  </span>
-                  <Chip tone="slate">Pending</Chip>
-                </span>
-              }
-            />
+          {pendingAccounts.map((row) => (
+            <AccountQueueRow key={row.accountId} row={row} />
           ))}
+          {sentBackAccounts.length > 0 ? (
+            <>
+              <Label className="mt-2.5 block">Sent back</Label>
+              {sentBackAccounts.map((row) => (
+                <AccountQueueRow key={row.accountId} row={row} />
+              ))}
+            </>
+          ) : null}
         </div>
       )}
     </div>

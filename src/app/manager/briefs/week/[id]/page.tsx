@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { briefWeekStatus } from "@/components/manager/briefs/lib";
 import { WeekDetailView } from "@/components/manager/briefs/WeekDetailView";
@@ -23,7 +23,8 @@ export default async function WeekDetailPage({
 }) {
   const { id } = await params;
   const { profile } = await getSessionProfile();
-  const companyId = profile?.company_id ?? "";
+  if (!profile?.company_id) redirect("/login?next=/manager");
+  const companyId = profile.company_id;
 
   const campaign = await getCampaign(companyId, id);
   if (!campaign) notFound();

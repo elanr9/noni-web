@@ -17,12 +17,13 @@ import { Card, Chip, PageHead, Pill } from "@/components/kit";
 import { getWeekPosts } from "@/app/manager/briefs/actions";
 import { AvatarStack, FormatThumb, ProgressBar, StatPill } from "./bits";
 import {
+  BRIEF_WEEK_DAYS,
+  briefWeekOpensLabel,
   briefWeekRangeLabel,
   fmtSales,
   fmtViews,
   formatLabel,
   postedDayMeta,
-  upcomingWeekDropDate,
   type BriefWeekStats,
   type BriefWeekStatus,
   type BriefWeekSummary,
@@ -43,30 +44,48 @@ type WeekCardData = {
   /** Null for the synthesized upcoming week with no draft campaign yet. */
   campaignId: string | null;
   label: string;
-  range: string;
+  /** Null until a start day has been chosen in week setup. */
+  startDay: string | null;
   status: BriefWeekStatus;
   dayOfWeek: number | null;
   video: { done: number; target: number };
   slideshow: { done: number; target: number };
+  /** False until week setup has stamped rows. */
+  planned: boolean;
   stats: BriefWeekStats | null;
 };
+
+function opensSentence(startDay: string): string {
+  const opens = briefWeekOpensLabel(startDay);
+  return opens.charAt(0).toUpperCase() + opens.slice(1);
+}
 
 function rangeLine(card: WeekCardData): string {
   const phrase =
     card.status === "next"
-      ? "opens Sunday"
+      ? card.startDay === null
+        ? "not planned"
+        : briefWeekOpensLabel(card.startDay)
       : card.status === "current"
         ? "in progress"
         : "complete";
-  return `${card.range} · ${phrase}`;
+  if (card.startDay === null) return phrase;
+  return `${briefWeekRangeLabel(card.startDay)} · ${phrase}`;
 }
 
 function stepperStatus(card: WeekCardData): string {
-  if (card.status === "next") return "Opens Sunday";
+  if (card.status === "next") {
+    return card.startDay === null ? "Not planned" : opensSentence(card.startDay);
+  }
   if (card.status === "current" && card.dayOfWeek !== null) {
-    return `Day ${card.dayOfWeek} of 7`;
+    return `Day ${card.dayOfWeek} of ${BRIEF_WEEK_DAYS}`;
   }
   return "Done";
+}
+
+function notPlannedLine(startDay: string | null): string {
+  if (startDay === null) return "Not planned yet. Click to start it.";
+  return `Not planned yet. ${opensSentence(startDay)}. Click to start it.`;
 }
 
 function LaneSummaryCard({
@@ -122,14 +141,12 @@ export function BriefsIndexView({
       key: w.campaign.id,
       campaignId: w.campaign.id,
       label: `Week ${w.weekNumber}`,
-      range:
-        w.campaign.drop_date === null
-          ? ""
-          : briefWeekRangeLabel(w.campaign.drop_date),
+      startDay: w.campaign.drop_date,
       status: w.status,
       dayOfWeek: w.dayOfWeek,
       video: { done: w.videoDone, target: w.videoTarget },
       slideshow: { done: w.slideshowDone, target: w.slideshowTarget },
+      planned: w.rowCount > 0,
       stats: w.stats,
     }));
     if (list.length > 0 && !list.some((c) => c.status === "next")) {
@@ -137,11 +154,12 @@ export function BriefsIndexView({
         key: "upcoming",
         campaignId: null,
         label: `Week ${Math.max(...weeks.map((w) => w.weekNumber)) + 1}`,
-        range: briefWeekRangeLabel(upcomingWeekDropDate()),
+        startDay: null,
         status: "next",
         dayOfWeek: null,
         video: { done: 0, target: 0 },
         slideshow: { done: 0, target: 0 },
+        planned: false,
         stats: null,
       });
     }
@@ -235,7 +253,9 @@ export function BriefsIndexView({
             </button>
             <div className="flex min-w-0 flex-1 flex-col items-center">
               <span className="truncate text-[14.5px] font-bold tracking-[-0.2px] text-ink">
-                {cw.label} · {cw.range}
+                {cw.startDay === null
+                  ? cw.label
+                  : `${cw.label} · ${briefWeekRangeLabel(cw.startDay)}`}
               </span>
               <span className="text-[11.5px] font-semibold text-slate-400">
                 {stepperStatus(cw)}
@@ -269,7 +289,9 @@ export function BriefsIndexView({
 
           {cw.status === "next" ? (
             <p className="m-0 text-[13px] text-slate-400">
-              Nothing recorded yet. The brief opens Sunday.
+              {cw.startDay === null
+                ? "Nothing recorded yet. Start the week to plan it."
+                : `Nothing recorded yet. The brief ${briefWeekOpensLabel(cw.startDay)}.`}
             </p>
           ) : cwPosts === undefined ? (
             <p className="m-0 text-[13px] font-semibold text-slate-400">
@@ -346,9 +368,9 @@ export function BriefsIndexView({
                 <ChevronRight size={16} className="shrink-0 text-slate-300" />
               </div>
 
-              {card.status === "next" ? (
+              {!card.planned ? (
                 <p className="m-0 text-[12.5px] text-slate-400">
-                  Not planned yet. Opens Sunday, click to start it.
+                  {notPlannedLine(card.startDay)}
                 </p>
               ) : card.stats !== null ? (
                 <div className="flex flex-wrap items-center gap-1.5">

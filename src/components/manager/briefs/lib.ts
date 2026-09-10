@@ -19,6 +19,8 @@ export type TalkingPoint = {
   is_product: boolean;
   edited_by_admin: boolean;
   claim_id: string | null;
+  /** True when the creator reads this point word for word from the teleprompter. */
+  script: boolean;
 };
 
 /** How on-screen text is drawn: rounded box, outlined letters, or plain. */
@@ -73,6 +75,7 @@ export function parseTalkingPoints(value: Json | null | undefined): TalkingPoint
       is_product: raw.is_product === true,
       edited_by_admin: raw.edited_by_admin === true,
       claim_id: typeof raw.claim_id === "string" ? raw.claim_id : null,
+      script: raw.script === true,
     });
   }
   return points;
@@ -128,6 +131,8 @@ export type Brief = {
   reviewed_at: string | null;
   review_result: Json;
   text_overlay: Json;
+  subtitles: boolean;
+  subtitles_y: number;
 };
 
 export type BriefWithType = Brief & { post_types: PostType | null };
@@ -137,6 +142,7 @@ export type Campaign = {
   company_id: string;
   name: string;
   drop_date: string | null;
+  week_started_at: string | null;
   status: string;
   published_at: string | null;
   video_target: number | null;
@@ -242,12 +248,20 @@ export function progressLine(brief: BriefWithType): string {
 }
 
 // ---------------------------------------------------------------------------
-// Week math. A week runs Monday through Sunday of its drop week.
+// Week math. A week runs seven days from its start day. The start day is the
+// planned drop_date until the first post is published, when the database
+// moves drop_date onto that day (migration 072).
 
 export type BriefWeekStatus = "next" | "current" | "done";
 
-export function briefWeekMonday(dropDate: string): Date {
-  const d = new Date(`${dropDate}T00:00:00`);
+export const BRIEF_WEEK_DAYS = 7;
+
+export function briefWeekStart(dropDate: string): Date {
+  return new Date(`${dropDate}T00:00:00`);
+}
+
+function mondayOf(dropDate: string): Date {
+  const d = briefWeekStart(dropDate);
   const day = d.getDay();
   d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
   return d;
@@ -289,18 +303,17 @@ export function weekdayLong(d: Date): string {
 
 /** "Aug 17 to 23", or "Jul 27 to Aug 2" across a month boundary. */
 export function briefWeekRangeLabel(dropDate: string): string {
-  const mon = briefWeekMonday(dropDate);
-  const sun = addDays(mon, 6);
-  if (mon.getMonth() === sun.getMonth()) {
-    return `${monthShort(mon)} ${mon.getDate()} to ${sun.getDate()}`;
+  const start = briefWeekStart(dropDate);
+  const end = addDays(start, BRIEF_WEEK_DAYS - 1);
+  if (start.getMonth() === end.getMonth()) {
+    return `${monthShort(start)} ${start.getDate()} to ${end.getDate()}`;
   }
-  return `${monthShort(mon)} ${mon.getDate()} to ${monthShort(sun)} ${sun.getDate()}`;
+  return `${monthShort(start)} ${start.getDate()} to ${monthShort(end)} ${end.getDate()}`;
 }
 
-/** Drop date (Monday) of the week after the one containing today. */
-export function upcomingWeekDropDate(): string {
-  const thisMonday = briefWeekMonday(isoDate(new Date()));
-  return isoDate(addDays(thisMonday, 7));
+/** "opens Monday", from the brief's chosen start day. */
+export function briefWeekOpensLabel(dropDate: string): string {
+  return `opens ${weekdayLong(briefWeekStart(dropDate))}`;
 }
 
 /**
@@ -313,12 +326,12 @@ export function briefWeekStatus(
   if (campaign.status !== "published" || campaign.drop_date === null) {
     return { status: "next", dayOfWeek: null };
   }
-  const monday = briefWeekMonday(campaign.drop_date);
+  const start = briefWeekStart(campaign.drop_date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - monday.getTime()) / 86400000);
+  const diff = Math.round((today.getTime() - start.getTime()) / 86400000);
   if (diff < 0) return { status: "next", dayOfWeek: null };
-  if (diff <= 6) return { status: "current", dayOfWeek: diff + 1 };
+  if (diff < BRIEF_WEEK_DAYS) return { status: "current", dayOfWeek: diff + 1 };
   return { status: "done", dayOfWeek: null };
 }
 
@@ -327,7 +340,7 @@ export function briefWeekStatus(
  * cutoff publish-campaign schedules against.
  */
 export function isBeforeNotifyCutoff(dropDate: string): boolean {
-  const sundayIso = isoDate(addDays(briefWeekMonday(dropDate), 6));
+  const sundayIso = isoDate(addDays(mondayOf(dropDate), 6));
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
     year: "numeric",
@@ -365,6 +378,8 @@ export type BriefWeekSummary = {
   videoTarget: number;
   slideshowDone: number;
   slideshowTarget: number;
+  /** Stamped rows in the week; zero means week setup never ran. */
+  rowCount: number;
   stats: BriefWeekStats | null;
 };
 
@@ -383,10 +398,8 @@ export type WeekPostItem = {
 // ---------------------------------------------------------------------------
 // Week setup math, ported from the mobile week-setup screen.
 
-export const DEFAULT_VIDEO_TARGET = 20;
-export const DEFAULT_SLIDESHOW_TARGET = 10;
-/** Mirrors the publish scheduler: three posts per creator per day. */
-export const SLOTS_PER_DAY = 3;
+export const DEFAULT_VIDEOS_PER_DAY = 2;
+export const DEFAULT_SLIDESHOWS_PER_DAY = 1;
 
 /** The next seven days, starting tomorrow. */
 export function startDayOptions(): string[] {
@@ -405,47 +418,167 @@ export function nextSunday(): string {
   return isoDate(d);
 }
 
-/** "Aug 12 to 16" for the days the schedule covers from the start day. */
-export function scheduleRangeLabel(dropDate: string, totalPosts: number): string {
-  const days = Math.min(7, Math.max(1, Math.ceil(totalPosts / SLOTS_PER_DAY)));
-  const start = new Date(`${dropDate}T00:00:00`);
-  const end = addDays(start, days - 1);
-  if (start.getMonth() === end.getMonth()) {
-    return `${monthShort(start)} ${start.getDate()} to ${end.getDate()}`;
-  }
-  return `${monthShort(start)} ${start.getDate()} to ${monthShort(end)} ${end.getDate()}`;
+// ---------------------------------------------------------------------------
+// Overlay text boxes, ported from the mobile lib/overlay-boxes.ts. Boxes live
+// in brief_segments.overlay_style as { boxes: [...] }; box 0 mirrors into the
+// legacy overlay_text / text_y columns so the render pass keeps reading them.
+
+export type OverlayBox = {
+  id: string;
+  text: string;
+  color: string;
+  bg: boolean;
+  size: number;
+  x: number;
+  y: number;
+};
+
+const CLASSIC_TEXT_COLOR = "#FFFFFF";
+const LEGACY_STAGE_WIDTH = 390;
+const DEFAULT_BOX_SIZE = 26 / LEGACY_STAGE_WIDTH;
+const MIN_BOX_SIZE = 13 / LEGACY_STAGE_WIDTH;
+const MAX_BOX_SIZE = 72 / LEGACY_STAGE_WIDTH;
+const DEFAULT_TEXT_Y = 0.45;
+const AUTO_MIN_SIZE = 14 / LEGACY_STAGE_WIDTH;
+const AUTO_MAX_SIZE = 28 / LEGACY_STAGE_WIDTH;
+const AUTO_MAX_LINES = 5;
+const AUTO_GLYPH_WIDTH = 0.55;
+const BOX_MAX_WIDTH = 0.86;
+const AUTO_Y_BY_INDEX = [0.3, 0.7, 0.5];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * Distribute one family's target across its types, proportional to
- * default_week_count (largest remainder), so the split always sums to
- * the target.
- */
-export function splitFamily(
-  types: PostType[],
-  target: number,
-): Record<string, number> {
-  const split: Record<string, number> = {};
-  if (types.length === 0 || target <= 0) return split;
-  const totalWeight = types.reduce((sum, t) => sum + t.default_week_count, 0);
-  const weightOf = (t: PostType): number =>
-    totalWeight > 0 ? t.default_week_count : 1;
-  const denominator = totalWeight > 0 ? totalWeight : types.length;
-  let assigned = 0;
-  const remainders: { key: string; frac: number }[] = [];
-  for (const t of types) {
-    const exact = (target * weightOf(t)) / denominator;
-    const base = Math.floor(exact);
-    split[t.key] = base;
-    assigned += base;
-    remainders.push({ key: t.key, frac: exact - base });
+function autoLayoutBox(text: string, index = 0): Pick<OverlayBox, "size" | "x" | "y"> {
+  const chars = Math.max(1, text.trim().length);
+  const fit = (BOX_MAX_WIDTH * AUTO_MAX_LINES) / (AUTO_GLYPH_WIDTH * chars);
+  return {
+    size: clamp(fit, AUTO_MIN_SIZE, AUTO_MAX_SIZE),
+    x: 0.5,
+    y: AUTO_Y_BY_INDEX[Math.min(index, AUTO_Y_BY_INDEX.length - 1)] ?? DEFAULT_TEXT_Y,
+  };
+}
+
+/** A fresh auto placed box: the company theme pill when a color is set, TikTok classic otherwise. */
+export function newOverlayBox(params: {
+  id: string;
+  text: string;
+  themeColor: string | null;
+  index?: number;
+}): OverlayBox {
+  return {
+    id: params.id,
+    text: params.text,
+    ...(params.themeColor
+      ? { color: params.themeColor, bg: true }
+      : { color: CLASSIC_TEXT_COLOR, bg: false }),
+    ...autoLayoutBox(params.text, params.index ?? 0),
+  };
+}
+
+/** Company wide theme color from companies.settings.overlay_theme. */
+export function parseOverlayThemeColor(settings: unknown): string | null {
+  if (!isRecord(settings) || !isRecord(settings.overlay_theme)) return null;
+  const hex = settings.overlay_theme.color;
+  return typeof hex === "string" && /^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(hex.trim())
+    ? hex
+    : null;
+}
+
+function num(v: unknown, fallback: number): number {
+  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+}
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function parseBox(value: unknown, index: number): OverlayBox | null {
+  if (!isRecord(value)) return null;
+  const text = typeof value.text === "string" ? value.text : "";
+  if (text.trim().length === 0) return null;
+  const auto = autoLayoutBox(text, index);
+  return {
+    id: typeof value.id === "string" ? value.id : `box-${index}`,
+    text,
+    color: typeof value.color === "string" ? value.color : CLASSIC_TEXT_COLOR,
+    bg: typeof value.bg === "boolean" ? value.bg : false,
+    size: clamp(num(value.size, auto.size), MIN_BOX_SIZE, MAX_BOX_SIZE),
+    x: clamp(num(value.x, auto.x), 0.02, 0.98),
+    y: clamp(num(value.y, auto.y), 0.02, 0.98),
+  };
+}
+
+/** True once a segment carries composer boxes (seeded or hand placed). */
+export function hasOverlayBoxes(overlayStyle: unknown): boolean {
+  return (
+    isRecord(overlayStyle) &&
+    Array.isArray(overlayStyle.boxes) &&
+    overlayStyle.boxes.some((b) => parseBox(b, 0) !== null)
+  );
+}
+
+/** All boxes on a segment; falls back to the legacy single text columns. */
+export function parseOverlayBoxes(
+  overlayStyle: unknown,
+  legacy: { text: string | null | undefined; textY: number | null | undefined },
+): OverlayBox[] {
+  if (isRecord(overlayStyle) && Array.isArray(overlayStyle.boxes)) {
+    return overlayStyle.boxes
+      .map((b, i) => parseBox(b, i))
+      .filter((b): b is OverlayBox => b !== null);
   }
-  remainders.sort((a, b) => b.frac - a.frac);
-  for (let i = 0; assigned < target; i += 1) {
-    split[remainders[i % remainders.length].key] += 1;
-    assigned += 1;
-  }
-  return split;
+  const text = legacy.text?.trim() ?? "";
+  if (text.length === 0) return [];
+  const style = isRecord(overlayStyle) ? overlayStyle : {};
+  const auto = autoLayoutBox(text, 0);
+  return [
+    {
+      id: "legacy-0",
+      text,
+      color: typeof style.color === "string" ? style.color : CLASSIC_TEXT_COLOR,
+      bg: typeof style.bg === "boolean" ? style.bg : false,
+      size: clamp(
+        typeof style.size === "number" ? style.size / LEGACY_STAGE_WIDTH : auto.size,
+        MIN_BOX_SIZE,
+        MAX_BOX_SIZE,
+      ),
+      x: clamp(num(style.x, auto.x), 0.02, 0.98),
+      y: clamp(legacy.textY ?? auto.y, 0.02, 0.98),
+    },
+  ];
+}
+
+/** overlay_style JSON for a set of boxes, with the box-0 legacy mirror. */
+export function serializeOverlayBoxes(boxes: OverlayBox[]): {
+  overlay_style: { [key: string]: Json };
+  overlay_text: string;
+  text_y: number;
+  show_on_screen: boolean;
+} {
+  const kept = boxes.filter((b) => b.text.trim().length > 0);
+  const first = kept[0];
+  return {
+    overlay_style: {
+      boxes: kept.map((b) => ({
+        id: b.id,
+        text: b.text,
+        color: b.color,
+        bg: b.bg,
+        size: b.size,
+        x: b.x,
+        y: b.y,
+      })),
+      color: first?.color ?? CLASSIC_TEXT_COLOR,
+      bg: first?.bg ?? false,
+      size: Math.round((first?.size ?? DEFAULT_BOX_SIZE) * LEGACY_STAGE_WIDTH),
+      x: first?.x ?? 0.5,
+    },
+    overlay_text: first?.text ?? "",
+    text_y: first?.y ?? DEFAULT_TEXT_Y,
+    show_on_screen: kept.length > 0,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -511,11 +644,36 @@ export type BriefReviewResult = {
   tier3: Tier3Verdict;
 };
 
+/** Feature screenshot the AI tied to a talking point, index aligned with talking_points. */
+export type PointMedia = {
+  feature_id: string;
+  screenshot_url: string | null;
+  shape: "phone" | "laptop" | null;
+};
+
+export function parsePointMedia(value: unknown): (PointMedia | null)[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry): PointMedia | null => {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return null;
+    const raw = entry as Record<string, unknown>;
+    if (typeof raw.feature_id !== "string") return null;
+    return {
+      feature_id: raw.feature_id,
+      screenshot_url: typeof raw.screenshot_url === "string" ? raw.screenshot_url : null,
+      shape: raw.shape === "phone" || raw.shape === "laptop" ? raw.shape : null,
+    };
+  });
+}
+
+/** Where an AI fill comes from; stored on brief_ai_snapshots.source_kind. */
+export type FillSourceKind = "port" | "example" | "idea" | "feature" | "auto";
+
 export type BriefDraft = {
   title: string;
   format: BriefFormat;
   hook_options: string[];
   talking_points: TalkingPoint[];
+  point_media: (PointMedia | null)[];
   hashtags: string[];
   search_phrase: string | null;
   point_count: number | null;
@@ -578,6 +736,8 @@ export type BriefSaveInput = {
   generation_id: string | null;
   example_url: string | null;
   text_overlay: TextOverlay;
+  /** Burn auto transcribed two line captions onto the rendered reel. */
+  subtitles: boolean;
 };
 
 /** One brief_review_events row, computed client side like mobile. */
@@ -633,4 +793,9 @@ export function dayTitle(iso: string): string {
 export function formatDropDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
   return `${monthShort(d)} ${d.getDate()}`;
+}
+
+/** Segment media is a screen recording when its path carries a video extension. */
+export function isVideoPath(pathOrUrl: string): boolean {
+  return /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(pathOrUrl);
 }

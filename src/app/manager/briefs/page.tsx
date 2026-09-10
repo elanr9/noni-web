@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { BriefsIndexView } from "@/components/manager/briefs/BriefsIndexView";
 import { getSessionProfile } from "@/lib/auth";
 import { listBriefWeeks, listCampaignManagers } from "@/lib/manager/briefs";
@@ -8,7 +9,8 @@ import { getManagerContext } from "@/lib/manager/context";
    role; reads run on the service client scoped by the session company. */
 export default async function ManagerBriefsPage() {
   const { profile } = await getSessionProfile();
-  const companyId = profile?.company_id ?? "";
+  if (!profile?.company_id) redirect("/login?next=/manager");
+  const companyId = profile.company_id;
   const [context, weeks, managers] = await Promise.all([
     getManagerContext(companyId),
     listBriefWeeks(companyId),

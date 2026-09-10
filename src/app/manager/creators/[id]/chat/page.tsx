@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ChatThread } from "@/components/manager/creators/ChatThread";
 import { getSessionProfile } from "@/lib/auth";
@@ -11,7 +11,8 @@ export default async function ManagerCreatorChatPage({
 }) {
   const { id } = await params;
   const { userId, profile } = await getSessionProfile();
-  const companyId = profile?.company_id ?? "";
+  if (!profile?.company_id) redirect("/login?next=/manager");
+  const companyId = profile.company_id;
   const creator = await getCreatorHeader(companyId, id);
   if (!creator || !userId) notFound();
 

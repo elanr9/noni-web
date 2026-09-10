@@ -89,7 +89,7 @@ function DayDetail({
         </p>
       ) : (
         posts.map((q) => {
-          const Icon = q.format === "Video" ? Play : Images;
+          const Icon = q.format === "Reel" ? Play : Images;
           const postMoney = showFinancials && moneyOn(gate, q.day);
           return (
             <div
@@ -207,7 +207,7 @@ export function ManagerDailyActivity({
               data !== undefined &&
               (data.views > 0 ||
                 (showSignups && data.signups > 0) ||
-                (money && data.salesCents > 0) ||
+                (showFinancials && data.salesCents > 0) ||
                 posted);
             const future = d > today;
             const badge = [

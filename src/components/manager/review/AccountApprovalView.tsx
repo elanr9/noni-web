@@ -5,7 +5,6 @@ import {
   Check,
   CircleAlert,
   Images,
-  ListChecks,
   Music2,
   Pencil,
   Play,
@@ -23,18 +22,21 @@ import {
 import type { AccountApprovalDetail } from "@/lib/manager/review";
 
 /* Account approval, ported from app/(admin)/account-approval/[accountId].tsx
-   and components/admin/approval/. Five evidence cards; noting a part and
-   sending back flips the row to needs_changes with a required reason, and
-   approving links the handles. */
+   and components/admin/approval/. Four evidence cards (one account and one
+   feed recording per platform); noting a part and sending back flips the
+   row to needs_changes with a required reason, and approving links the
+   handles. */
 
-type PartKey = "ig" | "tt" | "shots" | "feed" | "handles";
-type PartKind = "clip" | "shots" | "feed" | "handles";
+type PartKey = "ig_account" | "tt_account" | "ig_clip" | "tt_clip";
+type PartKind = "account" | "clip";
+type Platform = "instagram" | "tiktok";
 
 type AccountPart = {
   key: PartKey;
   label: string;
   meta: string;
   kind: PartKind;
+  platform: Platform;
 };
 
 type Phase = "review" | "approved" | "sent";
@@ -167,20 +169,37 @@ export function AccountApprovalView({
   const sentBack = detail.status === "needs_changes";
   const decided = detail.status === "approved";
 
-  const handleList = [detail.tiktokHandle, detail.instagramHandle]
-    .filter((h): h is string => typeof h === "string" && h.length > 0)
-    .map((h) => `@${h}`);
+  const at = (handle: string | null) =>
+    handle !== null && handle.length > 0 ? `@${handle.replace(/^@/, "")}` : "Handle not set";
 
   const parts: AccountPart[] = [
-    { key: "ig", label: "Instagram scroll", meta: "20s: home, explore, reels", kind: "clip" },
-    { key: "tt", label: "TikTok For You scroll", meta: "15s minimum, continuous", kind: "clip" },
-    { key: "shots", label: "Profile screenshots", meta: "Both platforms, bio visible", kind: "shots" },
-    { key: "feed", label: "Feed test", meta: "For You is college soccer", kind: "feed" },
     {
-      key: "handles",
-      label: "Handles to link",
-      meta: handleList.length > 0 ? handleList.join(" · ") : "Not set",
-      kind: "handles",
+      key: "ig_account",
+      label: "Instagram account",
+      meta: at(detail.instagramHandle),
+      kind: "account",
+      platform: "instagram",
+    },
+    {
+      key: "tt_account",
+      label: "TikTok account",
+      meta: at(detail.tiktokHandle),
+      kind: "account",
+      platform: "tiktok",
+    },
+    {
+      key: "ig_clip",
+      label: "Instagram feed",
+      meta: "Home, explore, reels",
+      kind: "clip",
+      platform: "instagram",
+    },
+    {
+      key: "tt_clip",
+      label: "TikTok For You",
+      meta: "College soccer and recruiting",
+      kind: "clip",
+      platform: "tiktok",
     },
   ];
 
@@ -213,10 +232,11 @@ export function AccountApprovalView({
             profile_matches_template: true,
           }
         : {
-            instagram_recording_ok: notes.ig === undefined,
-            tiktok_recording_ok: notes.tt === undefined,
-            feed_is_niche: notes.feed === undefined,
-            profile_matches_template: notes.shots === undefined,
+            instagram_recording_ok: notes.ig_clip === undefined,
+            tiktok_recording_ok: notes.tt_clip === undefined,
+            feed_is_niche: notes.ig_clip === undefined && notes.tt_clip === undefined,
+            profile_matches_template:
+              notes.ig_account === undefined && notes.tt_account === undefined,
           };
 
     setBusy(true);
@@ -306,10 +326,8 @@ export function AccountApprovalView({
                 <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center bg-blue-100 rounded-[10px]">
                   {p.kind === "clip" ? (
                     <Play size={15} className="text-blue-700" />
-                  ) : p.kind === "shots" ? (
-                    <Images size={15} className="text-blue-700" />
-                  ) : p.kind === "feed" ? (
-                    <ListChecks size={15} className="text-blue-700" />
+                  ) : p.platform === "tiktok" ? (
+                    <Music2 size={15} className="text-blue-700" />
                   ) : (
                     <AtSign size={15} className="text-blue-700" />
                   )}
@@ -362,48 +380,40 @@ export function AccountApprovalView({
           {openPart.kind === "clip" ? (
             <ClipPreview
               url={
-                openPart.key === "ig"
+                openPart.platform === "instagram"
                   ? detail.urls.instagramRecording
                   : detail.urls.tiktokRecording
               }
             />
-          ) : null}
-
-          {openPart.kind === "shots" ? (
-            <div className="flex justify-center gap-2.5">
-              <ScreenshotFrame label="TikTok" url={detail.urls.tiktokScreenshot} />
-              <ScreenshotFrame label="Instagram" url={detail.urls.instagramScreenshot} />
-            </div>
-          ) : null}
-
-          {openPart.kind === "feed" ? (
-            <div className="bg-fill-quiet p-3.5 rounded-ops-sm">
-              <p className="m-0 text-[13px] font-semibold leading-relaxed text-ink">
-                For You has to be college soccer and recruiting. A cold feed or
-                one on the wrong topic throttles every post this creator will
-                ever make.
-              </p>
-            </div>
-          ) : null}
-
-          {openPart.kind === "handles" ? (
-            <div className="flex flex-col gap-2.5">
-              <HandleRow
-                icon={<Music2 size={16} className="shrink-0 text-slate-400" />}
-                label="TikTok"
-                handle={detail.tiktokHandle}
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <ScreenshotFrame
+                label={openPart.platform === "tiktok" ? "TikTok" : "Instagram"}
+                url={
+                  openPart.platform === "tiktok"
+                    ? detail.urls.tiktokScreenshot
+                    : detail.urls.instagramScreenshot
+                }
               />
-              <HandleRow
-                icon={<AtSign size={16} className="shrink-0 text-slate-400" />}
-                label="Instagram"
-                handle={detail.instagramHandle}
-              />
-              <p className="m-0 px-0.5 text-[12px] font-semibold leading-relaxed text-slate-400">
-                Captured on approval. Both handles are needed before anything
-                can go out.
-              </p>
+              <div className="w-full">
+                <HandleRow
+                  icon={
+                    openPart.platform === "tiktok" ? (
+                      <Music2 size={16} className="shrink-0 text-slate-400" />
+                    ) : (
+                      <AtSign size={16} className="shrink-0 text-slate-400" />
+                    )
+                  }
+                  label={openPart.platform === "tiktok" ? "TikTok" : "Instagram"}
+                  handle={
+                    openPart.platform === "tiktok"
+                      ? detail.tiktokHandle
+                      : detail.instagramHandle
+                  }
+                />
+              </div>
             </div>
-          ) : null}
+          )}
 
           {notes[openPart.key] !== undefined && !noteMode ? (
             <div className="mt-4 flex items-start gap-2 bg-amber-soft p-3 rounded-ops-sm">

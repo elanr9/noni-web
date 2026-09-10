@@ -547,7 +547,10 @@ function DocEditorModal({ doc, onClose }: { doc: BrainDoc; onClose: () => void }
   const textRef = useRef(text);
   const liveRef = useRef(true);
   const meta = DOC_META[doc.kind];
-  textRef.current = text;
+
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
 
   const stopTracks = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());

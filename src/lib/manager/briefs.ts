@@ -2,9 +2,11 @@ import { cache } from "react";
 
 import {
   addDays,
-  briefWeekMonday,
+  BRIEF_WEEK_DAYS,
+  briefWeekStart,
   briefWeekStatus,
   isoDate,
+  parseOverlayThemeColor,
   type Brief,
   type BriefFormat,
   type BriefSegment,
@@ -65,7 +67,7 @@ export async function listSearchQueries(
 // ---------------------------------------------------------------------------
 // Campaign weeks.
 
-/** Campaigns that already have typed brief rows (week-setup stamps). */
+/** Campaigns that already carry stamped rows (week-setup ran). */
 export async function stampedCampaignIds(
   companyId: string,
   campaignIds: string[],
@@ -75,17 +77,12 @@ export async function stampedCampaignIds(
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("campaign_briefs")
-    .select("campaign_id, briefs(post_type_id)")
+    .select("campaign_id")
     .eq("company_id", companyId)
     .in("campaign_id", campaignIds);
   if (error) throw error;
-  type Row = {
-    campaign_id: string;
-    briefs: { post_type_id: string | null } | { post_type_id: string | null }[] | null;
-  };
-  for (const row of (data ?? []) as Row[]) {
-    const brief = Array.isArray(row.briefs) ? row.briefs[0] : row.briefs;
-    if (brief?.post_type_id) stamped.add(row.campaign_id);
+  for (const row of (data ?? []) as { campaign_id: string }[]) {
+    stamped.add(row.campaign_id);
   }
   return stamped;
 }
@@ -195,12 +192,12 @@ async function fetchBriefWeekStats(
   const result = new Map<string, BriefWeekStats>();
   const ranges = campaigns.flatMap((c) => {
     if (c.drop_date === null) return [];
-    const monday = briefWeekMonday(c.drop_date);
+    const start = briefWeekStart(c.drop_date);
     return [
       {
         id: c.id,
-        start: isoDate(monday),
-        end: isoDate(addDays(monday, 6)),
+        start: isoDate(start),
+        end: isoDate(addDays(start, BRIEF_WEEK_DAYS - 1)),
       },
     ];
   });
@@ -341,7 +338,9 @@ export async function listBriefWeeks(
     } | null;
   };
   const laneDone = new Map<string, { video: number; slideshow: number }>();
+  const rowCounts = new Map<string, number>();
   for (const link of (laneLinks ?? []) as unknown as LaneLink[]) {
+    rowCounts.set(link.campaign_id, (rowCounts.get(link.campaign_id) ?? 0) + 1);
     const b = link.briefs;
     if (!b || (b.reviewed_at === null && b.kill_reason === null)) continue;
     const family = b.post_types?.family ?? b.format;
@@ -375,6 +374,7 @@ export async function listBriefWeeks(
       videoTarget: campaign.video_target ?? 20,
       slideshowDone: done.slideshow,
       slideshowTarget: campaign.slideshow_target ?? 10,
+      rowCount: rowCounts.get(campaign.id) ?? 0,
       stats:
         where.status === "next"
           ? null
@@ -565,6 +565,71 @@ export async function listCampaignManagers(
     id: p.id,
     name: p.full_name?.trim() || "Manager",
   }));
+}
+
+/** Company wide on screen text color, null until a manager picks one. */
+export async function getOverlayThemeColor(companyId: string): Promise<string | null> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("companies")
+    .select("settings")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (error) throw error;
+  return parseOverlayThemeColor(data?.settings);
+}
+
+export type LibraryMediaOption = {
+  id: string;
+  kind: "screenshot" | "recording";
+  title: string | null;
+  path: string;
+  previewUrl: string;
+};
+
+/** The shared media_library for the clip picker, newest first, with signed posters. */
+export async function listLibraryMediaOptions(
+  companyId: string,
+): Promise<LibraryMediaOption[]> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("media_library")
+    .select("id, kind, title, path, thumb_path")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  type Row = {
+    id: string;
+    kind: string;
+    title: string | null;
+    path: string;
+    thumb_path: string | null;
+  };
+  const rows = (data ?? []) as Row[];
+  if (rows.length === 0) return [];
+  const { data: signed } = await supabase.storage
+    .from("brief-assets")
+    .createSignedUrls(
+      rows.map((row) => row.thumb_path ?? row.path),
+      3600,
+    );
+  const urlFor = new Map<string, string>();
+  for (const entry of signed ?? []) {
+    if (entry.path && entry.signedUrl) urlFor.set(entry.path, entry.signedUrl);
+  }
+  return rows.flatMap((row) => {
+    const previewUrl = urlFor.get(row.thumb_path ?? row.path);
+    if (!previewUrl) return [];
+    return [
+      {
+        id: row.id,
+        kind: row.kind === "recording" ? ("recording" as const) : ("screenshot" as const),
+        title: row.title,
+        path: row.path,
+        previewUrl,
+      },
+    ];
+  });
 }
 
 /** Signed URLs for segment screenshots, keyed by segment id. */

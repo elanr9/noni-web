@@ -2,7 +2,9 @@
 
 import {
   Check,
+  Film,
   ImagePlus,
+  LibraryBig,
   RefreshCw,
   Sparkles,
   Trash2,
@@ -14,18 +16,25 @@ import { useMemo, useRef, useState } from "react";
 import { Card, Chip, Label, Modal, PageHead, Pill } from "@/components/kit";
 
 import {
+  attachSegmentMedia,
   fillBrief,
+  placeLibraryMediaOnSegment,
   regenerateBriefField,
   removeSegmentScreenshot,
+  reserveSegmentMediaPath,
   runBriefReview,
   saveBrief,
   confirmBriefReview,
   updateSegment,
-  uploadSegmentScreenshot,
 } from "@/app/manager/briefs/actions";
+import type { LibraryMediaOption } from "@/lib/manager/briefs";
+import { BRIEF_ASSETS_BUCKET, checkMediaFile } from "@/lib/media-library-shared";
+import { prepareMedia } from "@/lib/media-library-upload";
+import { createClient } from "@/lib/supabase/client";
 import { PostTypeChip } from "./bits";
 import {
   briefRowState,
+  isVideoPath,
   parseHookOptions,
   parseTalkingPoints,
   parseTextOverlay,
@@ -163,6 +172,7 @@ export function BriefEditor({
   initialSegments,
   initialScreenshotUrls,
   hashtagBank,
+  mediaLibrary,
   campaignId,
   postNumber,
   weekNumber,
@@ -172,6 +182,7 @@ export function BriefEditor({
   initialSegments: BriefSegment[];
   initialScreenshotUrls: Record<string, string>;
   hashtagBank: string[];
+  mediaLibrary: LibraryMediaOption[];
   campaignId: string | null;
   postNumber: number | null;
   weekNumber: number | null;
@@ -210,6 +221,7 @@ export function BriefEditor({
   const [textOverlay, setTextOverlay] = useState<TextOverlay>(
     parseTextOverlay(brief.text_overlay),
   );
+  const [subtitles, setSubtitles] = useState(brief.subtitles);
   const [segments, setSegments] = useState<BriefSegment[]>(initialSegments);
   const [screenshotUrls, setScreenshotUrls] = useState<Record<string, string>>(
     initialScreenshotUrls,
@@ -240,6 +252,7 @@ export function BriefEditor({
   const [error, setError] = useState<string | null>(null);
   const [customTag, setCustomTag] = useState("");
   const [segmentBusyId, setSegmentBusyId] = useState<string | null>(null);
+  const [libraryForSegment, setLibraryForSegment] = useState<string | null>(null);
   const uploadForSegment = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -261,8 +274,9 @@ export function BriefEditor({
     () => postTypes.find((t) => t.id === postTypeId) ?? null,
     [postTypes, postTypeId],
   );
+  /* The lane the row was stamped into holds until a type is chosen. */
   const family: BriefFormat =
-    currentType?.family === "photo_carousel" ? "photo_carousel" : "video";
+    (currentType?.family ?? brief.format) === "photo_carousel" ? "photo_carousel" : "video";
 
   function resolvedHook(): string | null {
     if (useCustomHook) return customHook.trim() || null;
@@ -328,6 +342,7 @@ export function BriefEditor({
           generation_id: generationId,
           example_url: exampleUrl,
           text_overlay: textOverlay,
+          subtitles: family === "video" && subtitles,
         },
         { deriveSegments: deriveNeeded, overlayLabels: pendingOverlayLabels },
       );
@@ -365,15 +380,19 @@ export function BriefEditor({
       return;
     }
     if (result.kind === "kill") {
-      setKillReason(result.killReason);
+      setError(`Generation refused: ${result.killReason}`);
       setFillOpen(false);
       return;
     }
+    /* The fill already landed on the row and derived its clips, like the
+       mobile fillPostSlot, so the editor mirrors what was written. */
     const d = result.draft;
+    const slideshow = result.saved.format === "photo_carousel";
     setTitle(d.title);
+    setPostTypeId(result.saved.postTypeId);
     setPoints(d.talking_points);
-    setCta(d.cta ?? "");
-    setHookOptions(d.hook_options);
+    setCta(slideshow ? "" : (d.cta ?? ""));
+    setHookOptions(slideshow ? [] : d.hook_options);
     setChosenHookIndex(0);
     setUseCustomHook(false);
     setSearchPhrase(d.search_phrase ?? searchPhrase);
@@ -383,8 +402,18 @@ export function BriefEditor({
     setScript(d.script);
     setTargetWords(d.target_words);
     setGenerationId(d.generation_id);
+    setSubtitles(result.saved.format === "video");
     if (d.example_url) setExampleUrl(d.example_url);
-    setPendingOverlayLabels(d.overlay_labels);
+    setSegments(result.segments);
+    setScreenshotUrls(result.screenshotUrls);
+    setPendingOverlayLabels(null);
+    setBaseline(
+      deriveSnapshot({
+        hook: result.saved.hook,
+        points: d.talking_points,
+        postTypeId: result.saved.postTypeId,
+      }),
+    );
     setWarnings(d.warnings);
     setKillReason(null);
     setHookStale(false);
@@ -642,25 +671,68 @@ export function BriefEditor({
     fileInputRef.current?.click();
   }
 
+  function applySegmentMedia(segmentId: string, path: string, signedUrl: string) {
+    setSegments((prev) =>
+      prev.map((s) => (s.id === segmentId ? { ...s, screenshot_url: path } : s)),
+    );
+    setScreenshotUrls((prev) => ({ ...prev, [segmentId]: signedUrl }));
+  }
+
+  /* Screenshots and screen recordings upload from the browser with the
+     manager's session, like the mobile uploadSegmentMedia, so a 200 MB
+     recording never passes through a server action. */
   async function onFilePicked(file: File | null) {
     const segmentId = uploadForSegment.current;
     uploadForSegment.current = null;
     if (!file || !segmentId) return;
+    const check = checkMediaFile(file);
+    if (!check.ok) {
+      setError(check.error);
+      return;
+    }
     setSegmentBusyId(segmentId);
     setError(null);
-    const formData = new FormData();
-    formData.set("segmentId", segmentId);
-    formData.set("file", file);
-    const result = await uploadSegmentScreenshot(formData);
+    try {
+      const prepared = await prepareMedia(file, check.kind);
+      const slot = await reserveSegmentMediaPath(segmentId, prepared.contentType);
+      if (!slot.ok) {
+        setError(slot.error);
+        return;
+      }
+      const { error: uploadError } = await createClient()
+        .storage.from(BRIEF_ASSETS_BUCKET)
+        .upload(slot.path, prepared.blob, {
+          contentType: prepared.contentType,
+          upsert: true,
+        });
+      if (uploadError) {
+        setError(uploadError.message);
+        return;
+      }
+      const result = await attachSegmentMedia(segmentId, slot.path);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      applySegmentMedia(segmentId, result.path, result.signedUrl);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not attach that file.");
+    } finally {
+      setSegmentBusyId(null);
+    }
+  }
+
+  async function placeFromLibrary(segmentId: string, item: LibraryMediaOption) {
+    setLibraryForSegment(null);
+    setSegmentBusyId(segmentId);
+    setError(null);
+    const result = await placeLibraryMediaOnSegment(segmentId, item.id);
     setSegmentBusyId(null);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    setSegments((prev) =>
-      prev.map((s) => (s.id === segmentId ? { ...s, screenshot_url: result.path } : s)),
-    );
-    setScreenshotUrls((prev) => ({ ...prev, [segmentId]: result.signedUrl }));
+    applySegmentMedia(segmentId, result.path, result.signedUrl);
   }
 
   async function removeScreenshot(segmentId: string) {
@@ -724,6 +796,7 @@ export function BriefEditor({
         is_product: false,
         edited_by_admin: true,
         claim_id: null,
+        script: false,
       },
     ]);
   }
@@ -1184,6 +1257,22 @@ export function BriefEditor({
             </p>
           </SectionCard>
 
+          {family === "video" ? (
+            <SectionCard
+              title="Subtitles"
+              intent="Auto transcribed from the creator's voice. Two lines at the bottom of the reel."
+            >
+              <Toggle
+                on={subtitles}
+                onChange={setSubtitles}
+                label={subtitles ? "Burn in subtitles" : "No subtitles"}
+              />
+              <p className="m-0 text-[11.5px] font-semibold text-slate-400">
+                The creator can drag the block up or down before review.
+              </p>
+            </SectionCard>
+          ) : null}
+
           <SectionCard
             title="Clips"
             intent="Derived from the type on save. Overlay text and screenshots are kept when clips change."
@@ -1259,15 +1348,25 @@ export function BriefEditor({
                         {shotUrl ? (
                           <>
                             {/* Signed thumbnail from the private brief-assets bucket. */}
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={shotUrl}
-                              alt="Clip screenshot"
-                              className="h-12 w-9 rounded-[7px] object-cover"
-                            />
+                            {isVideoPath(seg.screenshot_url ?? "") ? (
+                              <video
+                                src={shotUrl}
+                                muted
+                                playsInline
+                                preload="metadata"
+                                className="h-12 w-9 rounded-[7px] bg-ink object-cover"
+                              />
+                            ) : (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={shotUrl}
+                                alt="Clip screenshot"
+                                className="h-12 w-9 rounded-[7px] object-cover"
+                              />
+                            )}
                             <button
                               type="button"
-                              aria-label="Remove screenshot"
+                              aria-label="Remove media"
                               disabled={busy}
                               onClick={() => void removeScreenshot(seg.id)}
                               className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center border-none bg-fill-quiet rounded-pill disabled:opacity-35"
@@ -1276,15 +1375,28 @@ export function BriefEditor({
                             </button>
                           </>
                         ) : (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => pickScreenshot(seg.id)}
-                            className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-fill-quiet px-3 py-1.5 text-[12px] font-bold text-slate-500 rounded-pill disabled:opacity-35"
-                          >
-                            <ImagePlus size={12} />
-                            {busy ? "Uploading…" : "Screenshot"}
-                          </button>
+                          <>
+                            {mediaLibrary.length > 0 ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => setLibraryForSegment(seg.id)}
+                                className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-fill-quiet px-3 py-1.5 text-[12px] font-bold text-slate-500 rounded-pill disabled:opacity-35"
+                              >
+                                <LibraryBig size={12} />
+                                Library
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => pickScreenshot(seg.id)}
+                              className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-fill-quiet px-3 py-1.5 text-[12px] font-bold text-slate-500 rounded-pill disabled:opacity-35"
+                            >
+                              <ImagePlus size={12} />
+                              {busy ? "Uploading…" : "Upload"}
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1326,7 +1438,7 @@ export function BriefEditor({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,video/mp4,video/quicktime"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0] ?? null;
@@ -1334,6 +1446,38 @@ export function BriefEditor({
           void onFilePicked(file);
         }}
       />
+
+      {libraryForSegment !== null ? (
+        <Modal title="Media library" onClose={() => setLibraryForSegment(null)} width={560}>
+          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+            {mediaLibrary.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => void placeFromLibrary(libraryForSegment, item)}
+                className="flex cursor-pointer flex-col gap-1.5 border border-line bg-white p-1.5 text-left rounded-ops-sm transition-[border-color] duration-[160ms] ease-om hover:border-blue-300"
+              >
+                <span className="relative block aspect-[9/16] w-full overflow-hidden rounded-[7px] bg-fill-quiet">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={item.previewUrl}
+                    alt={item.title ?? (item.kind === "recording" ? "Recording" : "Screenshot")}
+                    className="h-full w-full object-cover"
+                  />
+                  {item.kind === "recording" ? (
+                    <span className="absolute bottom-1 right-1 inline-flex h-5 w-5 items-center justify-center bg-ink/80 rounded-pill">
+                      <Film size={11} className="text-white" />
+                    </span>
+                  ) : null}
+                </span>
+                <span className="truncate text-[11.5px] font-semibold text-ink">
+                  {item.title ?? (item.kind === "recording" ? "Recording" : "Screenshot")}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Modal>
+      ) : null}
 
       {fillOpen ? (
         <Modal title="Fill with AI" onClose={() => setFillOpen(false)}>

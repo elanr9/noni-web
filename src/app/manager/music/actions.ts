@@ -69,6 +69,8 @@ export async function requestMusicChangesAction(input: {
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "Post not found." };
 
+  sendNotify({ assignment_id: input.assignmentId, event: "music_changes" });
+
   const parts = [...input.reasons];
   const note = input.note?.trim();
   if (note) parts.push(note);
