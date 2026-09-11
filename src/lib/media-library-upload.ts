@@ -1,9 +1,9 @@
 /* Browser side of a Media library upload. Files go straight from the
    browser to the private brief-assets bucket with the user's session
    client so storage RLS applies and a long recording never passes through
-   a server action. Small files use a signed upload URL, anything over
-   6 MB goes through Supabase's resumable (TUS) endpoint. Only imported by
-   client components. */
+   a server action. Files up to 50 MB use a signed upload URL (same path
+   as screenshots and the mobile app). Anything larger goes through
+   Supabase's resumable (TUS) endpoint. Only imported by client components. */
 
 import * as tus from "tus-js-client";
 
@@ -14,7 +14,7 @@ import {
 } from "@/lib/media-library-shared";
 import { createClient } from "@/lib/supabase/client";
 
-const TUS_THRESHOLD_BYTES = 6 * 1024 * 1024;
+const TUS_THRESHOLD_BYTES = 50 * 1024 * 1024;
 /** Supabase requires exactly 6 MB chunks on the resumable endpoint. */
 const TUS_CHUNK_BYTES = 6 * 1024 * 1024;
 const JPEG_QUALITY = 0.88;
@@ -87,7 +87,11 @@ async function prepareScreenshot(file: File): Promise<PreparedMedia> {
   }
 }
 
-function waitForEvent(target: HTMLMediaElement, event: string): Promise<void> {
+function waitForEvent(
+  target: HTMLMediaElement,
+  event: string,
+  timeoutMs = 4000,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const done = () => {
       cleanup();
@@ -97,7 +101,9 @@ function waitForEvent(target: HTMLMediaElement, event: string): Promise<void> {
       cleanup();
       reject(new Error("Could not read the video."));
     };
+    const timer = window.setTimeout(fail, timeoutMs);
     const cleanup = () => {
+      window.clearTimeout(timer);
       target.removeEventListener(event, done);
       target.removeEventListener("error", fail);
     };
@@ -109,7 +115,11 @@ function waitForEvent(target: HTMLMediaElement, event: string): Promise<void> {
 /** Recordings upload as they are. Metadata and the poster frame are best
     effort: a codec the browser cannot decode still lands in the library. */
 async function prepareRecording(file: File): Promise<PreparedMedia> {
-  const contentType = file.type === "video/quicktime" ? "video/quicktime" : "video/mp4";
+  const mime = file.type.toLowerCase();
+  const contentType =
+    mime === "video/quicktime" || /\.mov$/i.test(file.name)
+      ? "video/quicktime"
+      : "video/mp4";
   const base: PreparedMedia = {
     kind: "recording",
     blob: file,
@@ -124,18 +134,19 @@ async function prepareRecording(file: File): Promise<PreparedMedia> {
   video.muted = true;
   video.playsInline = true;
   video.preload = "auto";
-  video.src = objectUrl;
   try {
-    await waitForEvent(video, "loadedmetadata");
+    const metadata = waitForEvent(video, "loadedmetadata");
+    video.src = objectUrl;
+    await metadata;
     base.durationMs = Number.isFinite(video.duration)
       ? Math.round(video.duration * 1000)
       : null;
     base.width = video.videoWidth || null;
     base.height = video.videoHeight || null;
 
-    video.currentTime = Math.min(POSTER_TIME_SECONDS, Math.max(0, video.duration - 0.05));
-    await waitForEvent(video, "seeked");
     if (video.videoWidth > 0 && video.videoHeight > 0) {
+      video.currentTime = Math.min(POSTER_TIME_SECONDS, Math.max(0, video.duration - 0.05));
+      await waitForEvent(video, "seeked");
       base.poster = await canvasToJpeg(
         drawToCanvas(video, video.videoWidth, video.videoHeight),
       );

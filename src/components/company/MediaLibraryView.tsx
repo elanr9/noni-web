@@ -378,7 +378,10 @@ function NameMediaModal({
   onClose: () => void;
 }) {
   const kind = prompt.mode === "add" ? prompt.kind : prompt.item.kind;
-  const initialTitle = prompt.mode === "rename" ? (prompt.item.title ?? "") : "";
+  const initialTitle =
+    prompt.mode === "rename"
+      ? (prompt.item.title ?? "")
+      : prompt.file.name.replace(/\.[^.]+$/, "").trim();
   const [draft, setDraft] = useState(initialTitle);
   const [previewUrl] = useState<string | null>(() =>
     prompt.mode === "rename"
@@ -497,42 +500,9 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
   const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const patchJob = useCallback((id: string, patch: Partial<UploadJob>) => {
-    setJobs((prev) => prev.map((job) => (job.id === id ? { ...job, ...patch } : job)));
-  }, []);
   const dropJob = useCallback((id: string) => {
     setJobs((prev) => prev.filter((job) => job.id !== id));
   }, []);
-
-  const runUpload = useCallback(
-    async (file: File, job: UploadJob) => {
-      try {
-        const prepared = await prepareMedia(file, job.kind);
-        patchJob(job.id, { progress: 0.08 });
-        const uploaded = await uploadToLibrary(companyId, prepared, (fraction) =>
-          patchJob(job.id, { progress: 0.08 + fraction * 0.9 }),
-        );
-        startTransition(async () => {
-          const result = await addMediaLibraryItem({
-            kind: prepared.kind,
-            title: job.title,
-            path: uploaded.path,
-            thumbPath: uploaded.thumbPath,
-            durationMs: prepared.durationMs,
-            width: prepared.width,
-            height: prepared.height,
-          });
-          if (result.ok) dropJob(job.id);
-          else patchJob(job.id, { error: result.error });
-        });
-      } catch (error) {
-        patchJob(job.id, {
-          error: error instanceof Error ? error.message : "Upload failed. Try again.",
-        });
-      }
-    },
-    [companyId, dropJob, patchJob],
-  );
 
   /** Every file is named on the way in, one at a time, before its upload starts. */
   const addFiles = useCallback(
@@ -585,18 +555,35 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
       return;
     }
     const next = queue[0];
-    if (!next) return;
-    const job: UploadJob = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name: next.file.name,
-      kind: next.kind,
-      title,
-      progress: 0,
-      error: null,
-    };
-    setJobs((prev) => [job, ...prev]);
-    setQueue((prev) => prev.slice(1));
-    void runUpload(next.file, job);
+    if (!next || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    void (async () => {
+      try {
+        const prepared = await prepareMedia(next.file, next.kind);
+        const uploaded = await uploadToLibrary(companyId, prepared, () => undefined);
+        startTransition(async () => {
+          const result = await addMediaLibraryItem({
+            kind: prepared.kind,
+            title,
+            path: uploaded.path,
+            thumbPath: uploaded.thumbPath,
+            durationMs: prepared.durationMs,
+            width: prepared.width,
+            height: prepared.height,
+          });
+          setSaving(false);
+          if (!result.ok) {
+            setSaveError(result.error);
+            return;
+          }
+          setQueue((prev) => prev.slice(1));
+        });
+      } catch (error) {
+        setSaving(false);
+        setSaveError(error instanceof Error ? error.message : "Upload failed. Try again.");
+      }
+    })();
   }
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {

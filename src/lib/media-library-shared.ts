@@ -38,11 +38,16 @@ function sizeLabel(bytes: number): string {
 /** Mime and size gate, run before any byte reaches storage. */
 export function checkMediaFile(file: { type: string; size: number; name: string }): MediaFileCheck {
   const mime = file.type.toLowerCase();
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   const kind: MediaKind | null = INPUT_IMAGE_MIMES.has(mime)
     ? "screenshot"
     : INPUT_VIDEO_MIMES.has(mime)
       ? "recording"
-      : null;
+      : ["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(ext)
+        ? "screenshot"
+        : ["mp4", "mov", "m4v"].includes(ext)
+          ? "recording"
+          : null;
   if (!kind) {
     return {
       ok: false,
