@@ -505,6 +505,8 @@ export async function fillBrief(params: {
   briefId: string;
   query?: string;
   url?: string;
+  /** A media_library id; the post is written about what that media shows. */
+  mediaId?: string;
   context?: string;
   postTypeKey?: string;
   /** False when the idea already lives in library_items (Make post from Library). */
@@ -516,12 +518,19 @@ export async function fillBrief(params: {
     return { ok: false, error: "Post not found." };
   }
 
+  const postTypes = await listPostTypes(gate.companyId);
+  const currentType = params.postTypeKey
+    ? (postTypes.find((t) => t.key === params.postTypeKey) ?? null)
+    : null;
+
   const body: Record<string, string> = {};
   if (params.query?.trim()) body.query = params.query.trim();
   if (params.url?.trim()) body.url = params.url.trim();
+  if (params.mediaId) body.media_id = params.mediaId;
   if (params.postTypeKey) body.post_type = params.postTypeKey;
+  if (currentType) body.family = currentType.family === "photo_carousel" ? "photo_carousel" : "video";
   if (params.context?.trim()) body.context = params.context.trim();
-  const sourceKind: FillSourceKind = body.url ? "example" : "idea";
+  const sourceKind: FillSourceKind = body.media_id ? "media" : body.url ? "example" : "idea";
 
   const { data, error } = await callEdgeFunction<RawDraftResponse>(
     "ingest-brief",
@@ -559,10 +568,6 @@ export async function fillBrief(params: {
     example_transcript: data.example_transcript ?? null,
   };
 
-  const postTypes = await listPostTypes(gate.companyId);
-  const currentType = params.postTypeKey
-    ? (postTypes.find((t) => t.key === params.postTypeKey) ?? null)
-    : null;
   const postTypeId = currentType?.id ?? draft.post_type_id;
   const family: BriefFormat = currentType
     ? currentType.family === "photo_carousel"
@@ -668,9 +673,10 @@ async function clearSegmentMedia(target: {
 }
 
 /**
- * Places feature screenshots from point_media onto derived rows that still
- * have no screenshot. Company Brain shots are public URLs in another bucket:
- * fetched and re uploaded as a JPEG. A failed row never blocks the others.
+ * Places point_media onto derived rows that still have no screenshot. A
+ * media library pick is copied within brief-assets, the way the clip picker
+ * does. Company Brain shots are public URLs in another bucket: fetched and
+ * re uploaded as a JPEG. A failed row never blocks the others.
  */
 async function applyPointMedia(
   companyId: string,
@@ -682,20 +688,35 @@ async function applyPointMedia(
   await Promise.all(
     rows.map(async (row) => {
       if (row.talking_point_index === null || row.screenshot_url) return;
-      const url = pointMedia[row.talking_point_index]?.screenshot_url;
-      if (!url) return;
-      const response = await fetch(url);
-      if (!response.ok) return;
+      const media = pointMedia[row.talking_point_index];
+      if (!media) return;
       const target = { companyId, briefId, segmentId: row.id };
-      const path = segmentMediaPath(target, "jpg");
-      await clearSegmentMedia(target);
-      const { error } = await service.storage
-        .from("brief-assets")
-        .upload(path, await response.arrayBuffer(), {
-          contentType: "image/jpeg",
-          upsert: true,
-        });
-      if (error) return;
+      let path: string;
+      if (media.library_path) {
+        if (!media.library_path.startsWith(`${companyId}/`)) return;
+        const ext =
+          media.library_path.split(".").pop() ??
+          (media.library_kind === "recording" ? "mp4" : "jpg");
+        path = segmentMediaPath(target, ext);
+        await clearSegmentMedia(target);
+        const { error } = await service.storage
+          .from("brief-assets")
+          .copy(media.library_path, path);
+        if (error) return;
+      } else {
+        if (!media.screenshot_url) return;
+        const response = await fetch(media.screenshot_url);
+        if (!response.ok) return;
+        path = segmentMediaPath(target, "jpg");
+        await clearSegmentMedia(target);
+        const { error } = await service.storage
+          .from("brief-assets")
+          .upload(path, await response.arrayBuffer(), {
+            contentType: "image/jpeg",
+            upsert: true,
+          });
+        if (error) return;
+      }
       await service
         .from("brief_segments")
         .update({ screenshot_url: path })

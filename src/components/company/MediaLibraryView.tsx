@@ -374,7 +374,7 @@ function NameMediaModal({
   prompt: NamePrompt;
   busy: boolean;
   error: string | null;
-  onSave: (title: string) => void;
+  onSave: (title: string, description: string | null) => void;
   onClose: () => void;
 }) {
   const kind = prompt.mode === "add" ? prompt.kind : prompt.item.kind;
@@ -383,6 +383,9 @@ function NameMediaModal({
       ? (prompt.item.title ?? "")
       : prompt.file.name.replace(/\.[^.]+$/, "").trim();
   const [draft, setDraft] = useState(initialTitle);
+  const [description, setDescription] = useState(
+    prompt.mode === "rename" ? (prompt.item.description ?? "") : "",
+  );
   const [previewUrl] = useState<string | null>(() =>
     prompt.mode === "rename"
       ? prompt.item.previewUrl
@@ -392,6 +395,7 @@ function NameMediaModal({
   );
   const trimmed = draft.trim();
   const isRename = prompt.mode === "rename";
+  const save = () => onSave(trimmed, description.trim() || null);
 
   useEffect(() => {
     if (prompt.mode !== "add" || !previewUrl) return;
@@ -429,7 +433,7 @@ function NameMediaModal({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && trimmed.length > 0 && !busy) onSave(trimmed);
+              if (e.key === "Enter" && trimmed.length > 0 && !busy) save();
             }}
             placeholder={NAME_PLACEHOLDER[kind]}
             className={`w-full border-2 bg-white px-3.5 py-3 text-[15px] font-semibold text-ink outline-none rounded-ops-sm ${
@@ -441,8 +445,27 @@ function NameMediaModal({
           </span>
         </div>
       </div>
+      <div className="mt-4 flex flex-col gap-1.5">
+        <span className="text-[12px] font-bold uppercase tracking-[0.3px] text-slate-400">
+          What it shows
+        </span>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={
+            kind === "recording"
+              ? "Optional. e.g. Tapping a play in the timeline jumps the video to that moment"
+              : "Optional. e.g. The chapter view with three chapters and the share button"
+          }
+          rows={3}
+          className="w-full resize-y border-2 border-line-strong bg-white px-3.5 py-3 text-[14px] font-medium text-ink outline-none rounded-ops-sm focus:border-blue-500"
+        />
+        <span className="text-[12px] font-semibold text-slate-400">
+          The AI reads this when it writes a post from this {kind === "recording" ? "recording" : "screenshot"}.
+        </span>
+      </div>
       <div className="mt-5 flex justify-end">
-        <Pill disabled={busy || trimmed.length === 0} onClick={() => onSave(trimmed)}>
+        <Pill disabled={busy || trimmed.length === 0} onClick={save}>
           {busy ? "Saving" : isRename ? "Save name" : "Save to media"}
         </Pill>
       </div>
@@ -489,7 +512,9 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
   const [kind, setKind] = useState<MediaKind>("screenshot");
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const [removing, setRemoving] = useState<Set<string>>(() => new Set());
-  const [renamed, setRenamed] = useState<Map<string, string>>(() => new Map());
+  const [renamed, setRenamed] = useState<Map<string, { title: string; description: string | null }>>(
+    () => new Map(),
+  );
   const [confirm, setConfirm] = useState<MediaLibraryItem | null>(null);
   const [preview, setPreview] = useState<MediaLibraryItem | null>(null);
   const [queue, setQueue] = useState<Array<{ file: File; kind: MediaKind }>>([]);
@@ -536,20 +561,22 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
     [kind],
   );
 
-  function onNameSaved(title: string) {
+  function onNameSaved(title: string, description: string | null) {
     if (renaming) {
       const item = renaming;
       setSaving(true);
       setSaveError(null);
       startTransition(async () => {
-        const result = await renameMediaLibraryItem(item.id, title);
+        const result = await renameMediaLibraryItem(item.id, title, description);
         setSaving(false);
         if (!result.ok) {
           setSaveError(result.error);
           return;
         }
-        setRenamed((prev) => new Map(prev).set(item.id, title));
-        setPreview((prev) => (prev && prev.id === item.id ? { ...prev, title } : prev));
+        setRenamed((prev) => new Map(prev).set(item.id, { title, description }));
+        setPreview((prev) =>
+          prev && prev.id === item.id ? { ...prev, title, description } : prev,
+        );
         setRenaming(null);
       });
       return;
@@ -566,6 +593,7 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
           const result = await addMediaLibraryItem({
             kind: prepared.kind,
             title,
+            description,
             path: uploaded.path,
             thumbPath: uploaded.thumbPath,
             durationMs: prepared.durationMs,
@@ -611,8 +639,8 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
   };
 
   const withTitles = items.map((item) => {
-    const title = renamed.get(item.id);
-    return title === undefined ? item : { ...item, title };
+    const edited = renamed.get(item.id);
+    return edited === undefined ? item : { ...item, ...edited };
   });
   const visibleItems = withTitles.filter((item) => item.kind === kind && !removing.has(item.id));
   const visibleJobs = jobs.filter((job) => job.kind === kind);

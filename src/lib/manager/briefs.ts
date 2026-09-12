@@ -583,6 +583,8 @@ export type LibraryMediaOption = {
   id: string;
   kind: "screenshot" | "recording";
   title: string | null;
+  /** What the media shows; the AI writes a post from it when picked as a fill source. */
+  description: string | null;
   path: string;
   previewUrl: string;
 };
@@ -594,7 +596,7 @@ export async function listLibraryMediaOptions(
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("media_library")
-    .select("id, kind, title, path, thumb_path")
+    .select("id, kind, title, description, path, thumb_path")
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
   if (error) throw error;
@@ -602,6 +604,7 @@ export async function listLibraryMediaOptions(
     id: string;
     kind: string;
     title: string | null;
+    description: string | null;
     path: string;
     thumb_path: string | null;
   };
@@ -625,6 +628,7 @@ export async function listLibraryMediaOptions(
         id: row.id,
         kind: row.kind === "recording" ? ("recording" as const) : ("screenshot" as const),
         title: row.title,
+        description: row.description,
         path: row.path,
         previewUrl,
       },

@@ -68,6 +68,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export interface AddMediaLibraryInput {
   kind: MediaKind;
   title: string | null;
+  description: string | null;
   path: string;
   thumbPath: string | null;
   durationMs: number | null;
@@ -99,6 +100,7 @@ export async function addMediaLibraryItem(
     company_id: gate.companyId,
     kind: input.kind,
     title: input.title?.trim() || null,
+    description: input.description?.trim() || null,
     path: input.path,
     thumb_path: input.thumbPath,
     duration_ms: input.durationMs,
@@ -117,6 +119,7 @@ export async function addMediaLibraryItem(
 export async function renameMediaLibraryItem(
   id: string,
   title: string | null,
+  description: string | null,
 ): Promise<MediaActionResult> {
   const gate = await requireCompanyManager();
   if (!gate.ok) return { ok: false, error: gate.error };
@@ -128,7 +131,7 @@ export async function renameMediaLibraryItem(
 
   const { error } = await createServiceClient()
     .from("media_library")
-    .update({ title: title?.trim() || null })
+    .update({ title: title?.trim() || null, description: description?.trim() || null })
     .eq("id", id)
     .eq("company_id", gate.companyId);
   if (error) return { ok: false, error: error.message };

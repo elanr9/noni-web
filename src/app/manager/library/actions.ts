@@ -86,7 +86,11 @@ async function enrichReference(itemId: string, url: string): Promise<void> {
   }
 }
 
-export async function captureLibraryItem(raw: string): Promise<CaptureResult> {
+export async function captureLibraryItem(
+  raw: string,
+  /** How the reference should translate to our product; rides into every AI fill from it. */
+  notes?: string | null,
+): Promise<CaptureResult> {
   const gate = await requireManager();
   if (!gate.ok) return gate;
   const service = createServiceClient();
@@ -99,6 +103,7 @@ export async function captureLibraryItem(raw: string): Promise<CaptureResult> {
         company_id: gate.companyId,
         source: "reference",
         url,
+        notes: notes?.trim() || null,
         created_by: gate.userId,
       })
       .select("id")
@@ -492,7 +497,7 @@ async function portIntoSlot(params: {
 
 async function fillIntoSlot(
   briefId: string,
-  source: { query?: string; url?: string },
+  source: { query?: string; url?: string; context?: string },
   postTypeKey: string,
 ): Promise<MakePostResult> {
   const result = await fillBrief({ briefId, ...source, postTypeKey, saveIdea: false });
@@ -549,7 +554,13 @@ export async function makePostFromLibrary(params: {
       .maybeSingle();
     if (!data) return { ok: false, error: "That library item is gone." };
     item = data;
-    if (data.url) result = await fillIntoSlot(params.briefId, { url: data.url }, params.postTypeKey);
+    if (data.url) {
+      result = await fillIntoSlot(
+        params.briefId,
+        { url: data.url, context: data.notes ?? undefined },
+        params.postTypeKey,
+      );
+    }
     else if (data.text) result = await fillIntoSlot(params.briefId, { query: data.text }, params.postTypeKey);
     else return { ok: false, error: "Nothing to make a post from." };
   } else {

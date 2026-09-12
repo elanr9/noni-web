@@ -366,7 +366,12 @@ export function BriefEditor({
 
   // --- AI fill through ingest-brief. Kill rather than pad. -----------------
 
-  async function fillFrom(source: { query?: string; url?: string; context?: string }) {
+  async function fillFrom(source: {
+    query?: string;
+    url?: string;
+    mediaId?: string;
+    context?: string;
+  }) {
     setFilling(true);
     setError(null);
     const result = await fillBrief({
@@ -1483,9 +1488,9 @@ export function BriefEditor({
         <Modal title="Fill with AI" onClose={() => setFillOpen(false)}>
           <div className="flex flex-col gap-4">
             <p className="m-0 text-[13px] leading-relaxed text-slate-500">
-              Fill this post from the search phrase, or paste a reference link.
-              A refusal is a normal outcome: the slot stays empty with the
-              reason.
+              Fill this post from the search phrase, paste a reference link, or
+              write it from a piece of media. A refusal is a normal outcome: the
+              slot stays empty with the reason.
             </p>
             <Pill
               disabled={filling || !searchPhrase.trim()}
@@ -1521,6 +1526,49 @@ export function BriefEditor({
                 {filling ? "Filling…" : "Fill from link"}
               </Pill>
             </div>
+            {mediaLibrary.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <Label>Or write it from media</Label>
+                <p className="m-0 text-[12.5px] leading-relaxed text-slate-400">
+                  Pick a screenshot or recording from the media library. The whole
+                  post is written about what it shows and the file lands on the
+                  product point.
+                </p>
+                <div className="flex max-h-[280px] flex-col gap-1.5 overflow-y-auto">
+                  {mediaLibrary.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      disabled={filling}
+                      onClick={() => void fillFrom({ mediaId: item.id, context: fillContext })}
+                      className="flex w-full cursor-pointer items-center gap-3 border border-line bg-white p-2 text-left rounded-ops-sm transition-[border-color] duration-[160ms] ease-om hover:border-blue-300 disabled:opacity-50"
+                    >
+                      <span className="relative block h-14 w-9 shrink-0 overflow-hidden rounded-[6px] bg-fill-quiet">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.previewUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                        {item.kind === "recording" ? (
+                          <span className="absolute bottom-0.5 right-0.5 inline-flex h-4 w-4 items-center justify-center bg-ink/80 rounded-pill">
+                            <Film size={9} className="text-white" />
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-bold text-ink">
+                          {item.title ?? (item.kind === "recording" ? "Recording" : "Screenshot")}
+                        </span>
+                        <span className="block truncate text-[12px] font-semibold text-slate-400">
+                          {item.description ?? "No description yet"}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </Modal>
       ) : null}

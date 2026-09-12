@@ -20,6 +20,8 @@ export interface MediaLibraryItem {
   kind: MediaKind;
   /** Manager given name, e.g. "Highlight video". */
   title: string | null;
+  /** What the media shows, so a post can be written from it alone. */
+  description: string | null;
   path: string;
   thumbPath: string | null;
   /** Signed URL for the file itself. */
@@ -65,6 +67,7 @@ async function fetchMediaLibrary(companyId: string): Promise<MediaLibraryItem[]>
         id: row.id,
         kind: row.kind === "recording" ? "recording" : "screenshot",
         title: row.title,
+        description: row.description,
         path: row.path,
         thumbPath: row.thumb_path,
         url,

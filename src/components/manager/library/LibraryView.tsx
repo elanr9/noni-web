@@ -317,6 +317,9 @@ function ReferenceCard({
           {title}
         </a>
         {sub ? <span className="block truncate text-[12px] font-semibold text-slate-400">{sub}</span> : null}
+        {item.notes ? (
+          <span className="block truncate text-[12px] font-medium italic text-slate-500">{item.notes}</span>
+        ) : null}
         <div className="mt-0.5">
           <UsedMeta usedCount={item.used_count} date={shortDate(item.last_used_at)} onOpen={onOpenBrief} />
         </div>
@@ -397,6 +400,7 @@ function QuickCapture({
   onError: (message: string) => void;
 }) {
   const [value, setValue] = useState("");
+  const [notes, setNotes] = useState("");
   const [pending, startTransition] = useTransition();
   const trimmed = value.trim();
   const lines = value
@@ -405,6 +409,7 @@ function QuickCapture({
     .filter((line) => line.length > 0);
   const isUrl = /^https?:\/\/\S+$/i.test(trimmed) && !trimmed.includes("\n");
   const bulkCount = !isUrl && lines.length >= 2 ? lines.length : 0;
+  const showNotes = mode === "reference" && isUrl;
 
   function save() {
     if (trimmed.length === 0 || pending) return;
@@ -413,11 +418,14 @@ function QuickCapture({
       return;
     }
     const raw = value;
+    const rawNotes = mode === "reference" ? notes : "";
     setValue("");
+    setNotes("");
     startTransition(async () => {
-      const result = await captureLibraryItem(raw);
+      const result = await captureLibraryItem(raw, rawNotes || null);
       if (!result.ok) {
         setValue(raw);
+        setNotes(rawNotes);
         onError(result.error);
         return;
       }
@@ -466,6 +474,20 @@ function QuickCapture({
           Save
         </Pill>
       </div>
+      {showNotes ? (
+        <div className="mt-2 flex flex-col gap-1">
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Optional notes. How should this translate to our product?"
+            rows={2}
+            className="block w-full resize-y border border-line bg-white px-3 py-2.5 text-[13.5px] font-normal leading-normal text-ink outline-none rounded-[12px] placeholder:text-slate-400 focus:border-blue-500"
+          />
+          <span className="text-[12px] font-semibold text-slate-400">
+            The AI reads these notes every time a post is made from this reference.
+          </span>
+        </div>
+      ) : null}
       {bulkCount > 0 ? (
         <p className="mb-0 mt-1.5 text-[12px] font-bold text-blue-700">{bulkCount} ideas will be saved</p>
       ) : null}

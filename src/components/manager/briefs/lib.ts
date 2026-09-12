@@ -646,9 +646,12 @@ export type BriefReviewResult = {
 
 /** Feature screenshot the AI tied to a talking point, index aligned with talking_points. */
 export type PointMedia = {
-  feature_id: string;
+  feature_id: string | null;
   screenshot_url: string | null;
   shape: "phone" | "laptop" | null;
+  /** Media library pick (a brief-assets path); wins over the feature screenshot when set. */
+  library_path: string | null;
+  library_kind: "screenshot" | "recording" | null;
 };
 
 export function parsePointMedia(value: unknown): (PointMedia | null)[] {
@@ -656,17 +659,24 @@ export function parsePointMedia(value: unknown): (PointMedia | null)[] {
   return value.map((entry): PointMedia | null => {
     if (entry === null || typeof entry !== "object" || Array.isArray(entry)) return null;
     const raw = entry as Record<string, unknown>;
-    if (typeof raw.feature_id !== "string") return null;
+    const featureId = typeof raw.feature_id === "string" ? raw.feature_id : null;
+    const libraryPath = typeof raw.library_path === "string" ? raw.library_path : null;
+    if (!featureId && !libraryPath) return null;
     return {
-      feature_id: raw.feature_id,
+      feature_id: featureId,
       screenshot_url: typeof raw.screenshot_url === "string" ? raw.screenshot_url : null,
       shape: raw.shape === "phone" || raw.shape === "laptop" ? raw.shape : null,
+      library_path: libraryPath,
+      library_kind:
+        raw.library_kind === "screenshot" || raw.library_kind === "recording"
+          ? raw.library_kind
+          : null,
     };
   });
 }
 
 /** Where an AI fill comes from; stored on brief_ai_snapshots.source_kind. */
-export type FillSourceKind = "port" | "example" | "idea" | "feature" | "auto";
+export type FillSourceKind = "port" | "example" | "idea" | "feature" | "media" | "auto";
 
 export type BriefDraft = {
   title: string;

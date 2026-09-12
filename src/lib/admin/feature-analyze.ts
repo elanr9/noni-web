@@ -44,7 +44,7 @@ Rules for each feature:
 - score: integer 1 to 100.
 - reason: one sentence on why it will or will not travel.
 - format: Video or Carousel.
-- typeLabel: one of Numbered list, Talking head, Explainer, Contrast, Replay bait, Numbered tips, How to, Getting started.
+- typeLabel: one of Numbered list, Talking head, Explainer, Contrast, Replay bait, 7 second video, Numbered tips, How to, Getting started.
 - title: a post title the manager can keep.
 - example: the concrete visual to film or screenshot, one or two sentences.
 - description: one sentence the manager pastes as the brief body.
