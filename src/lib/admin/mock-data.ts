@@ -27,6 +27,7 @@ export const MOCK_COMPANY: AdminCompany = {
   id: "mock-fieldvision",
   name: "FieldVision AI",
   website: "fieldvision.ai",
+  logoPath: null,
   onboarding: {
     adminRole: "Founder",
     doesUgc: true,

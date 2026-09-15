@@ -15,8 +15,11 @@ export const TIER_LABEL: Record<PlanTier, string> = {
   enterprise: "Enterprise",
 };
 
+const SUPPORT_EMAIL =
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "founders@fieldvisionai.com";
+
 const ENTERPRISE_MAILTO =
-  "mailto:founders@usenoni.app?subject=" +
+  `mailto:${SUPPORT_EMAIL}?subject=` +
   encodeURIComponent("Noni Enterprise plan");
 
 /* Card copy straight from design_handoff_pricing_plans/PricingPlans.html.

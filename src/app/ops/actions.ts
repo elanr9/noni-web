@@ -7,9 +7,20 @@ import {
   type CreateCompanyResponse,
   type InviteResponse,
 } from "@/lib/edge";
+import { uploadCompanyLogo } from "@/lib/company-logo";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type OpsActionResult = { ok: true } | { ok: false; error: string };
+
+export type CreateCompanyResult =
+  | {
+      ok: true;
+      companyId: string;
+      /** Companies the admin email already belongs to. Their new admin
+          membership is added alongside; nothing existing is replaced. */
+      existingCompanies: number;
+    }
+  | { ok: false; error: string };
 
 async function requirePlatformAdmin(): Promise<string | null> {
   const { userId, profile } = await getSessionProfile();
@@ -27,7 +38,7 @@ export async function createCompany(input: {
   website: string | null;
   adminName: string;
   adminEmail: string;
-}): Promise<OpsActionResult> {
+}): Promise<CreateCompanyResult> {
   const denied = await requirePlatformAdmin();
   if (denied) return { ok: false, error: denied };
 
@@ -65,16 +76,48 @@ export async function createCompany(input: {
     };
   }
 
+  const service = createServiceClient();
+
   /* The invite edge function keys on email only, so the admin's name is
      stored here; onboarding prefills the greeting from it. */
-  await createServiceClient()
+  await service
     .from("company_invites")
     .update({ invited_name: input.adminName.trim() })
     .eq("id", inviteData.invite.id);
 
+  /* Accepted invites for this email elsewhere mean the person already has
+     memberships; accepting this one adds to them (apply_invite_membership). */
+  const { count } = await service
+    .from("company_invites")
+    .select("id", { count: "exact", head: true })
+    .ilike("email", adminEmail)
+    .neq("company_id", data.company.id)
+    .not("accepted_at", "is", null);
+
   revalidatePath("/ops");
   revalidatePath("/ops/companies");
   revalidatePath("/ops/invites");
+  return { ok: true, companyId: data.company.id, existingCompanies: count ?? 0 };
+}
+
+/* Logo for a freshly provisioned company. Platform ops has no membership,
+   so the storage policies do not apply; the service role writes the file
+   after the platform admin gate. */
+export async function setCompanyLogo(
+  companyId: string,
+  formData: FormData,
+): Promise<OpsActionResult> {
+  const denied = await requirePlatformAdmin();
+  if (denied) return { ok: false, error: denied };
+  if (!companyId) return { ok: false, error: "Company id is required." };
+  const file = formData.get("logo");
+  if (!(file instanceof File)) return { ok: false, error: "Pick an image first." };
+
+  const result = await uploadCompanyLogo(createServiceClient(), companyId, file);
+  if (!result.ok) return result;
+
+  revalidatePath("/ops/companies");
+  revalidatePath(`/ops/companies/${companyId}`);
   return { ok: true };
 }
 

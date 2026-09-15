@@ -24,8 +24,8 @@ export default async function BriefDetailPage({
 }) {
   const { id } = await params;
   const { profile } = await getSessionProfile();
-  if (!profile?.company_id) redirect("/login?next=/manager");
-  const companyId = profile.company_id;
+  if (!profile?.active_company_id) redirect("/login?next=/manager");
+  const companyId = profile.active_company_id;
 
   const brief = await getBrief(companyId, id);
   if (!brief) notFound();

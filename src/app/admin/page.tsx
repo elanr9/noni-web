@@ -9,7 +9,7 @@ import { getSessionProfile } from "@/lib/auth";
 /* Onboarding tab: the gamified setup to-do. */
 export default async function AdminOnboardingPage() {
   const { profile } = await getSessionProfile();
-  const data = await getAdminData(profile?.company_id ?? "");
+  const data = await getAdminData(profile?.active_company_id ?? "");
   const setup = deriveSetupStatus(data);
 
   /* Tab retirement: once setup is done this tab no longer exists. */

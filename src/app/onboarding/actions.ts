@@ -3,9 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
-import { PERMISSION_DEFS } from "@/lib/permissions";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
 
 export interface OnboardingSubmission {
   fullName: string;
@@ -41,7 +39,7 @@ export async function completeOnboarding(
   }
 
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !isCompanyAdmin(profile) || !profile?.company_id) {
+  if (!userId || !isCompanyAdmin(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Company admins only." };
   }
 
@@ -50,7 +48,7 @@ export async function completeOnboarding(
   if (!fullName) return { ok: false, error: "Your name is required." };
   if (!website) return { ok: false, error: "Your website is required." };
 
-  const companyId = profile.company_id;
+  const companyId = profile.active_company_id;
   const doesUgc = input.doesUgc === true;
   const creatorCount = doesUgc ? toCount(input.creatorCount) : 0;
   const managerCount = doesUgc ? toCount(input.managerCount) : 0;
@@ -83,32 +81,9 @@ export async function completeOnboarding(
     .eq("id", userId);
   if (profileError) return { ok: false, error: profileError.message };
 
-  if (selfIsManager) {
-    /* Seed the admin as an Active campaign manager using the
-       company_members pattern getMemberPermissions reads, with every
-       permission granted, so the same Google account runs campaigns in the
-       Noni app with no extra setup. The table is owned by the mobile repo;
-       tolerate any shape mismatch rather than blocking onboarding. */
-    try {
-      const service = createServiceClient();
-      const { data: existing } = await service
-        .from("company_members")
-        .select("profile_id")
-        .eq("company_id", companyId)
-        .eq("profile_id", userId)
-        .maybeSingle();
-      if (!existing) {
-        const permissions = Object.fromEntries(
-          PERMISSION_DEFS.map((def) => [def.key, true]),
-        );
-        await service
-          .from("company_members")
-          .insert({ company_id: companyId, profile_id: userId, permissions });
-      }
-    } catch {
-      /* Tolerated: seeding is best-effort until the schema lands. */
-    }
-  }
+  /* Self-as-manager needs no seeding anymore: the admin's company_members
+     row exists from the invite (role company_admin), and company admins
+     hold every permission implicitly. */
 
   revalidatePath("/admin");
   return { ok: true };

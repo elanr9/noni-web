@@ -62,6 +62,7 @@ export default async function InvitePage({ params }: PageProps) {
   const companyName = invite.companies?.name ?? "your company";
 
   const isAdminInvite = invite.role === "company_admin";
+  const isCreatorInvite = invite.role === "creator";
 
   if (invite.accepted_at) {
     return (
@@ -80,8 +81,8 @@ export default async function InvitePage({ params }: PageProps) {
           ) : (
             <>
               Open the Noni app and sign in with{" "}
-              <span className="font-semibold text-ink">{invite.email}</span> to manage{" "}
-              {companyName}.
+              <span className="font-semibold text-ink">{invite.email}</span> to{" "}
+              {isCreatorInvite ? "create for" : "manage"} {companyName}.
             </>
           )}
         </p>
@@ -124,11 +125,22 @@ export default async function InvitePage({ params }: PageProps) {
         You are invited
       </h1>
       <p className="mt-3 text-[15px] text-muted">
-        You have been invited to manage{" "}
-        <span className="font-semibold text-ink">{companyName}</span> on Noni.
-        Get the app and sign in with{" "}
-        <span className="font-semibold text-ink">{invite.email}</span>. Noni
-        sets you up as a campaign manager automatically.
+        {isCreatorInvite ? (
+          <>
+            You have been invited to create content for{" "}
+            <span className="font-semibold text-ink">{companyName}</span> on
+            Noni. Get the app and sign in with{" "}
+            <span className="font-semibold text-ink">{invite.email}</span>.
+          </>
+        ) : (
+          <>
+            You have been invited to manage{" "}
+            <span className="font-semibold text-ink">{companyName}</span> on
+            Noni. Get the app and sign in with{" "}
+            <span className="font-semibold text-ink">{invite.email}</span>. Noni
+            sets you up as a campaign manager automatically.
+          </>
+        )}
       </p>
 
       <div className="mt-6 space-y-3">
@@ -154,6 +166,8 @@ export default async function InvitePage({ params }: PageProps) {
         >
           Accept here instead
         </Link>
+        . If you already work with another company on Noni, accepting adds{" "}
+        {companyName} to your account and you keep your other companies.
       </p>
     </Shell>
   );

@@ -27,6 +27,7 @@ export interface Company {
   name: string;
   website: string;
   admin: CompanyAdmin;
+  admins: number;
   creators: number;
   managers: number;
   campaigns: number;

@@ -17,6 +17,12 @@ import {
 } from "@/lib/admin/types";
 import { getSessionProfile, isCompanyAdmin, isPlatformAdmin } from "@/lib/auth";
 import { callEdgeFunction, type InviteResponse } from "@/lib/edge";
+import {
+  PERMISSION_DEFS,
+  type PermissionKey,
+  type Permissions,
+} from "@/lib/permissions";
+import type { Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type TeamActionResult = { ok: true } | { ok: false; error: string };
@@ -73,7 +79,7 @@ export async function sendTeamInvite(input: {
   if (!isCompanyAdmin(profile) && !isPlatformAdmin(profile)) {
     return { ok: false, error: "Company admins only." };
   }
-  const companyId = profile?.company_id;
+  const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
 
   /* Plans differ only in how many creators a company can run, so the cap
@@ -105,7 +111,12 @@ export async function sendTeamInvite(input: {
       role: input.role === "Campaign manager" ? "campaign_manager" : "creator",
     },
   );
-  if (error !== null) return { ok: false, error };
+  if (error !== null) {
+    if (/already a member/i.test(error)) {
+      return { ok: false, error: `${email} is already part of this company.` };
+    }
+    return { ok: false, error };
+  }
 
   /* The invite edge function keys on email only, so the typed name is
      stored here; Team rows and onboarding read it (same as ops-side). */
@@ -143,7 +154,7 @@ export async function removeTeamMember(
   if (!isCompanyAdmin(profile) && !isPlatformAdmin(profile)) {
     return { ok: false, error: "Company admins only." };
   }
-  const companyId = profile?.company_id;
+  const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
   if (memberId === userId) {
     return { ok: false, error: "You cannot remove yourself." };
@@ -175,33 +186,89 @@ export async function removeTeamMember(
   }
 
   const { data: target } = await service
-    .from("profiles")
-    .select("id, role, company_id")
+    .from("company_roster")
+    .select("id, member_role")
+    .eq("company_id", companyId)
     .eq("id", memberId)
     .maybeSingle();
-  if (!target || target.company_id !== companyId) {
-    return { ok: false, error: "Member not found." };
-  }
-  if (target.role === "company_admin") {
+  if (!target) return { ok: false, error: "Member not found." };
+  if (target.member_role === "company_admin") {
     return { ok: false, error: "The company admin cannot be removed." };
   }
-  if (target.role !== "campaign_manager") {
+  if (target.member_role !== "campaign_manager") {
     return { ok: false, error: "Only campaign managers can be removed here." };
   }
 
+  /* Soft removal. A trigger moves their active company elsewhere when this
+     was the one they were working in; other memberships are untouched. */
   const { error: memberError } = await service
     .from("company_members")
-    .delete()
+    .update({ removed_at: new Date().toISOString() })
     .eq("company_id", companyId)
-    .eq("profile_id", memberId);
+    .eq("profile_id", memberId)
+    .is("removed_at", null);
   if (memberError) return { ok: false, error: memberError.message };
 
-  const { error: profileError } = await service
-    .from("profiles")
-    .update({ company_id: null })
-    .eq("id", memberId)
-    .eq("company_id", companyId);
-  if (profileError) return { ok: false, error: profileError.message };
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+/* Per-member permissions live on the membership row for this company, so a
+   manager who also works elsewhere keeps separate toggles per company. */
+export async function updateMemberPermissions(input: {
+  memberId: string;
+  patch: Permissions;
+}): Promise<TeamActionResult> {
+  const keys = Object.keys(input.patch) as PermissionKey[];
+  if (
+    keys.length === 0 ||
+    keys.some((k) => !PERMISSION_DEFS.some((def) => def.key === k))
+  ) {
+    return { ok: false, error: "Unknown permission." };
+  }
+  if (keys.some((k) => typeof input.patch[k] !== "boolean")) {
+    return { ok: false, error: "Each permission must be on or off." };
+  }
+
+  if (mockMode()) {
+    const member = MOCK_DATASET.managers.find((m) => m.id === input.memberId);
+    if (member) member.permissions = { ...member.permissions, ...input.patch };
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  }
+
+  const { profile } = await getSessionProfile();
+  if (!isCompanyAdmin(profile) && !isPlatformAdmin(profile)) {
+    return { ok: false, error: "Company admins only." };
+  }
+  const companyId = profile?.active_company_id;
+  if (!companyId) return { ok: false, error: "No company on this account." };
+
+  const service = createServiceClient();
+  const { data: row, error: readError } = await service
+    .from("company_members")
+    .select("role, permissions")
+    .eq("company_id", companyId)
+    .eq("profile_id", input.memberId)
+    .is("removed_at", null)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  if (!row) return { ok: false, error: "Member not found." };
+  if (row.role !== "campaign_manager") {
+    return { ok: false, error: "Only campaign managers have permission toggles." };
+  }
+
+  const current =
+    row.permissions && typeof row.permissions === "object" && !Array.isArray(row.permissions)
+      ? (row.permissions as Record<string, Json>)
+      : {};
+  const { error } = await service
+    .from("company_members")
+    .update({ permissions: { ...current, ...input.patch } })
+    .eq("company_id", companyId)
+    .eq("profile_id", input.memberId)
+    .is("removed_at", null);
+  if (error) return { ok: false, error: error.message };
 
   revalidatePath("/admin", "layout");
   return { ok: true };
@@ -239,7 +306,7 @@ export async function updateManagerAccess(
   if (!isCompanyAdmin(profile) && !isPlatformAdmin(profile)) {
     return { ok: false, error: "Company admins only." };
   }
-  const companyId = profile?.company_id;
+  const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
 
   const service = createServiceClient();

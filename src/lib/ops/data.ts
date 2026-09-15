@@ -55,13 +55,19 @@ interface CompanyRow {
 
 interface ProfileRow {
   id: string;
-  company_id: string | null;
-  role: string | null;
   full_name: string | null;
   phone: string | null;
   onboarded: boolean | null;
   created_at: string;
   expo_push_token: string | null;
+}
+
+/* One row per active membership (company_roster view). */
+interface RosterRow {
+  company_id: string;
+  member_role: string;
+  joined_at: string;
+  id: string;
 }
 
 interface InviteRow {
@@ -389,13 +395,12 @@ async function fetchOpsData(): Promise<OpsDataset> {
     sourceAccountsRes,
     briefsRes,
     revenueRes,
+    rosterRes,
   ] = await Promise.all([
     supabase.from("companies").select("id, name, website, created_at"),
     supabase
       .from("profiles")
-      .select(
-        "id, company_id, role, full_name, phone, onboarded, created_at, expo_push_token",
-      ),
+      .select("id, full_name, phone, onboarded, created_at, expo_push_token"),
     supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     supabase
       .from("company_invites")
@@ -444,10 +449,15 @@ async function fetchOpsData(): Promise<OpsDataset> {
     supabase
       .from("revenue_events")
       .select("amount_cents, attribution_links ( assignment_id, task_id )"),
+    supabase
+      .from("company_roster")
+      .select("company_id, member_role, joined_at, id"),
   ]);
 
   const companyRows = (companiesRes.data ?? []) as CompanyRow[];
   const profileRows = (profilesRes.data ?? []) as ProfileRow[];
+  const rosterRows = (rosterRes.data ?? []) as RosterRow[];
+  const profileById = new Map(profileRows.map((p) => [p.id, p]));
   const inviteRows = (invitesRes.data ?? []) as InviteRow[];
   const campaignRows = (campaignsRes.data ?? []) as CampaignRow[];
   const postRows = (postsRes.data ?? []) as unknown as PostRow[];
@@ -516,13 +526,12 @@ async function fetchOpsData(): Promise<OpsDataset> {
     .map((g) => g.post)
     .sort((a, b) => b.viewsN - a.viewsN);
 
-  /* Companies */
-  const profilesByCompany = new Map<string, ProfileRow[]>();
-  for (const p of profileRows) {
-    if (!p.company_id) continue;
-    const list = profilesByCompany.get(p.company_id) ?? [];
-    list.push(p);
-    profilesByCompany.set(p.company_id, list);
+  /* Companies: membership rows, so a person in two companies counts in both. */
+  const membersByCompany = new Map<string, RosterRow[]>();
+  for (const m of rosterRows) {
+    const list = membersByCompany.get(m.company_id) ?? [];
+    list.push(m);
+    membersByCompany.set(m.company_id, list);
   }
 
   const groupsByCompany = new Map<string, PostGroup[]>();
@@ -532,20 +541,17 @@ async function fetchOpsData(): Promise<OpsDataset> {
     groupsByCompany.set(g.post.company, list);
   }
 
-  const isAdminRole = (role: string | null) =>
-    role === "company_admin" || role === "admin";
-
   const weekMs = 7 * 24 * 60 * 60 * 1000;
   const companies: Company[] = companyRows.map((c) => {
-    const members = profilesByCompany.get(c.id) ?? [];
+    const members = membersByCompany.get(c.id) ?? [];
     const companyGroups = groupsByCompany.get(c.id) ?? [];
     const metricRows = companyGroups.flatMap((g) => g.metricRows);
     /* No accepted members yet → the admin invite is still out. */
     const pending = members.length === 0;
 
     const adminProfile = [...members]
-      .filter((p) => isAdminRole(p.role))
-      .sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
+      .filter((m) => m.member_role === "company_admin")
+      .sort((a, b) => a.joined_at.localeCompare(b.joined_at))[0];
     const pendingInvite = inviteRows.find(
       (iv) => iv.company_id === c.id && !iv.accepted_at,
     );
@@ -605,8 +611,9 @@ async function fetchOpsData(): Promise<OpsDataset> {
       name: c.name,
       website: c.website ?? "",
       admin,
-      creators: members.filter((p) => p.role === "creator").length,
-      managers: members.filter((p) => p.role === "campaign_manager").length,
+      admins: members.filter((m) => m.member_role === "company_admin").length,
+      creators: members.filter((m) => m.member_role === "creator").length,
+      managers: members.filter((m) => m.member_role === "campaign_manager").length,
       campaigns: activeCampaigns,
       posts: monthGroups.length,
       views: pending ? "—" : fmtViews(monthViews),
@@ -637,13 +644,14 @@ async function fetchOpsData(): Promise<OpsDataset> {
     statsByCreator.set(g.creatorId, s);
   }
 
-  const people: Person[] = profileRows
-    .filter((p) => p.company_id && p.role && ROLE_OF[p.role])
-    .map((p) => {
-      const role = ROLE_OF[p.role as string];
+  const people: Person[] = rosterRows
+    .filter((m) => ROLE_OF[m.member_role] && profileById.has(m.id))
+    .map((m) => {
+      const p = profileById.get(m.id) as ProfileRow;
+      const role = ROLE_OF[m.member_role];
       const person: Person = {
         id: p.id,
-        company: p.company_id as string,
+        company: m.company_id,
         role,
         name: profileNames.get(p.id) ?? "User",
         email: emailById.get(p.id) ?? "—",

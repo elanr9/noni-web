@@ -160,7 +160,21 @@ export type Database = {
             foreignKeyName: "assignments_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_music_approved_by_fkey"
+            columns: ["music_approved_by"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -227,6 +241,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attribution_links_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -312,6 +333,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "banned_claims_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -523,6 +551,13 @@ export type Database = {
             foreignKeyName: "brief_ai_snapshots_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brief_ai_snapshots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -646,6 +681,13 @@ export type Database = {
           tier?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "brief_review_events_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "brief_review_events_author_id_fkey"
             columns: ["author_id"]
@@ -961,6 +1003,13 @@ export type Database = {
             foreignKeyName: "briefs_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1173,7 +1222,21 @@ export type Database = {
             foreignKeyName: "chat_mutes_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_mutes_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_mutes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -1255,6 +1318,7 @@ export type Database = {
           creator_count: number
           does_ugc: boolean
           id: string
+          logo_path: string | null
           manager_count: number
           name: string
           payouts_enabled: boolean
@@ -1269,6 +1333,7 @@ export type Database = {
           creator_count?: number
           does_ugc?: boolean
           id?: string
+          logo_path?: string | null
           manager_count?: number
           name: string
           payouts_enabled?: boolean
@@ -1283,6 +1348,7 @@ export type Database = {
           creator_count?: number
           does_ugc?: boolean
           id?: string
+          logo_path?: string | null
           manager_count?: number
           name?: string
           payouts_enabled?: boolean
@@ -1292,6 +1358,32 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      company_activity: {
+        Row: {
+          bumped_at: string
+          company_id: string
+          kind: string
+        }
+        Insert: {
+          bumped_at?: string
+          company_id: string
+          kind: string
+        }
+        Update: {
+          bumped_at?: string
+          company_id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_activity_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       company_billing: {
         Row: {
@@ -1441,6 +1533,13 @@ export type Database = {
             foreignKeyName: "company_credit_ledger_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_credit_ledger_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1498,6 +1597,13 @@ export type Database = {
             foreignKeyName: "company_invites_invited_by_fkey"
             columns: ["invited_by"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1507,20 +1613,29 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          last_active_at: string | null
           permissions: Json
           profile_id: string
+          removed_at: string | null
+          role: string
         }
         Insert: {
           company_id: string
           created_at?: string
+          last_active_at?: string | null
           permissions?: Json
           profile_id: string
+          removed_at?: string | null
+          role?: string
         }
         Update: {
           company_id?: string
           created_at?: string
+          last_active_at?: string | null
           permissions?: Json
           profile_id?: string
+          removed_at?: string | null
+          role?: string
         }
         Relationships: [
           {
@@ -1528,6 +1643,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -1724,6 +1846,13 @@ export type Database = {
             foreignKeyName: "content_tasks_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1746,6 +1875,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -1881,6 +2017,13 @@ export type Database = {
             foreignKeyName: "conversion_daily_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversion_daily_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1953,7 +2096,21 @@ export type Database = {
             foreignKeyName: "creator_accounts_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_accounts_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_accounts_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -2002,6 +2159,13 @@ export type Database = {
             foreignKeyName: "creator_reminders_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_reminders_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2041,6 +2205,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_streaks_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -2113,6 +2284,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creator_wallets_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -2473,7 +2651,21 @@ export type Database = {
             foreignKeyName: "library_items_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_items_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -2541,6 +2733,13 @@ export type Database = {
             foreignKeyName: "manager_chat_members_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_chat_members_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2574,6 +2773,13 @@ export type Database = {
             foreignKeyName: "manager_chat_reads_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_chat_reads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2587,6 +2793,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_general: boolean
           kind: string
           name: string | null
           user_a: string | null
@@ -2599,6 +2806,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_general?: boolean
           kind: string
           name?: string | null
           user_a?: string | null
@@ -2611,6 +2819,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_general?: boolean
           kind?: string
           name?: string | null
           user_a?: string | null
@@ -2635,6 +2844,13 @@ export type Database = {
             foreignKeyName: "manager_chats_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_chats_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2642,7 +2858,21 @@ export type Database = {
             foreignKeyName: "manager_chats_user_a_fkey"
             columns: ["user_a"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_chats_user_a_fkey"
+            columns: ["user_a"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_chats_user_b_fkey"
+            columns: ["user_b"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -2679,6 +2909,13 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "manager_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_message_reactions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -2742,6 +2979,13 @@ export type Database = {
             columns: ["assignment_id"]
             isOneToOne: false
             referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "manager_messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -2836,6 +3080,13 @@ export type Database = {
             foreignKeyName: "media_library_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_library_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2893,6 +3144,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mercury_payouts_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -2962,7 +3220,21 @@ export type Database = {
             foreignKeyName: "message_reads_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reads_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reads_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -3017,6 +3289,13 @@ export type Database = {
             foreignKeyName: "messages_author_id_fkey"
             columns: ["author_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -3037,6 +3316,74 @@ export type Database = {
           {
             foreignKeyName: "messages_creator_id_fkey"
             columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string
+          company_id: string
+          created_at: string
+          data: Json
+          deep_link: string
+          event: string
+          id: string
+          profile_id: string
+          read_at: string | null
+          title: string
+        }
+        Insert: {
+          body: string
+          company_id: string
+          created_at?: string
+          data?: Json
+          deep_link: string
+          event: string
+          id?: string
+          profile_id: string
+          read_at?: string | null
+          title: string
+        }
+        Update: {
+          body?: string
+          company_id?: string
+          created_at?: string
+          data?: Json
+          deep_link?: string
+          event?: string
+          id?: string
+          profile_id?: string
+          read_at?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -3109,6 +3456,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payouts_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -3348,6 +3702,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          active_company_id: string | null
           available: boolean
           avatar_path: string | null
           baseline_primary_signal: number | null
@@ -3356,7 +3711,6 @@ export type Database = {
           birthday: string | null
           can_create: boolean
           can_film_with_second_person: boolean
-          company_id: string | null
           created_at: string | null
           credential_line: string | null
           expo_push_token: string | null
@@ -3375,6 +3729,7 @@ export type Database = {
           upload_post_profile: string | null
         }
         Insert: {
+          active_company_id?: string | null
           available?: boolean
           avatar_path?: string | null
           baseline_primary_signal?: number | null
@@ -3383,7 +3738,6 @@ export type Database = {
           birthday?: string | null
           can_create?: boolean
           can_film_with_second_person?: boolean
-          company_id?: string | null
           created_at?: string | null
           credential_line?: string | null
           expo_push_token?: string | null
@@ -3402,6 +3756,7 @@ export type Database = {
           upload_post_profile?: string | null
         }
         Update: {
+          active_company_id?: string | null
           available?: boolean
           avatar_path?: string | null
           baseline_primary_signal?: number | null
@@ -3410,7 +3765,6 @@ export type Database = {
           birthday?: string | null
           can_create?: boolean
           can_film_with_second_person?: boolean
-          company_id?: string | null
           created_at?: string | null
           credential_line?: string | null
           expo_push_token?: string | null
@@ -3431,7 +3785,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_company_id_fkey"
-            columns: ["company_id"]
+            columns: ["active_company_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
@@ -3479,6 +3833,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recording_drafts_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -3599,6 +3960,13 @@ export type Database = {
           submission_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "review_events_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "review_events_author_id_fkey"
             columns: ["author_id"]
@@ -3786,10 +4154,12 @@ export type Database = {
       submissions: {
         Row: {
           assignment_id: string | null
+          audio_gain: number
           created_at: string | null
           creator_id: string
           duration_seconds: number | null
           id: string
+          overlay_render_id: string | null
           render_error: string | null
           render_status: string
           render_timeline: Json | null
@@ -3800,10 +4170,12 @@ export type Database = {
         }
         Insert: {
           assignment_id?: string | null
+          audio_gain?: number
           created_at?: string | null
           creator_id: string
           duration_seconds?: number | null
           id?: string
+          overlay_render_id?: string | null
           render_error?: string | null
           render_status?: string
           render_timeline?: Json | null
@@ -3814,10 +4186,12 @@ export type Database = {
         }
         Update: {
           assignment_id?: string | null
+          audio_gain?: number
           created_at?: string | null
           creator_id?: string
           duration_seconds?: number | null
           id?: string
+          overlay_render_id?: string | null
           render_error?: string | null
           render_status?: string
           render_timeline?: Json | null
@@ -3832,6 +4206,13 @@ export type Database = {
             columns: ["assignment_id"]
             isOneToOne: false
             referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "submissions_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
             referencedColumns: ["id"]
           },
           {
@@ -3879,6 +4260,13 @@ export type Database = {
           task_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_comments_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_comments_author_id_fkey"
             columns: ["author_id"]
@@ -4036,6 +4424,13 @@ export type Database = {
             foreignKeyName: "trend_items_labeled_by_fkey"
             columns: ["labeled_by"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trend_items_labeled_by_fkey"
+            columns: ["labeled_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -4122,6 +4517,13 @@ export type Database = {
             foreignKeyName: "wallet_ledger_creator_id_fkey"
             columns: ["creator_id"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wallet_ledger_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -4188,6 +4590,13 @@ export type Database = {
             foreignKeyName: "weekly_batches_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
+            referencedRelation: "company_roster"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_batches_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -4195,9 +4604,63 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      company_roster: {
+        Row: {
+          active_company_id: string | null
+          active_role: string | null
+          available: boolean | null
+          avatar_path: string | null
+          baseline_primary_signal: number | null
+          baseline_updated_at: string | null
+          bio_facts: Json | null
+          birthday: string | null
+          can_create: boolean | null
+          can_film_with_second_person: boolean | null
+          company_id: string | null
+          created_at: string | null
+          credential_line: string | null
+          expo_push_token: string | null
+          full_name: string | null
+          has_credential: boolean | null
+          has_scar_tissue: boolean | null
+          has_transformation: boolean | null
+          id: string | null
+          joined_at: string | null
+          last_active_at: string | null
+          lives_the_identity: boolean | null
+          member_permissions: Json | null
+          member_role: string | null
+          on_camera_comfortable: boolean | null
+          onboarded: boolean | null
+          onboarding_answers: Json | null
+          phone: string | null
+          script_mode: string | null
+          upload_post_profile: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_members_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_company_id_fkey"
+            columns: ["active_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      active_membership_role: { Args: never; Returns: string }
+      apply_invite_membership: {
+        Args: { p_invite_id: string; p_profile_id: string }
+        Returns: boolean
+      }
       assignment_publish_at: {
         Args: { p_assignment_id: string }
         Returns: string
@@ -4210,6 +4673,7 @@ export type Database = {
       claim_pending_invite: {
         Args: never
         Returns: {
+          active_company_id: string | null
           available: boolean
           avatar_path: string | null
           baseline_primary_signal: number | null
@@ -4218,7 +4682,6 @@ export type Database = {
           birthday: string | null
           can_create: boolean
           can_film_with_second_person: boolean
-          company_id: string | null
           created_at: string | null
           credential_line: string | null
           expo_push_token: string | null
@@ -4247,9 +4710,39 @@ export type Database = {
         Args: { p_post_id: string; p_threshold: number }
         Returns: boolean
       }
+      company_attention: { Args: { p_company_id: string }; Returns: Json }
+      company_local_date: { Args: { p_company_id: string }; Returns: string }
+      company_status_summary: {
+        Args: never
+        Returns: {
+          company_id: string
+          fix: number
+          is_active: boolean
+          line: string
+          logo_path: string
+          name: string
+          review: number
+          role: string
+          shoot: number
+          unread: number
+          waiting: number
+        }[]
+      }
       copy_brief_into: {
         Args: { p_source_brief_id: string; p_target_brief_id: string }
         Returns: undefined
+      }
+      creator_earnings_by_company: {
+        Args: never
+        Returns: {
+          available_cents: number
+          company_id: string
+          earned_cents: number
+          is_total: boolean
+          logo_path: string
+          name: string
+          pending_cents: number
+        }[]
       }
       creator_place_segment: {
         Args: {
@@ -4266,6 +4759,15 @@ export type Database = {
         Args: { p_brief_id: string; p_y: number }
         Returns: undefined
       }
+      creator_style_segment_box: {
+        Args: {
+          p_bg: boolean
+          p_box_id: string
+          p_color: string
+          p_segment_id: string
+        }
+        Returns: undefined
+      }
       current_company_id: { Args: never; Returns: string }
       current_role: { Args: never; Returns: string }
       default_member_permissions: { Args: never; Returns: Json }
@@ -4274,6 +4776,8 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
       is_campaign_manager: { Args: never; Returns: boolean }
       is_company_admin: { Args: never; Returns: boolean }
+      is_manager_of: { Args: { p_company_id: string }; Returns: boolean }
+      is_member_of: { Args: { p_company_id: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       label_trend: {
         Args: { p_label?: string; p_reason?: string; p_trend_id: string }
@@ -4313,6 +4817,43 @@ export type Database = {
           views: number
         }[]
       }
+      mark_notification_read: { Args: { p_id: string }; Returns: undefined }
+      member_role: { Args: { p_company_id: string }; Returns: string }
+      my_companies: {
+        Args: never
+        Returns: {
+          attention: Json
+          company_id: string
+          is_active: boolean
+          joined_at: string
+          last_active_at: string
+          logo_path: string
+          name: string
+          permissions: Json
+          role: string
+          slug: string
+        }[]
+      }
+      notifications_feed: {
+        Args: { p_before?: string; p_limit?: number }
+        Returns: {
+          body: string
+          company_id: string
+          company_logo_path: string
+          company_name: string
+          created_at: string
+          data: Json
+          deep_link: string
+          event: string
+          id: string
+          read_at: string
+          title: string
+        }[]
+      }
+      profile_in_company: {
+        Args: { p_company_id: string; p_profile_id: string }
+        Returns: boolean
+      }
       publish_campaign_assignments: {
         Args: { p_assignments: Json; p_campaign_id: string }
         Returns: number
@@ -4330,6 +4871,31 @@ export type Database = {
         Args: { p_company_id: string }
         Returns: undefined
       }
+      set_active_company: {
+        Args: { p_company_id: string }
+        Returns: {
+          admin_role: string | null
+          created_at: string | null
+          creator_count: number
+          does_ugc: boolean
+          id: string
+          logo_path: string | null
+          manager_count: number
+          name: string
+          payouts_enabled: boolean
+          self_is_manager: boolean
+          settings: Json | null
+          slug: string
+          website: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "companies"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      shares_company_with: { Args: { p_profile_id: string }; Returns: boolean }
       slot_publish_time: {
         Args: { p_rank: number; p_total: number }
         Returns: string
@@ -4367,6 +4933,42 @@ export type Database = {
         Returns: number
       }
       stripe_connected_at: { Args: never; Returns: string }
+      switch_active_company: {
+        Args: { p_company_id: string }
+        Returns: {
+          active_company_id: string | null
+          available: boolean
+          avatar_path: string | null
+          baseline_primary_signal: number | null
+          baseline_updated_at: string | null
+          bio_facts: Json
+          birthday: string | null
+          can_create: boolean
+          can_film_with_second_person: boolean
+          created_at: string | null
+          credential_line: string | null
+          expo_push_token: string | null
+          full_name: string | null
+          has_credential: boolean
+          has_scar_tissue: boolean
+          has_transformation: boolean
+          id: string
+          lives_the_identity: boolean
+          on_camera_comfortable: boolean
+          onboarded: boolean | null
+          onboarding_answers: Json
+          phone: string | null
+          role: string
+          script_mode: string
+          upload_post_profile: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       sync_brief_segments: {
         Args: { p_brief_id: string; p_company_id: string; p_segments: Json }
         Returns: {
@@ -4395,6 +4997,10 @@ export type Database = {
         }
       }
       unread_inbox_count: { Args: never; Returns: number }
+      unread_inbox_count_for: {
+        Args: { p_company_id: string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

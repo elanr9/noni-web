@@ -85,17 +85,22 @@ export async function rememberCurrentAccount(
   } = await supabase.auth.getSession();
   if (!session) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .eq("id", session.user.id)
-    .maybeSingle();
+  /* The role comes from the active membership (current_role()), never
+     from profiles.role, which only marks the platform admin. */
+  const [{ data: profile }, { data: activeRole }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("id", session.user.id)
+      .maybeSingle(),
+    supabase.rpc("current_role"),
+  ]);
 
   const account: StoredAccount = {
     userId: session.user.id,
     email: session.user.email ?? null,
     fullName: (profile?.full_name as string | null) ?? null,
-    role: ((profile?.role as StoredRole | null) ?? "creator") as StoredRole,
+    role: ((activeRole as StoredRole | null) ?? "creator") as StoredRole,
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
     savedAt: Date.now(),

@@ -18,6 +18,8 @@ import { cache } from "react";
 
 import { parseStoredPlan, PLAN_PRICING } from "@/lib/admin/billing";
 import { currentWeekStart } from "@/lib/admin/feature-analyze";
+import { PERMISSION_DEFS, type Permissions } from "@/lib/permissions";
+import type { Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
 
 import type {
@@ -44,9 +46,21 @@ import { parseManagerAccess } from "./types";
 
 /* ── Raw row shapes (typed columns we rely on) ── */
 
+/* company_members.permissions as the toggles read it. */
+function readPermissions(raw: Json | null): Permissions {
+  const out: Permissions = {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const def of PERMISSION_DEFS) {
+    out[def.key] = raw[def.key] === true;
+  }
+  return out;
+}
+
+/* One row per active membership in this company (company_roster view). */
 interface ProfileRow {
   id: string;
-  role: string | null;
+  member_role: string;
+  member_permissions: Json | null;
   full_name: string | null;
   onboarded: boolean | null;
   created_at: string;
@@ -362,6 +376,7 @@ function emptyDataset(companyId: string): AdminDataset {
       id: companyId,
       name: "Your company",
       website: "",
+      logoPath: null,
       onboarding: EMPTY_ONBOARDING,
       managerAccess: parseManagerAccess(null),
     },
@@ -413,7 +428,6 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     brandDocsRes,
     sourceAccountsRes,
     briefsRes,
-    companyMembersRes,
     creatorWalletsRes,
     featuresRes,
     featureScreenshotsRes,
@@ -424,8 +438,8 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
        yet do not error the query; readers default when absent. */
     supabase.from("companies").select("*").eq("id", companyId).maybeSingle(),
     supabase
-      .from("profiles")
-      .select("id, role, full_name, onboarded, created_at")
+      .from("company_roster")
+      .select("id, member_role, member_permissions, full_name, onboarded, created_at")
       .eq("company_id", companyId),
     supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     supabase
@@ -485,12 +499,6 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       .select("id, format, title, hook, archived_at, created_at")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false }),
-    /* Seeded by the onboarding self-as-manager answer; the table is owned
-       by the mobile repo, so tolerate it being absent. */
-    supabase
-      .from("company_members")
-      .select("profile_id")
-      .eq("company_id", companyId),
     /* A wallet row only exists once someone has used the creator side of
        the mobile app, so it marks admins/managers who also record. */
     supabase
@@ -546,9 +554,6 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
   const brandDocRows = (brandDocsRes.data ?? []) as BrandDocRow[];
   const sourceAccountRows = (sourceAccountsRes.data ?? []) as LooseRow[];
   const briefRows = (briefsRes.data ?? []) as BriefRow[];
-  const companyMemberRows = (companyMembersRes.data ?? []) as Array<{
-    profile_id: string;
-  }>;
   const creatorWalletRows = (creatorWalletsRes.data ?? []) as Array<{
     creator_id: string;
   }>;
@@ -622,6 +627,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     id: companyId,
     name: readStr(companyRow, "name") ?? "Your company",
     website: readStr(companyRow, "website") ?? "",
+    logoPath: readStr(companyRow, "logo_path"),
     onboarding,
     managerAccess: parseManagerAccess(companyRow?.settings),
   };
@@ -660,7 +666,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
   const managers: Member[] = [];
   const creators: Member[] = [];
   for (const p of profileRows) {
-    if (p.role === "campaign_manager") {
+    if (p.member_role === "campaign_manager") {
       managers.push({
         id: p.id,
         role: "Campaign manager",
@@ -668,8 +674,9 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
         email: emailById.get(p.id) ?? "",
         status: p.onboarded ? "Active" : "Invite sent",
         joined: fmtLongDate(p.created_at),
+        permissions: readPermissions(p.member_permissions),
       });
-    } else if (p.role === "creator") {
+    } else if (p.member_role === "creator") {
       const s = statsByCreator.get(p.id);
       creators.push({
         id: p.id,
@@ -686,15 +693,12 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
   }
 
   /* Self-as-manager: the onboarding "Yes" answer writes
-     companies.self_is_manager and a company_members row for the admin, not
-     a campaign_manager profile role, so surface company_admin profiles
-     matching either signal as Active managers (README: "Yes also seeds the
-     admin as an Active campaign manager on Team and counts toward the
-     invite step"). */
-  const memberProfileIds = new Set(companyMemberRows.map((r) => r.profile_id));
+     companies.self_is_manager, so surface company_admin members as Active
+     managers too (README: "Yes also seeds the admin as an Active campaign
+     manager on Team and counts toward the invite step"). */
   for (const p of profileRows) {
-    if (p.role !== "company_admin") continue;
-    if (!onboarding.selfIsManager && !memberProfileIds.has(p.id)) continue;
+    if (p.member_role !== "company_admin") continue;
+    if (!onboarding.selfIsManager) continue;
     managers.unshift({
       id: p.id,
       role: "Campaign manager",
@@ -709,7 +713,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
      in the creators list too. */
   const creatorWalletIds = new Set(creatorWalletRows.map((r) => r.creator_id));
   for (const p of profileRows) {
-    if (p.role !== "campaign_manager" && p.role !== "company_admin") continue;
+    if (p.member_role !== "campaign_manager" && p.member_role !== "company_admin") continue;
     if (!creatorWalletIds.has(p.id)) continue;
     const s = statsByCreator.get(p.id);
     creators.push({

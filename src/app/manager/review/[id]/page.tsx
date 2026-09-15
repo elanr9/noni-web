@@ -14,8 +14,8 @@ export default async function PostReviewPage({
 }) {
   const { id } = await params;
   const { profile } = await getSessionProfile();
-  if (!profile?.company_id) redirect("/login?next=/manager");
+  if (!profile?.active_company_id) redirect("/login?next=/manager");
 
-  const detail = await getPostReviewDetail(profile.company_id, id);
+  const detail = await getPostReviewDetail(profile.active_company_id, id);
   return <PostReviewView detail={detail} />;
 }

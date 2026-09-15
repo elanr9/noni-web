@@ -26,7 +26,7 @@ export default async function AdminBillingPage({
   if (ctx) await runAutoTopUpCheck(ctx);
 
   const { profile } = await getSessionProfile();
-  const data = await getAdminData(ctx?.companyId ?? profile?.company_id ?? "");
+  const data = await getAdminData(ctx?.companyId ?? profile?.active_company_id ?? "");
 
   const sp = await searchParams;
   const notice =

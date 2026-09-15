@@ -1,15 +1,16 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AchievementHost } from "@/components/admin/achievements/AchievementHost";
 import { AdminShell, type AdminSearchPerson } from "@/components/admin/AdminShell";
 import { TourHost } from "@/components/admin/tour/TourHost";
+import { SwitchCompanyGate } from "@/components/SwitchCompanyGate";
 import {
   canUseWebDashboard,
   getSessionProfile,
   isCampaignManager,
   isCompanyAdmin,
   isPlatformAdmin,
+  listCompanySummaries,
 } from "@/lib/auth";
 import { getAdminData } from "@/lib/admin/data";
 import { deriveSetupStatus } from "@/lib/admin/setup";
@@ -27,6 +28,7 @@ export default async function AdminLayout({
     ? { userId: "qa-bypass", profile: null }
     : await getSessionProfile();
   if (!userId) redirect("/login?next=/admin");
+  const companies = qaBypass ? [] : await listCompanySummaries();
   if (!qaBypass) {
     /* The noni platform account runs the ops console, not the company
        dashboard. It has no company here, so /admin is always wrong for it. */
@@ -35,32 +37,25 @@ export default async function AdminLayout({
     if (isCampaignManager(profile)) redirect("/manager");
     /* Company admins run this dashboard; everyone else gets a friendly gate. */
     if (!canUseWebDashboard(profile)) {
+      const canSwitch = companies.some((c) => c.role === "company_admin");
       return (
-        <div className="flex min-h-screen items-center justify-center bg-soft px-5">
-          <div className="max-w-md rounded-[28px] border border-line bg-white p-8 text-center shadow-sm">
-            <h1 className="display text-3xl font-semibold text-ink">
-              Company admins only
-            </h1>
-            <p className="mt-3 text-[15px] text-muted">
-              This account is signed in but is not a company admin. Creators
-              run their work from the Noni app. If you should have admin
-              access, ask your company admin for an invite.
-            </p>
-            <Link
-              href="/"
-              className="mt-6 inline-flex rounded-full bg-ink px-5 py-3 text-sm font-bold text-white"
-            >
-              Back home
-            </Link>
-          </div>
-        </div>
+        <SwitchCompanyGate
+          title="Company admins only"
+          body={
+            canSwitch
+              ? "This company does not have you as its admin. Pick a company you run to open its dashboard."
+              : "This account is signed in but is not a company admin. Creators run their work from the Noni app. If you should have admin access, ask your company admin for an invite."
+          }
+          companies={canSwitch ? companies : []}
+          wanted={["company_admin"]}
+        />
       );
     }
     /* Agent B owns the onboarding question flow. */
     if (isCompanyAdmin(profile) && !profile?.onboarded) redirect("/onboarding");
   }
 
-  const data = await getAdminData(profile?.company_id ?? "");
+  const data = await getAdminData(profile?.active_company_id ?? "");
   const setup = deriveSetupStatus(data);
   const people: AdminSearchPerson[] = [...data.managers, ...data.creators].map(
     (m) => ({ id: m.id, name: m.name, role: m.role, status: m.status }),
@@ -74,6 +69,7 @@ export default async function AdminLayout({
       setupRemaining={setup.remaining}
       setupComplete={setup.complete}
       dualRole={data.company.onboarding.selfIsManager}
+      companies={companies}
     >
       {children}
       <TourHost />

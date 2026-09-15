@@ -20,8 +20,8 @@ export default async function OpsLayout({
             Platform ops only
           </h1>
           <p className="mt-3 text-[15px] text-muted">
-            This account is signed in but is not the Noni platform ops account. Sign in
-            with the ops account to continue.
+            This account is not a Noni platform admin. Sign in with a Google account
+            that has platform admin access to continue.
           </p>
           <Link
             href="/"

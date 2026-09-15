@@ -37,10 +37,10 @@ export const listCompanyCreators = cache(
     /* Same population as the roster (and mobile's leaderboard): creators
        plus anyone who can record, e.g. a manager with can_create. */
     const { data } = await supabase
-      .from("profiles")
+      .from("company_roster")
       .select("id, full_name, onboarded")
       .eq("company_id", companyId)
-      .or("role.eq.creator,can_create.eq.true")
+      .or("member_role.eq.creator,can_create.eq.true")
       .order("created_at", { ascending: true });
     return (data ?? []).map((row) => ({
       id: row.id as string,

@@ -28,7 +28,7 @@ export async function sendCreatorInvite(input: {
   if (!canManageCampaigns(profile)) {
     return { ok: false, error: "Campaign managers only." };
   }
-  const companyId = profile?.company_id;
+  const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
 
   const { access } = await getManagerContext(companyId);
@@ -45,7 +45,12 @@ export async function sendCreatorInvite(input: {
       role: "creator",
     },
   );
-  if (error !== null) return { ok: false, error };
+  if (error !== null) {
+    if (/already a member/i.test(error)) {
+      return { ok: false, error: `${email} is already part of this company.` };
+    }
+    return { ok: false, error };
+  }
 
   /* The invite edge function keys on email only, so the typed name is
      stored here; roster rows read it (same as the admin Team page). */
@@ -64,9 +69,9 @@ export async function sendCreatorInvite(input: {
 export async function signChatMedia(path: string): Promise<string | null> {
   if (!path) return null;
   const { profile } = await getSessionProfile();
-  if (!canManageCampaigns(profile) || !profile?.company_id) return null;
+  if (!canManageCampaigns(profile) || !profile?.active_company_id) return null;
   /* Chat media paths are minted as {companyId}/chat/{creatorId}/... by the
      apps; refuse to sign anything outside this manager's company. */
-  if (!path.startsWith(`${profile.company_id}/`)) return null;
+  if (!path.startsWith(`${profile.active_company_id}/`)) return null;
   return signedMediaUrl("videos", path);
 }

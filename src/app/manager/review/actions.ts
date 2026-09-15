@@ -33,10 +33,10 @@ export async function reviewPost(input: {
   }
 
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
-  const companyId = profile.company_id;
+  const companyId = profile.active_company_id;
   const service = createServiceClient();
 
   const { data: assignmentData, error: assignmentError } = await service

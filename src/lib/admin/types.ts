@@ -1,3 +1,5 @@
+import type { Permissions } from "@/lib/permissions";
+
 /* Data shapes for the /admin company dashboard, extracted from
    design_handoff_admin_app_web (AdminSetupApp.jsx, AdminSetupTabs.jsx,
    AdminAnalytics.jsx). The whole app works off one AdminDataset scoped to
@@ -78,6 +80,8 @@ export interface AdminCompany {
   id: string;
   name: string;
   website: string;
+  /** companies.logo_path in the public company-logos bucket. */
+  logoPath: string | null;
   onboarding: OnboardingAnswers;
   managerAccess: ManagerAccess;
 }
@@ -96,6 +100,8 @@ export interface Member {
   viewsN?: number;
   /** Creators only, dollars earned this month. */
   earned?: number;
+  /** Campaign managers only: their company_members.permissions row. */
+  permissions?: Permissions;
 }
 
 export interface AdminInvite {

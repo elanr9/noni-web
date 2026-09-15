@@ -11,6 +11,7 @@ import {
   Plus,
   Smartphone,
   Sparkles,
+  Upload,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -26,12 +27,19 @@ import {
   removeInspirationAccount,
   removeProductFeature,
   saveBrainDoc,
+  saveCompanyLogo,
   setInspirationAccountMuted,
   speakBrainDoc,
   type BrainActionResult,
 } from "@/app/admin/brain/actions";
 import { Segmented } from "@/components/admin/posts/Segmented";
+import { CompanyMark, useCompanies } from "@/components/CompanySwitcher";
 import { Card, Chip, Label, Modal, PageHead, Pill } from "@/components/kit";
+import {
+  COMPANY_LOGO_ACCEPT,
+  companyLogoUrl,
+  validateCompanyLogo,
+} from "@/lib/company-logo";
 import type {
   BrainDoc,
   BriefTemplate,
@@ -745,16 +753,81 @@ function DocCard({ doc, onOpen }: { doc: BrainDoc; onOpen: () => void }) {
   );
 }
 
+function CompanyLogoCard({ logoPath }: { logoPath: string | null }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [path, setPath] = useState(logoPath);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const { active, setActiveLogo } = useCompanies();
+  const url = companyLogoUrl(path);
+
+  const pick = (file: File | null) => {
+    if (!file || pending) return;
+    const invalid = validateCompanyLogo(file);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+    setError(null);
+    const formData = new FormData();
+    formData.set("logo", file);
+    startTransition(async () => {
+      const result = await saveCompanyLogo(formData);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setPath(result.path);
+      setActiveLogo(result.path);
+    });
+  };
+
+  return (
+    <Card pad={0} className="mb-3.5">
+      <div data-tour="brand-logo" className="flex items-center gap-3.5 px-5 py-4">
+        <CompanyMark name={active?.name ?? ""} logoPath={path} size={48} />
+        <span className="min-w-0 flex-1">
+          <Label>Company logo</Label>
+          <span className="mt-[3px] block text-[13px] font-semibold text-slate-400">
+            {url ? "Shown on your company mark" : "First letter until a logo is set"}
+          </span>
+          {error ? (
+            <span className="mt-1 block text-[12.5px] font-semibold text-danger">{error}</span>
+          ) : null}
+        </span>
+        <input
+          ref={inputRef}
+          type="file"
+          accept={COMPANY_LOGO_ACCEPT}
+          className="hidden"
+          onChange={(e) => pick(e.target.files?.[0] ?? null)}
+        />
+        <Pill
+          size="sm"
+          variant="tint"
+          icon={Upload}
+          disabled={pending}
+          onClick={() => inputRef.current?.click()}
+        >
+          {pending ? "Uploading…" : url ? "Replace" : "Upload"}
+        </Pill>
+      </div>
+    </Card>
+  );
+}
+
 export function BrainView({
   docs,
   accounts,
   features,
   templates,
+  logoPath,
 }: {
   docs: BrainDoc[];
   accounts: InspirationAccount[];
   features: ProductFeature[];
   templates: BriefTemplate[];
+  logoPath: string | null;
 }) {
   const [editing, setEditing] = useState<BrainDoc | null>(null);
   const [adding, setAdding] = useState(false);
@@ -792,6 +865,7 @@ export function BrainView({
         title="Company Brain"
         sub="Noni writes every hook, script and caption from this. The better it is, the better every brief."
       />
+      <CompanyLogoCard logoPath={logoPath} />
       <div data-tour="brain-docs" className="grid grid-cols-2 gap-3.5">
         {docs.map((d) => (
           <DocCard key={d.kind} doc={d} onOpen={() => setEditing(d)} />

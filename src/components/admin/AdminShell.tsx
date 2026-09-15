@@ -18,6 +18,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { CompanyPill, CompanyProvider } from "@/components/CompanySwitcher";
+import { NotificationsBell } from "@/components/NotificationsBell";
+import type { CompanySummary } from "@/lib/company-summary";
 import { CommandSearch, type CommandItem } from "@/components/kit";
 
 interface NavItem {
@@ -104,6 +107,7 @@ export function AdminShell({
   setupRemaining,
   setupComplete,
   dualRole = false,
+  companies = [],
 }: {
   children: ReactNode;
   companyName: string;
@@ -115,6 +119,8 @@ export function AdminShell({
   setupComplete: boolean;
   /** Admin who is also a campaign manager: offer version cards. */
   dualRole?: boolean;
+  /** Every membership; the switcher shows when there is more than one. */
+  companies?: CompanySummary[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -211,48 +217,54 @@ export function AdminShell({
   );
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-ground text-ink font-ops">
-      <aside className="hidden w-[236px] shrink-0 flex-col border-r border-line bg-white px-3.5 pb-3.5 pt-[22px] md:flex">
-        {sidebar}
-      </aside>
+    <CompanyProvider initial={companies}>
+      <div className="flex h-dvh overflow-hidden bg-ground text-ink font-ops">
+        <aside className="hidden w-[236px] shrink-0 flex-col border-r border-line bg-white px-3.5 pb-3.5 pt-[22px] md:flex">
+          {sidebar}
+        </aside>
 
-      {drawerOpen ? (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setDrawerOpen(false)}
-            className="absolute inset-0 cursor-pointer border-none bg-ink/30 animate-om-fade"
-          />
-          <aside className="absolute bottom-0 left-0 top-0 flex w-[280px] max-w-[85vw] flex-col bg-white px-3.5 pb-3.5 pt-[22px] shadow-xl animate-om-rise">
-            {sidebar}
-          </aside>
-        </div>
-      ) : null}
+        {drawerOpen ? (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setDrawerOpen(false)}
+              className="absolute inset-0 cursor-pointer border-none bg-ink/30 animate-om-fade"
+            />
+            <aside className="absolute bottom-0 left-0 top-0 flex w-[280px] max-w-[85vw] flex-col bg-white px-3.5 pb-3.5 pt-[22px] shadow-xl animate-om-rise">
+              {sidebar}
+            </aside>
+          </div>
+        ) : null}
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center gap-2.5 px-4 pt-4 md:justify-center md:px-11">
-          <button
-            type="button"
-            aria-label="Open menu"
-            onClick={() => setDrawerOpen(true)}
-            className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-line bg-white rounded-[13px] md:hidden"
-          >
-            <Menu size={18} className="text-slate-500" />
-          </button>
-          <div data-tour="search" className="flex w-full max-w-[560px] justify-center">
-            <CommandSearch index={searchIndex} onSelect={onSearchSelect} />
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center gap-2.5 px-4 pt-4 md:px-11">
+            <button
+              type="button"
+              aria-label="Open menu"
+              onClick={() => setDrawerOpen(true)}
+              className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-line bg-white rounded-[13px] md:hidden"
+            >
+              <Menu size={18} className="text-slate-500" />
+            </button>
+            <CompanyPill />
+            <div className="flex min-w-0 flex-1 justify-center">
+              <div data-tour="search" className="flex w-full max-w-[560px] justify-center">
+                <CommandSearch index={searchIndex} onSelect={onSearchSelect} />
+              </div>
+            </div>
+            <NotificationsBell />
           </div>
-        </div>
-        <div className="scrollbar-none flex-1 overflow-y-auto">
-          <div
-            key={pathname}
-            className="mx-auto w-full max-w-[1100px] px-4 pb-[72px] pt-[30px] animate-om-rise md:px-11"
-          >
-            {children}
+          <div className="scrollbar-none flex-1 overflow-y-auto">
+            <div
+              key={pathname}
+              className="mx-auto w-full max-w-[1100px] px-4 pb-[72px] pt-[30px] animate-om-rise md:px-11"
+            >
+              {children}
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </CompanyProvider>
   );
 }

@@ -113,10 +113,10 @@ export const listCreatorOptions = cache(
   async (companyId: string): Promise<CreatorOption[]> => {
     const supabase = createServiceClient();
     const { data, error } = await supabase
-      .from("profiles")
+      .from("company_roster")
       .select("id, full_name")
       .eq("company_id", companyId)
-      .or("role.eq.creator,can_create.eq.true")
+      .or("member_role.eq.creator,can_create.eq.true")
       .order("full_name");
     if (error) throw error;
     return data ?? [];

@@ -33,7 +33,7 @@ export default async function OnboardingPage() {
     supabase
       .from("companies")
       .select("name, website")
-      .eq("id", profile!.company_id!)
+      .eq("id", profile!.active_company_id!)
       .maybeSingle(),
     supabase.auth.getUser(),
   ]);
@@ -45,7 +45,7 @@ export default async function OnboardingPage() {
   const { data: invite } = await createServiceClient()
     .from("company_invites")
     .select("invited_name")
-    .eq("company_id", profile!.company_id!)
+    .eq("company_id", profile!.active_company_id!)
     .eq("email", email)
     .not("invited_name", "is", null)
     .order("created_at", { ascending: false })

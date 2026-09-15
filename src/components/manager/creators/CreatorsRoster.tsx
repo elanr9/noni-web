@@ -99,6 +99,10 @@ function InviteCreatorModal({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="name@company.com"
           />
+          <p className="m-0 text-[12.5px] font-semibold text-slate-400">
+            Already on Noni with another company? That is fine. Accepting adds
+            yours and they keep the rest.
+          </p>
           {error ? (
             <p className="m-0 text-[13px] font-semibold text-danger">{error}</p>
           ) : null}

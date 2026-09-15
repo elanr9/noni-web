@@ -9,9 +9,9 @@ import { listReviewQueues } from "@/lib/manager/review";
    has already verified the campaign manager role. */
 export default async function ManagerReviewPage() {
   const { profile } = await getSessionProfile();
-  if (!profile?.company_id) redirect("/login?next=/manager");
+  if (!profile?.active_company_id) redirect("/login?next=/manager");
 
-  const queues = await listReviewQueues(profile.company_id);
+  const queues = await listReviewQueues(profile.active_company_id);
   return (
     <ReviewHome
       posts={queues.posts}

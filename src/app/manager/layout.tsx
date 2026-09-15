@@ -1,12 +1,13 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ManagerShell } from "@/components/manager/ManagerShell";
+import { SwitchCompanyGate } from "@/components/SwitchCompanyGate";
 import {
   getSessionProfile,
   isCampaignManager,
   isCompanyAdmin,
   isPlatformAdmin,
+  listCompanySummaries,
 } from "@/lib/auth";
 import {
   countReviewQueue,
@@ -23,36 +24,32 @@ export default async function ManagerLayout({
   if (!userId) redirect("/login?next=/manager");
   if (isPlatformAdmin(profile)) redirect("/ops");
   const adminViewer = isCompanyAdmin(profile);
+  const companies = await listCompanySummaries();
   if (
-    !profile?.company_id ||
+    !profile?.active_company_id ||
     (!adminViewer && !isCampaignManager(profile))
   ) {
+    const canSwitch = companies.some(
+      (c) => c.role === "campaign_manager" || c.role === "company_admin",
+    );
     return (
-      <div className="flex min-h-screen items-center justify-center bg-soft px-5">
-        <div className="max-w-md rounded-[28px] border border-line bg-white p-8 text-center shadow-sm">
-          <h1 className="display text-3xl font-semibold text-ink">
-            Campaign managers only
-          </h1>
-          <p className="mt-3 text-[15px] text-muted">
-            This account is signed in but is not a campaign manager. Creators
-            run their work from the Noni app. If you should have access, ask
-            your company admin for an invite.
-          </p>
-          <Link
-            href="/"
-            className="mt-6 inline-flex rounded-full bg-ink px-5 py-3 text-sm font-bold text-white"
-          >
-            Back home
-          </Link>
-        </div>
-      </div>
+      <SwitchCompanyGate
+        title="Campaign managers only"
+        body={
+          canSwitch
+            ? "This company has you as a creator, which runs from the Noni app. Pick one of your other companies to manage it here."
+            : "This account is signed in but is not a campaign manager. Creators run their work from the Noni app. If you should have access, ask your company admin for an invite."
+        }
+        companies={canSwitch ? companies : []}
+        wanted={["campaign_manager", "company_admin"]}
+      />
     );
   }
 
   const [context, people, reviewCount] = await Promise.all([
-    getManagerContext(profile.company_id),
-    listCompanyCreators(profile.company_id),
-    countReviewQueue(profile.company_id),
+    getManagerContext(profile.active_company_id),
+    listCompanyCreators(profile.active_company_id),
+    countReviewQueue(profile.active_company_id),
   ]);
 
   /* A company admin works this dashboard only when onboarding said they
@@ -68,6 +65,7 @@ export default async function ManagerLayout({
       reviewCount={reviewCount}
       roleLabel={adminViewer ? "Company admin" : "Campaign manager"}
       dualRole={adminViewer && context.selfIsManager}
+      companies={companies}
     >
       {children}
     </ManagerShell>

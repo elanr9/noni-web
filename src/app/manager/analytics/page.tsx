@@ -8,8 +8,8 @@ import { getManagerContext } from "@/lib/manager/context";
    scope always comes from the session profile, never from the client. */
 export default async function ManagerAnalyticsPage() {
   const { profile } = await getSessionProfile();
-  if (!profile?.company_id) redirect("/login?next=/manager");
-  const companyId = profile.company_id;
+  if (!profile?.active_company_id) redirect("/login?next=/manager");
+  const companyId = profile.active_company_id;
   const [data, context, approvedCreators] = await Promise.all([
     getManagerAnalytics(companyId),
     getManagerContext(companyId),

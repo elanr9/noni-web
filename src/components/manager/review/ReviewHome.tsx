@@ -13,6 +13,7 @@ import {
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
+import { ElsewhereStrip } from "@/components/CompanySwitcher";
 import { Avatar, Card, Chip, Label, PageHead } from "@/components/kit";
 import type {
   AccountQueueItem,
@@ -196,6 +197,7 @@ export function ReviewHome({
           )
         }
       />
+      <ElsewhereStrip />
 
       <LaneTabs
         active={lane}

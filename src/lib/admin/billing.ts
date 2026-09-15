@@ -142,11 +142,11 @@ export async function getBillingContext(): Promise<BillingContext | null> {
     return { companyId: MOCK_DATASET.company.id, mock: true, simulated: true };
   }
   const { profile } = await getSessionProfile();
-  if (!isCompanyAdmin(profile) || !profile?.company_id) return null;
+  if (!isCompanyAdmin(profile) || !profile?.active_company_id) return null;
   const simulated =
     stripeSimulated() ||
-    rowBool(await readBillingRow(profile.company_id), "billing_simulated");
-  return { companyId: profile.company_id, mock: false, simulated };
+    rowBool(await readBillingRow(profile.active_company_id), "billing_simulated");
+  return { companyId: profile.active_company_id, mock: false, simulated };
 }
 
 /* ── Formatting ── */
@@ -299,10 +299,10 @@ export async function companyCreatorCount(companyId: string): Promise<number> {
   const nowIso = new Date().toISOString();
   const [profiles, invites] = await Promise.all([
     supabase
-      .from("profiles")
+      .from("company_roster")
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
-      .eq("role", "creator"),
+      .eq("member_role", "creator"),
     supabase
       .from("company_invites")
       .select("id", { count: "exact", head: true })

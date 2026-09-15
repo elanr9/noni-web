@@ -25,7 +25,14 @@ import type {
   ProductFeature,
   ScreenshotShape,
 } from "@/lib/admin/types";
-import { getSessionProfile, isCompanyAdmin, isPlatformAdmin } from "@/lib/auth";
+import {
+  canManageCampaigns,
+  getMemberPermissions,
+  getSessionProfile,
+  isCompanyAdmin,
+  isPlatformAdmin,
+} from "@/lib/auth";
+import { uploadCompanyLogo } from "@/lib/company-logo";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type BrainActionResult = { ok: true } | { ok: false; error: string };
@@ -66,10 +73,38 @@ async function requireCompanyAdmin(): Promise<Gate> {
   if (!isCompanyAdmin(profile) && !isPlatformAdmin(profile)) {
     return { ok: false, error: "Company admins only." };
   }
-  if (!profile?.company_id) {
+  if (!profile?.active_company_id) {
     return { ok: false, error: "No company on this account." };
   }
-  return { ok: true, companyId: profile.company_id, mock: false };
+  return { ok: true, companyId: profile.active_company_id, mock: false };
+}
+
+/* Brand logo: company admins always, campaign managers holding manage_brand
+   for this company (same rule as the company-logos storage policies). */
+export async function saveCompanyLogo(
+  formData: FormData,
+): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
+  const file = formData.get("logo");
+  if (!(file instanceof File)) return { ok: false, error: "Pick an image first." };
+
+  if (mockMode()) {
+    MOCK_DATASET.company.logoPath = `${MOCK_DATASET.company.id}/logo-mock.png`;
+    revalidatePath("/admin", "layout");
+    return { ok: true, path: MOCK_DATASET.company.logoPath };
+  }
+
+  const { profile } = await getSessionProfile();
+  const companyId = profile?.active_company_id;
+  if (!companyId) return { ok: false, error: "No company on this account." };
+  const allowed =
+    isCompanyAdmin(profile) ||
+    isPlatformAdmin(profile) ||
+    (canManageCampaigns(profile) && (await getMemberPermissions(profile)).manage_brand);
+  if (!allowed) return { ok: false, error: "You cannot edit this company's brand." };
+
+  const result = await uploadCompanyLogo(createServiceClient(), companyId, file);
+  if (result.ok) revalidatePath("/admin", "layout");
+  return result;
 }
 
 export async function saveBrainDoc(input: {

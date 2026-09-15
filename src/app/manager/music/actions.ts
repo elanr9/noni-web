@@ -19,7 +19,7 @@ export async function approveMusicAction(
   assignmentId: string,
 ): Promise<MusicActionResult> {
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
   const service = createServiceClient();
@@ -30,7 +30,7 @@ export async function approveMusicAction(
       music_approved_at: new Date().toISOString(),
       music_approved_by: userId,
     })
-    .eq("company_id", profile.company_id)
+    .eq("company_id", profile.active_company_id)
     .eq("id", assignmentId)
     .select("id")
     .maybeSingle();
@@ -54,7 +54,7 @@ export async function requestMusicChangesAction(input: {
   note: string | null;
 }): Promise<MusicActionResult> {
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
   const service = createServiceClient();
@@ -62,7 +62,7 @@ export async function requestMusicChangesAction(input: {
   const { data, error } = await service
     .from("assignments")
     .update({ music_marked_by_creator_at: null })
-    .eq("company_id", profile.company_id)
+    .eq("company_id", profile.active_company_id)
     .eq("id", input.assignmentId)
     .select("id")
     .maybeSingle();

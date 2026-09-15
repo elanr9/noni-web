@@ -4,11 +4,13 @@ import { ChevronRight, Images, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { removeTeamMember } from "@/app/admin/team/actions";
+import { removeTeamMember, updateMemberPermissions } from "@/app/admin/team/actions";
 import { PostDetailCard } from "@/components/admin/analytics/PostDetailCard";
 import { fmtK, money } from "@/components/admin/posts/format";
+import { AccessToggle } from "@/components/admin/team/TeamView";
 import { Avatar, Card, Chip, Label, Modal, PageHead, Pill } from "@/components/kit";
 import type { AdminBrief, AdminPost, Member } from "@/lib/admin/types";
+import { PERMISSION_DEFS, type PermissionKey, type Permissions } from "@/lib/permissions";
 
 /* Full member profile page (ProfilePage in AdminAnalytics.jsx): back arrow,
    contact card; creators get a stat strip + clickable posts that drill into
@@ -33,6 +35,26 @@ export function MemberProfile({
   const [pending, startTransition] = useTransition();
   const isCreator = member.role === "Creator";
   const pendingInvite = member.id.startsWith("invite-");
+  const [permissions, setPermissions] = useState<Permissions>(member.permissions ?? {});
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+  const showPermissions = !isCreator && !pendingInvite && member.permissions !== undefined;
+
+  const togglePermission = (key: PermissionKey) => {
+    if (pending) return;
+    const next = !permissions[key];
+    setPermissions((prev) => ({ ...prev, [key]: next }));
+    setPermissionError(null);
+    startTransition(async () => {
+      const result = await updateMemberPermissions({
+        memberId: member.id,
+        patch: { [key]: next },
+      });
+      if (!result.ok) {
+        setPermissions((prev) => ({ ...prev, [key]: !next }));
+        setPermissionError(result.error);
+      }
+    });
+  };
 
   const remove = () => {
     if (pending) return;
@@ -185,6 +207,30 @@ export function MemberProfile({
                   pace, from the Noni app.
                 </p>
               </Card>
+              {showPermissions ? (
+                <Card pad={0}>
+                  <div className="px-5 py-4">
+                    <Label>Permissions at {companyName}</Label>
+                    <span className="mt-[3px] block text-[13px] font-semibold text-slate-400">
+                      Only for this company. Their other companies set their own.
+                    </span>
+                  </div>
+                  {PERMISSION_DEFS.map((def) => (
+                    <AccessToggle
+                      key={def.key}
+                      label={def.label}
+                      hint=""
+                      on={permissions[def.key] === true}
+                      onToggle={() => togglePermission(def.key)}
+                    />
+                  ))}
+                  {permissionError ? (
+                    <p className="m-0 px-5 pb-4 text-[13px] font-semibold text-danger">
+                      {permissionError}
+                    </p>
+                  ) : null}
+                </Card>
+              ) : null}
               <Card pad={0}>
                 <Label className="block px-5 pb-2 pt-4">Briefs this week</Label>
                 {briefs.length === 0 ? (

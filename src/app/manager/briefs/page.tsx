@@ -9,8 +9,8 @@ import { getManagerContext } from "@/lib/manager/context";
    role; reads run on the service client scoped by the session company. */
 export default async function ManagerBriefsPage() {
   const { profile } = await getSessionProfile();
-  if (!profile?.company_id) redirect("/login?next=/manager");
-  const companyId = profile.company_id;
+  if (!profile?.active_company_id) redirect("/login?next=/manager");
+  const companyId = profile.active_company_id;
   const [context, weeks, managers] = await Promise.all([
     getManagerContext(companyId),
     listBriefWeeks(companyId),

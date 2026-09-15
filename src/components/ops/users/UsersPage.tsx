@@ -69,7 +69,7 @@ export function UsersPage({
         ) : null}
         {shown.map((r, i) => (
           <div
-            key={r.id}
+            key={`${r.id}-${r.company}`}
             role="button"
             onClick={() => openUserProfile(r)}
             className={`flex cursor-pointer items-center gap-3.5 px-5 py-3.5 transition-colors duration-[160ms] ease-om hover:bg-fill-quiet ${

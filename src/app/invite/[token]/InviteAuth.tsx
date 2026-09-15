@@ -148,7 +148,8 @@ export function AdminInviteLanding({
       ) : null}
       <p className="mb-0 mt-4 text-[12.5px] font-semibold leading-normal text-slate-400">
         Use the account this invite was sent to:{" "}
-        <span className="text-ink">{invitedEmail}</span>
+        <span className="text-ink">{invitedEmail}</span>. Already on Noni with
+        that account? {companyName} is added alongside your other companies.
       </p>
     </InviteShell>
   );
@@ -243,7 +244,8 @@ export function AdminInviteGate({
         </>
       ) : (
         <p className="mb-0 mt-3 text-[13.5px] font-semibold leading-[1.55] text-slate-400">
-          Binding this Google account as the company admin.
+          Adding {companyName} to this Google account as its company admin. Any
+          companies you already work with stay on your account.
         </p>
       )}
     </InviteShell>

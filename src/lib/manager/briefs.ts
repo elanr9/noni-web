@@ -554,10 +554,10 @@ export async function listCampaignManagers(
 ): Promise<CampaignManager[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
-    .from("profiles")
+    .from("company_roster")
     .select("id, full_name")
     .eq("company_id", companyId)
-    .in("role", ["campaign_manager", "company_admin"])
+    .in("member_role", ["campaign_manager", "company_admin"])
     .order("full_name");
   if (error) throw error;
   type Row = { id: string; full_name: string | null };

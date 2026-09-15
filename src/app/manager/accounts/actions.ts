@@ -41,7 +41,7 @@ export async function decideAccountAction(input: {
   }
 
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
   const service = createServiceClient();
@@ -56,7 +56,7 @@ export async function decideAccountAction(input: {
       decided_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("company_id", profile.company_id)
+    .eq("company_id", profile.active_company_id)
     .eq("id", input.accountId)
     .select("creator_id")
     .maybeSingle();

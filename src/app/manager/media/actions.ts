@@ -50,10 +50,10 @@ async function requireCompanyManager(): Promise<Gate> {
   ) {
     return { ok: false, error: "Campaign managers only." };
   }
-  if (!profile?.company_id) {
+  if (!profile?.active_company_id) {
     return { ok: false, error: "No company on this account." };
   }
-  return { ok: true, companyId: profile.company_id, userId, mock: false };
+  return { ok: true, companyId: profile.active_company_id, userId, mock: false };
 }
 
 function revalidateMedia(): void {

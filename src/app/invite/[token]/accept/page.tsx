@@ -9,6 +9,13 @@ type PageProps = {
   params: Promise<{ token: string }>;
 };
 
+type InviteRole = "company_admin" | "campaign_manager" | "creator";
+
+function toInviteRole(role: string | null): InviteRole {
+  if (role === "company_admin" || role === "creator") return role;
+  return "campaign_manager";
+}
+
 type AcceptInviteRow = {
   company_id: string;
   email: string;
@@ -44,16 +51,27 @@ export default async function InviteAcceptPage({ params }: PageProps) {
     redirect(`/login?next=/invite/${token}/accept`);
   }
 
-  if (
-    profile &&
-    profile.company_id === invite.company_id &&
-    profile.role === invite.role
-  ) {
+  /* Membership, not the active company, decides whether this account already
+     belongs here: someone working for two companies keeps both. */
+  const { data: membership } = profile
+    ? await service
+        .from("company_roster")
+        .select("member_role")
+        .eq("company_id", invite.company_id)
+        .eq("id", profile.id)
+        .maybeSingle()
+    : { data: null };
+
+  if (profile && membership && membership.member_role === invite.role) {
     if (isAdminInvite) {
       redirect(profile.onboarded ? "/admin" : "/onboarding");
     }
     redirect("/invite/" + token);
   }
+
+  const hasOtherCompany = Boolean(
+    profile?.active_company_id && profile.active_company_id !== invite.company_id,
+  );
 
   if (isAdminInvite) {
     // Consumed by someone else; the landing shows the already-used state.
@@ -74,7 +92,10 @@ export default async function InviteAcceptPage({ params }: PageProps) {
         <AcceptInvite
           token={token}
           email={profile?.email ?? "your account"}
-          role="campaign_manager"
+          invitedEmail={invite.email}
+          role={toInviteRole(invite.role)}
+          companyName={invite.companies?.name ?? "this company"}
+          hasOtherCompany={hasOtherCompany}
         />
       </div>
     </div>

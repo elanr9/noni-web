@@ -80,10 +80,10 @@ export async function listCreatorRoster(
     /* Same population as mobile fetchCreatorLeaderboard: creators plus
        admins and managers who also record. */
     supabase
-      .from("profiles")
+      .from("company_roster")
       .select("id, full_name, avatar_path, onboarded")
       .eq("company_id", companyId)
-      .or("role.eq.creator,can_create.eq.true")
+      .or("member_role.eq.creator,can_create.eq.true")
       .order("full_name"),
     supabase
       .from("assignments")
@@ -229,7 +229,7 @@ export async function getCreatorProfile(
   const [profileRes, assignmentsRes, ledgerRes, streakRes, walletRes, accountRes] =
     await Promise.all([
       supabase
-        .from("profiles")
+        .from("company_roster")
         .select(
           "id, full_name, avatar_path, onboarded, created_at, phone, credential_line",
         )
@@ -350,7 +350,7 @@ export async function getCreatorHeader(
 ): Promise<{ name: string; avatarUrl: string | null } | null> {
   const supabase = createServiceClient();
   const { data } = await supabase
-    .from("profiles")
+    .from("company_roster")
     .select("full_name, avatar_path")
     .eq("company_id", companyId)
     .eq("id", creatorId)

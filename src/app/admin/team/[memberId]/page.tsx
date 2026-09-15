@@ -14,7 +14,7 @@ export default async function MemberProfilePage({
 }) {
   const { memberId } = await params;
   const { profile } = await getSessionProfile();
-  const data = await getAdminData(profile?.company_id ?? "");
+  const data = await getAdminData(profile?.active_company_id ?? "");
 
   const member = [...data.managers, ...data.creators].find(
     (m) => m.id === memberId,

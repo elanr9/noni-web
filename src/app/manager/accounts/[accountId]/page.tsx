@@ -14,8 +14,8 @@ export default async function AccountApprovalPage({
 }) {
   const { accountId } = await params;
   const { profile } = await getSessionProfile();
-  if (!profile?.company_id) redirect("/login?next=/manager");
+  if (!profile?.active_company_id) redirect("/login?next=/manager");
 
-  const detail = await getAccountApprovalDetail(profile.company_id, accountId);
+  const detail = await getAccountApprovalDetail(profile.active_company_id, accountId);
   return <AccountApprovalView detail={detail} />;
 }

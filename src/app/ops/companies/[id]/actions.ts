@@ -31,10 +31,10 @@ export async function pingTopUp(input: {
 
   const supabase = createServiceClient();
   const { data, error } = await supabase
-    .from("profiles")
+    .from("company_roster")
     .select("expo_push_token")
     .eq("company_id", input.companyId)
-    .in("role", ["company_admin", "campaign_manager"])
+    .in("member_role", ["company_admin", "campaign_manager"])
     .not("expo_push_token", "is", null);
   if (error) return { ok: false, error: error.message };
 

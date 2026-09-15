@@ -54,10 +54,10 @@ type Gate =
 
 async function requireManager(): Promise<Gate> {
   const { userId, profile } = await getSessionProfile();
-  if (!userId || !canManageCampaigns(profile) || !profile?.company_id) {
+  if (!userId || !canManageCampaigns(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Campaign managers only." };
   }
-  return { ok: true, userId, companyId: profile.company_id };
+  return { ok: true, userId, companyId: profile.active_company_id };
 }
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;

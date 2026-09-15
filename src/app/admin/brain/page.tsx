@@ -4,7 +4,7 @@ import { getSessionProfile } from "@/lib/auth";
 
 export default async function AdminBrainPage() {
   const { profile } = await getSessionProfile();
-  const data = await getAdminData(profile?.company_id ?? "");
+  const data = await getAdminData(profile?.active_company_id ?? "");
 
   return (
     <BrainView
@@ -12,6 +12,7 @@ export default async function AdminBrainPage() {
       accounts={data.inspirationAccounts}
       features={data.features}
       templates={data.briefTemplates}
+      logoPath={data.company.logoPath}
     />
   );
 }

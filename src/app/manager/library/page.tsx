@@ -12,8 +12,8 @@ import {
    scope always comes from the session profile, never from the client. */
 export default async function ManagerLibraryPage() {
   const { profile } = await getSessionProfile();
-  if (!profile?.company_id) redirect("/login?next=/manager");
-  const companyId = profile.company_id;
+  if (!profile?.active_company_id) redirect("/login?next=/manager");
+  const companyId = profile.active_company_id;
   const [ideas, ideaCounts, referenceCounts, creators, postTypes] = await Promise.all([
     listLibraryItems({ companyId, source: "idea", used: "new" }),
     countLibraryItems(companyId, "idea"),

@@ -11,8 +11,8 @@ export default async function ManagerCreatorChatPage({
 }) {
   const { id } = await params;
   const { userId, profile } = await getSessionProfile();
-  if (!profile?.company_id) redirect("/login?next=/manager");
-  const companyId = profile.company_id;
+  if (!profile?.active_company_id) redirect("/login?next=/manager");
+  const companyId = profile.active_company_id;
   const creator = await getCreatorHeader(companyId, id);
   if (!creator || !userId) notFound();
 

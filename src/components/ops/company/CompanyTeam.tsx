@@ -61,7 +61,7 @@ export function CompanyTeam({
           </p>
         ) : (
           people.map((p, i) => (
-            <HoverPeek key={p.id} onClick={() => openUserProfile(p)}>
+            <HoverPeek key={`${p.id}-${p.company}`} onClick={() => openUserProfile(p)}>
               <div
                 className={`flex items-center gap-3.5 px-5 py-3.5 transition-colors duration-[160ms] ease-om hover:bg-fill-quiet ${
                   i === people.length - 1 ? "" : "border-b border-line"

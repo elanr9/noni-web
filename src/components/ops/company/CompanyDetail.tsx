@@ -53,7 +53,7 @@ export function CompanyDetail({
       <PageHead
         onBack={() => router.back()}
         title={company.name}
-        sub={`${company.website || "No website yet"} · joined ${company.joined}`}
+        sub={`${company.website || "No website yet"} · joined ${company.joined} · ${company.admins} admin${company.admins === 1 ? "" : "s"}, ${company.managers} manager${company.managers === 1 ? "" : "s"}, ${company.creators} creator${company.creators === 1 ? "" : "s"}`}
         right={<Chip tone={statusTone(company.status)}>{company.status}</Chip>}
       />
       <Tabs tabs={TABS} active={tab} onSelect={setTab} />
