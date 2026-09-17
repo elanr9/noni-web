@@ -268,10 +268,12 @@ function ThemeColorCard({ initial }: { initial: string | null }) {
 function MediaTile({
   item,
   onOpen,
+  onEdit,
   onRemove,
 }: {
   item: MediaLibraryItem;
   onOpen: () => void;
+  onEdit: () => void;
   onRemove: () => void;
 }) {
   const KindIcon = item.kind === "recording" ? Video : Images;
@@ -321,6 +323,19 @@ function MediaTile({
           {item.title ?? "Untitled"}
         </span>
       </div>
+      {item.description ? (
+        <p className="mb-0 mt-1 line-clamp-2 px-0.5 text-[11.5px] font-medium leading-snug text-slate-500">
+          {item.description}
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="mt-1 inline-flex cursor-pointer items-center gap-1 border-none bg-transparent p-0 px-0.5 text-[11.5px] font-semibold text-blue-500 hover:underline"
+        >
+          <Pencil size={11} /> Add what it shows
+        </button>
+      )}
     </div>
   );
 }
@@ -407,13 +422,22 @@ function NameMediaModal({
 
   return (
     <Modal
-      title={kind === "recording" ? "Name this recording" : "Name this screenshot"}
+      title={
+        isRename
+          ? kind === "recording"
+            ? "Edit this recording"
+            : "Edit this screenshot"
+          : kind === "recording"
+            ? "Name this recording"
+            : "Name this screenshot"
+      }
       onClose={() => {
         if (!busy) onClose();
       }}
     >
       <p className="mb-4 mt-0 text-[13.5px] font-semibold text-slate-500">
-        This is the label you will see when adding it to a post.
+        The name is the label you will see when adding it to a post. The explanation tells the AI
+        what the {kind === "recording" ? "recording" : "screenshot"} shows.
       </p>
       <div className="flex items-center gap-3">
         <div className="relative flex h-24 w-[72px] shrink-0 items-center justify-center overflow-hidden bg-fill-quiet rounded-[10px]">
@@ -466,7 +490,7 @@ function NameMediaModal({
       </div>
       <div className="mt-5 flex justify-end">
         <Pill disabled={busy || trimmed.length === 0} onClick={save}>
-          {busy ? "Saving" : isRename ? "Save name" : "Save to media"}
+          {busy ? "Saving" : isRename ? "Save" : "Save to media"}
         </Pill>
       </div>
     </Modal>
@@ -496,6 +520,20 @@ function PreviewModal({
         </button>
         <span className="truncate text-[12px] font-semibold text-slate-400">{itemMeta(item)}</span>
       </div>
+      {item.description ? (
+        <p className="mb-3 mt-0 whitespace-pre-wrap text-[13.5px] font-medium leading-snug text-slate-600">
+          {item.description}
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={onRename}
+          className="mb-3 inline-flex cursor-pointer items-center gap-1.5 border-none bg-transparent p-0 text-[13px] font-semibold text-blue-500 hover:underline"
+        >
+          <Pencil size={12} /> Add what it shows so the AI understands this{" "}
+          {item.kind === "recording" ? "recording" : "screenshot"}
+        </button>
+      )}
       <div className="flex max-h-[70vh] items-center justify-center overflow-hidden bg-ink rounded-ops-md">
         {item.kind === "recording" ? (
           <video src={item.url} poster={item.thumbPath ? item.previewUrl : undefined} controls autoPlay loop playsInline className="max-h-[70vh] w-full" />
@@ -732,6 +770,10 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
                     key={item.id}
                     item={item}
                     onOpen={() => setPreview(item)}
+                    onEdit={() => {
+                      setSaveError(null);
+                      setRenaming(item);
+                    }}
                     onRemove={() => setConfirm(item)}
                   />
                 ))}
