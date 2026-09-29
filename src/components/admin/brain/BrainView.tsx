@@ -33,6 +33,8 @@ import {
   type BrainActionResult,
 } from "@/app/admin/brain/actions";
 import { Segmented } from "@/components/admin/posts/Segmented";
+import { IndustryResearchCard, ReferenceLearningCard } from "@/components/admin/brain/ResearchCards";
+import type { CompanyResearch, ReferenceLearning } from "@/lib/admin/research";
 import { CompanyMark, useCompanies } from "@/components/CompanySwitcher";
 import { Card, Chip, Label, Modal, PageHead, Pill } from "@/components/kit";
 import {
@@ -822,12 +824,18 @@ export function BrainView({
   features,
   templates,
   logoPath,
+  website,
+  research,
+  learning,
 }: {
   docs: BrainDoc[];
   accounts: InspirationAccount[];
   features: ProductFeature[];
   templates: BriefTemplate[];
   logoPath: string | null;
+  website: string;
+  research: CompanyResearch | null;
+  learning: ReferenceLearning | null;
 }) {
   const [editing, setEditing] = useState<BrainDoc | null>(null);
   const [adding, setAdding] = useState(false);
@@ -871,6 +879,8 @@ export function BrainView({
           <DocCard key={d.kind} doc={d} onOpen={() => setEditing(d)} />
         ))}
       </div>
+      <IndustryResearchCard defaultWebsite={website} initial={research} />
+      <ReferenceLearningCard initial={learning} />
       <FeaturesCard features={features} templates={templates} />
       <LibraryCard features={features} />
       <Card pad={0} className="mt-3.5">

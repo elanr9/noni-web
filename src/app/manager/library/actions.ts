@@ -110,6 +110,9 @@ export async function captureLibraryItem(
       .single();
     if (error) return { ok: false, error: error.message };
     await enrichReference(data.id, url);
+    /* Queue the one time study that teaches the writer from this post; the
+       edge function answers at once and scrapes in the background. */
+    await callEdgeFunction("study-reference", { library_item_id: data.id }).catch(() => null);
     revalidatePath("/manager/library");
     return { ok: true, ideas: 0, reference: true };
   }
