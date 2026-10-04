@@ -132,8 +132,8 @@ export async function sendTeamInvite(input: {
 
 const INVITE_ID_PREFIX = "invite-";
 
-/* Detaches a campaign manager from this company, or cancels a pending
-   invite. The company admin cannot remove themselves. A later invite to
+/* Detaches a campaign manager or creator from this company, or cancels a
+   pending invite. The company admin cannot remove themselves. A later invite to
    the same Google account reattaches via claim_pending_invite. */
 export async function removeTeamMember(
   memberId: string,
@@ -195,8 +195,8 @@ export async function removeTeamMember(
   if (target.member_role === "company_admin") {
     return { ok: false, error: "The company admin cannot be removed." };
   }
-  if (target.member_role !== "campaign_manager") {
-    return { ok: false, error: "Only campaign managers can be removed here." };
+  if (target.member_role !== "campaign_manager" && target.member_role !== "creator") {
+    return { ok: false, error: "Only campaign managers and creators can be removed here." };
   }
 
   /* Soft removal. A trigger moves their active company elsewhere when this
