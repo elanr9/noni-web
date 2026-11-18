@@ -57,6 +57,16 @@ const completeBilling: AdminDataset["billing"] = {
   topUpHistory: [],
 };
 
+const pastDue = {
+  status: "past_due" as const,
+  tier: "starter" as const,
+  cadence: "annual" as const,
+  price: 75,
+  renewsAt: "Aug 12, 2027",
+  cardBrand: "Visa",
+  cardLast4: "4242",
+};
+
 describe("deriveSetupStatus", () => {
   it("orders the steps brain, billing, managers, creators", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
@@ -96,12 +106,12 @@ describe("deriveSetupStatus", () => {
     ).toBe(true);
   });
 
-  it("requires subscription AND spend limit AND Stripe for billing", () => {
+  it("requires a running subscription AND a creator budget for billing", () => {
     const cases: Array<Partial<AdminDataset["billing"]>> = [
       { subscription: { status: "none" } },
+      { subscription: { ...pastDue } },
       { monthlySpendLimit: null },
       { monthlySpendLimit: 0 },
-      { stripeConnected: false },
     ];
     for (const broken of cases) {
       const status = deriveSetupStatus(
@@ -110,6 +120,27 @@ describe("deriveSetupStatus", () => {
       expect(status.steps.find((s) => s.key === "billing")?.done).toBe(false);
     }
     const status = deriveSetupStatus(dataset({ billing: completeBilling }));
+    expect(status.steps.find((s) => s.key === "billing")?.done).toBe(true);
+  });
+
+  it("does not require Stripe Connect for billing", () => {
+    const status = deriveSetupStatus(
+      dataset({ billing: { ...completeBilling, stripeConnected: false, stripeAccountId: null } }),
+    );
+    expect(status.steps.find((s) => s.key === "billing")?.done).toBe(true);
+  });
+
+  it("counts seeded credit as a budget and a trial as a subscription", () => {
+    const status = deriveSetupStatus(
+      dataset({
+        billing: {
+          ...completeBilling,
+          subscription: { ...pastDue, status: "trialing" },
+          monthlySpendLimit: null,
+          creditBalance: 500,
+        },
+      }),
+    );
     expect(status.steps.find((s) => s.key === "billing")?.done).toBe(true);
   });
 

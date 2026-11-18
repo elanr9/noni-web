@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { ContactLink } from "./ContactLink";
+
 export function Footer() {
   return (
     <footer className="border-t border-line bg-white">
@@ -31,15 +33,18 @@ export function Footer() {
             </Link>
           </li>
           <li>
-            <a href="mailto:founders@fieldvisionai.com" className="hover:text-ink">
-              Contact
-            </a>
+            <Link href="/pricing" className="hover:text-ink">
+              Pricing
+            </Link>
+          </li>
+          <li>
+            <ContactLink className="cursor-pointer hover:text-ink">Contact</ContactLink>
           </li>
         </ul>
       </div>
       <div className="border-t border-line">
         <div className="mx-auto max-w-6xl px-4 py-5 text-sm text-muted md:px-8">
-          © {new Date().getFullYear()} FieldVision AI. All rights reserved.
+          © {new Date().getFullYear()} Noni. All rights reserved.
         </div>
       </div>
     </footer>

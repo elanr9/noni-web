@@ -197,7 +197,7 @@ export function AccountApprovalView({
     {
       key: "tt_clip",
       label: "TikTok For You",
-      meta: "College soccer and recruiting",
+      meta: "For You page, tuned to the niche",
       kind: "clip",
       platform: "tiktok",
     },

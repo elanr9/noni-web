@@ -154,10 +154,16 @@ export interface DayActivity {
 /** Day of month → that day's activity. Days with no activity are absent. */
 export type DayActivityMap = Record<number, DayActivity>;
 
+/** Stored company_billing.subscription_status values with a plan attached.
+    active and trialing run normally; past_due is Stripe retrying a failed
+    renewal (the company keeps working, Billing asks for a new card); unpaid
+    means retries ran out and the paywall applies until the card is fixed. */
+export type SubscriptionStatus = "active" | "trialing" | "past_due" | "unpaid";
+
 export type Subscription =
   | { status: "none" }
   | {
-      status: "active";
+      status: SubscriptionStatus;
       tier: PlanTier;
       cadence: BillingCadence;
       /** Effective dollars per month, e.g. 100 starter monthly, 75 starter

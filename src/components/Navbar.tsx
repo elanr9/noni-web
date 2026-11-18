@@ -34,12 +34,21 @@ export function Navbar() {
           noni
         </Link>
 
-        <Link
-          href="/login"
-          className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
-        >
-          Login
-        </Link>
+        <nav className="flex items-center gap-1 md:gap-2">
+          <Link
+            href="/pricing"
+            className="whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold text-ink-soft transition hover:text-ink md:px-4 md:text-[14px]"
+          >
+            <span className="hidden sm:inline">For businesses</span>
+            <span className="sm:hidden">Pricing</span>
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
+          >
+            Login
+          </Link>
+        </nav>
       </div>
     </header>
   );

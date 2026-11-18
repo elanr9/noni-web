@@ -11,6 +11,7 @@ import { headers } from "next/headers";
 import {
   activateSubscription,
   applyStripeSubscription,
+  campaignsOverCap,
   cancelStripeBudgetSubscription,
   chargeSavedCard,
   clearSubscription,
@@ -92,6 +93,14 @@ export async function startCheckout(
 
   const origin = await siteOrigin();
   const row = await readBillingRow(ctx.companyId);
+  /* A failed renewal keeps the Stripe subscription alive; a second
+     Checkout would double bill. Fix the card in the portal instead. */
+  if (row?.subscription_status === "past_due" || row?.subscription_status === "unpaid") {
+    return {
+      ok: false,
+      error: "Your subscription is waiting on a card update. Use Update card to fix the payment.",
+    };
+  }
   const customerId = row?.stripe_customer_id;
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -128,14 +137,29 @@ export async function switchPlan(
     return { ok: true };
   }
 
+  /* Downgrade guard (design_handoff_pricing_plans): blocked while any
+     running campaign has more creators than the target cap, naming those
+     campaigns. Every publish reaches the whole creator roster, so a roster
+     over the cap blocks too. */
   const cap = PLAN_CREATOR_CAP[PLAN_PRICING[plan].tier];
   if (cap !== null) {
-    const creators = await companyCreatorCount(ctx.companyId);
-    if (creators > cap) {
-      const label = PLAN_TIER_LABEL[PLAN_PRICING[plan].tier];
+    const label = PLAN_TIER_LABEL[PLAN_PRICING[plan].tier];
+    const [over, creators] = await Promise.all([
+      campaignsOverCap(ctx.companyId, cap),
+      companyCreatorCount(ctx.companyId),
+    ]);
+    if (over.length > 0) {
+      const shown = over.slice(0, 3).map((c) => `${c.name} (${c.creators} creators)`);
+      const more = over.length > 3 ? ` and ${over.length - 3} more` : "";
       return {
         ok: false,
-        error: `${label} allows ${cap} creators and your team has ${creators}. Remove creators on the Team tab before switching.`,
+        error: `${label} allows ${cap} creators per campaign. ${over.length === 1 ? "This campaign runs" : "These campaigns run"} more: ${shown.join(", ")}${more}. Switch after ${over.length === 1 ? "it ends" : "they end"}, or remove creators on the Team tab first.`,
+      };
+    }
+    if (creators > cap) {
+      return {
+        ok: false,
+        error: `${label} allows ${cap} creators per campaign and every campaign goes to your whole team of ${creators}, counting pending invites. Remove creators on the Team tab before switching.`,
       };
     }
   }
@@ -224,7 +248,7 @@ export async function setMonthlyBudget(dollars: number): Promise<BillingActionRe
     return { ok: true };
   }
 
-  /* FieldVision tests in house on a seeded credit balance: record the
+  /* The in-house testing company runs on a seeded credit balance: record the
      budget number but never create a Stripe subscription or touch the
      balance. */
   if (ctx.companyId === IN_HOUSE_COMPANY_ID) {
@@ -251,7 +275,8 @@ export async function setMonthlyBudget(dollars: number): Promise<BillingActionRe
   const customerId = row?.stripe_customer_id;
   const planSubId = row?.stripe_subscription_id;
   if (
-    row?.subscription_status !== "active" ||
+    (row?.subscription_status !== "active" &&
+      row?.subscription_status !== "trialing") ||
     typeof customerId !== "string" ||
     typeof planSubId !== "string"
   ) {
@@ -392,28 +417,20 @@ export async function startStripeConnect(): Promise<BillingActionResult> {
     return { ok: true };
   }
 
-  const clientId = process.env.STRIPE_CONNECT_CLIENT_ID;
-  if (!clientId) {
-    /* No Connect OAuth app is configured in the Stripe dashboard yet. The
-       pilot company's Stripe is the same account our API key belongs to,
-       so verify it through the API and link it directly. Analytics numbers
-       come from the sync-conversions pipeline either way. */
-    const stripe = getStripe();
-    if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
-    let accountId: string;
-    try {
-      const account = await stripe.accounts.retrieve(null);
-      accountId = account.id;
-    } catch {
-      return { ok: false, error: "Stripe did not recognize the API key." };
-    }
-    const error = await writeBilling(ctx.companyId, {
-      stripe_connected: true,
-      stripe_account_id: accountId,
-    });
-    if (error) return { ok: false, error };
-    refresh();
-    return { ok: true };
+  /* Fail closed. Connect must go through Stripe's OAuth so the company
+     links its own Stripe account. Never fall back to the account behind
+     STRIPE_SECRET_KEY: that is Noni's own Stripe, and attaching it would
+     show Noni's revenue in a customer's Analytics. */
+  const clientId = process.env.STRIPE_CONNECT_CLIENT_ID?.trim();
+  if (!clientId || !clientId.startsWith("ca_")) {
+    console.error(
+      "Stripe Connect is not configured: set STRIPE_CONNECT_CLIENT_ID (ca_...) from the Stripe Connect settings.",
+    );
+    return {
+      ok: false,
+      error:
+        "Connecting Stripe is not available yet. Your plan and creator budget work without it; we will let you know when sales analytics can be connected.",
+    };
   }
   const origin = await siteOrigin();
   const params = new URLSearchParams({
@@ -427,4 +444,52 @@ export async function startStripeConnect(): Promise<BillingActionResult> {
     ok: true,
     redirectUrl: `https://connect.stripe.com/oauth/authorize?${params.toString()}`,
   };
+}
+
+/** "Update card" and "View invoices": opens the Stripe Billing Portal for
+    the company's customer, returning to /admin/billing. Simulated mode has
+    no portal, so it stands in for a successful card update instead. */
+export async function openBillingPortal(): Promise<BillingActionResult> {
+  const ctx = await getBillingContext();
+  if (!ctx) return { ok: false, error: NOT_ALLOWED };
+
+  if (ctx.mock) {
+    const sub = mockBilling().subscription;
+    if (sub.status !== "none") sub.status = "active";
+    refresh();
+    return { ok: true };
+  }
+
+  if (ctx.simulated) {
+    const row = await readBillingRow(ctx.companyId);
+    const status = row?.subscription_status;
+    if (status === "past_due" || status === "unpaid") {
+      const error = await writeBilling(ctx.companyId, { subscription_status: "active" });
+      if (error) return { ok: false, error };
+    }
+    refresh();
+    return { ok: true };
+  }
+
+  const stripe = getStripe();
+  if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
+  const row = await readBillingRow(ctx.companyId);
+  const customerId = row?.stripe_customer_id;
+  if (typeof customerId !== "string" || !customerId.startsWith("cus_")) {
+    return {
+      ok: false,
+      error: "No Stripe customer yet. Pick a plan first and your card and invoices show up here.",
+    };
+  }
+  const origin = await siteOrigin();
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${origin}/admin/billing?portal=returned`,
+    });
+    return { ok: true, redirectUrl: session.url };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Stripe did not answer.";
+    return { ok: false, error: `The billing portal could not open: ${message}` };
+  }
 }

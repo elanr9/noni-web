@@ -8,21 +8,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 export const metadata = { title: "Set up your company · Noni" };
 
 export default async function OnboardingPage() {
-  /* TEMPORARY QA BYPASS — mirrors the /admin layout envs so the question
-     flow can be QA'd without real auth. Remove before finishing. */
-  if (
-    process.env.NODE_ENV === "development" &&
-    process.env.ADMIN_QA_BYPASS === "1"
-  ) {
-    return (
-      <OnboardingFlow
-        companyName="FieldVision AI"
-        defaultName="Elan Rosen"
-        defaultWebsite="fieldvision.ai"
-      />
-    );
-  }
-
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login?next=/onboarding");
   if (!isCompanyAdmin(profile)) redirect("/admin");
@@ -68,6 +53,7 @@ export default async function OnboardingPage() {
       companyName={company?.name ?? "your company"}
       defaultName={defaultName}
       defaultWebsite={company?.website ?? ""}
+      email={email}
     />
   );
 }

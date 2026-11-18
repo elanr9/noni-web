@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
+import { callEdgeFunction } from "@/lib/edge";
 import { createClient } from "@/lib/supabase/server";
 
 export interface OnboardingSubmission {
@@ -29,15 +30,6 @@ function toCount(value: number): number {
 export async function completeOnboarding(
   input: OnboardingSubmission,
 ): Promise<OnboardingResult> {
-  /* TEMPORARY QA BYPASS — mirrors the /admin layout envs. No writes in QA
-     mode. Remove before finishing. */
-  if (
-    process.env.NODE_ENV === "development" &&
-    process.env.ADMIN_QA_BYPASS === "1"
-  ) {
-    return { ok: true };
-  }
-
   const { userId, profile } = await getSessionProfile();
   if (!userId || !isCompanyAdmin(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Company admins only." };
@@ -84,6 +76,15 @@ export async function completeOnboarding(
   /* Self-as-manager needs no seeding anymore: the admin's company_members
      row exists from the invite (role company_admin), and company admins
      hold every permission implicitly. */
+
+  /* The website step promises "We'll scan your site". Kick off the same
+     industry research the Company Brain card starts (research-company edge
+     function, which answers right away and crawls in the background). A
+     failure here must not block onboarding: the Brain card offers a retry. */
+  const research = await callEdgeFunction<unknown>("research-company", { website });
+  if (research.error !== null) {
+    console.error(`Onboarding research did not start: ${research.error}`);
+  }
 
   revalidatePath("/admin");
   return { ok: true };

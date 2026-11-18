@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, CircleAlert, Clock, Link2, Plus } from "lucide-react";
+import { Check, CircleAlert, Clock, CreditCard, Link2, Plus, Receipt } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
   cancelPlan,
+  openBillingPortal,
   setAutoTopUp,
   setMonthlyBudget,
   startCheckout,
@@ -77,8 +78,13 @@ export function BillingView({
   const tourTarget = tourStep !== null ? tourStepTarget(tourStep) : null;
   const shown: Section = (tourTarget && TOUR_SECTION[tourTarget]) || section;
 
+  const [portalBusy, setPortalBusy] = useState(false);
+
   const { subscription } = billing;
-  const active = subscription.status === "active";
+  /* Any stored plan, including one whose renewal failed. */
+  const active = subscription.status !== "none";
+  const paymentFailed =
+    subscription.status === "past_due" || subscription.status === "unpaid";
   const annual = active && subscription.cadence === "annual";
   const limit = billing.monthlySpendLimit ?? 0;
   const pctUsed = limit > 0 ? Math.min(1, billing.spentThisMonth / limit) : 0;
@@ -111,6 +117,13 @@ export function BillingView({
   const cancel = async () => {
     const done = await run(cancelPlan);
     if (done) setChangingPlan(false);
+  };
+
+  const openPortal = async () => {
+    if (portalBusy) return;
+    setPortalBusy(true);
+    await run(openBillingPortal);
+    setPortalBusy(false);
   };
 
   const connect = async () => {
@@ -168,7 +181,35 @@ export function BillingView({
           </Card>
         ) : null}
 
-        {active && limit === 0 && billing.creditBalance === 0 ? (
+        {paymentFailed ? (
+          <Card
+            pad={16}
+            className="flex flex-wrap items-center gap-[13px]"
+            style={{ background: "var(--color-danger-soft)", borderColor: "transparent" }}
+          >
+            <CircleAlert size={19} className="shrink-0 text-danger" />
+            <span className="min-w-[220px] flex-1">
+              <span className="block text-[14px] font-bold text-ink">
+                Payment failed, update your card
+              </span>
+              <span className="mt-0.5 block text-[13px] font-semibold text-slate-500">
+                {subscription.status === "unpaid"
+                  ? "Stripe could not charge your card, so inviting creators and publishing campaigns are paused until it is updated."
+                  : "Stripe could not charge your card for your plan and will retry. Update it now to keep inviting creators and publishing campaigns."}
+              </span>
+            </span>
+            <Pill
+              size="sm"
+              icon={portalBusy ? Clock : CreditCard}
+              onClick={() => void openPortal()}
+              disabled={portalBusy}
+            >
+              {portalBusy ? "Opening Stripe…" : "Update card"}
+            </Pill>
+          </Card>
+        ) : null}
+
+        {active && !paymentFailed && limit === 0 && billing.creditBalance === 0 ? (
           <Card
             pad={16}
             className="flex items-center gap-[13px]"
@@ -191,7 +232,20 @@ export function BillingView({
               <Card pad={22}>
                 <div className="flex items-center gap-2.5">
                   <Label className="flex-1">Subscription</Label>
-                  <Chip tone="green">Active</Chip>
+                  {paymentFailed ? (
+                    <Chip
+                      style={{
+                        background: "var(--color-danger-soft)",
+                        color: "var(--color-danger)",
+                      }}
+                    >
+                      Payment failed
+                    </Chip>
+                  ) : subscription.status === "trialing" ? (
+                    <Chip tone="blue">Trial</Chip>
+                  ) : (
+                    <Chip tone="green">Active</Chip>
+                  )}
                 </div>
                 <div className="mt-3 flex items-baseline gap-2.5">
                   <span className="display text-[30px] font-bold tracking-[-0.8px] text-ink">
@@ -206,9 +260,27 @@ export function BillingView({
                     {cardOnFile ? ` · ${cardOnFile}` : ""}
                   </span>
                 </div>
-                <div className="mt-3.5">
-                  <Pill size="sm" variant="quiet" onClick={() => setChangingPlan(true)}>
+                <div className="mt-3.5 flex flex-wrap gap-2">
+                  <Pill
+                    size="sm"
+                    variant="quiet"
+                    onClick={() => setChangingPlan(true)}
+                    disabled={paymentFailed}
+                  >
                     Change plan
+                  </Pill>
+                  <Pill
+                    size="sm"
+                    variant={paymentFailed ? "primary" : "quiet"}
+                    icon={portalBusy ? Clock : paymentFailed ? CreditCard : Receipt}
+                    onClick={() => void openPortal()}
+                    disabled={portalBusy}
+                  >
+                    {portalBusy
+                      ? "Opening Stripe…"
+                      : paymentFailed
+                        ? "Update card"
+                        : "Card and invoices"}
                   </Pill>
                 </div>
               </Card>
@@ -339,20 +411,22 @@ export function BillingView({
         {shown === "stripe" ? (
           <Card pad={22}>
             <div className="flex items-center gap-2.5">
-              <Label className="flex-1">Stripe</Label>
+              <Label className="flex-1">Stripe sales analytics</Label>
               {billing.stripeConnected ? (
                 <Chip tone="green">
                   <Check size={12} /> Connected
                 </Chip>
               ) : (
-                <Chip tone="amber">Not connected</Chip>
+                <Chip tone="slate">Optional</Chip>
               )}
             </div>
             {billing.stripeConnected ? null : (
               <>
                 <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
-                  Read-only connection so Analytics shows real sales and sign-ups
-                  next to every post. We never move money from Stripe.
+                  Optional. If you sell on Stripe, a read-only connection lets
+                  Analytics show real sales and sign-ups next to every post. We
+                  never move money from your Stripe. Not on Stripe? Skip this;
+                  your plan and creator budget work without it.
                 </p>
                 <div className="mt-3.5">
                   <Pill

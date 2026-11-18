@@ -19,71 +19,27 @@ import Stripe from "stripe";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 
+import {
+  capUpgradeHint,
+  PLAN_CREATOR_CAP,
+  PLAN_PRICING,
+  PLAN_TIER_LABEL,
+} from "@/lib/plans";
+
 import { MOCK_DATASET } from "./mock-data";
 import type {
   AdminBilling,
   BillingCadence,
   PlanTier,
   SubscriptionPlan,
+  SubscriptionStatus,
 } from "./types";
 
 /* ── Plan pricing (design_handoff_pricing_plans) ──
-   Plans differ only in the creator cap. Starter and Premium are self-serve
-   Stripe subscriptions in a monthly or annual cadence; Enterprise is
-   sales-led (contact us) and gets written by ops, never by Checkout. */
+   The catalog lives in @/lib/plans so the plan picker, /pricing and these
+   server checks share one source of truth. Re-exported for callers. */
 
-export const PLAN_PRICING: Record<
-  SubscriptionPlan,
-  {
-    tier: Exclude<PlanTier, "enterprise">;
-    cadence: BillingCadence;
-    /** Effective monthly price in cents. */
-    monthlyPriceCents: number;
-    priceEnv:
-      | "STRIPE_PRICE_STARTER_MONTHLY"
-      | "STRIPE_PRICE_STARTER_ANNUAL"
-      | "STRIPE_PRICE_PREMIUM_MONTHLY"
-      | "STRIPE_PRICE_PREMIUM_ANNUAL";
-  }
-> = {
-  starter_monthly: {
-    tier: "starter",
-    cadence: "monthly",
-    monthlyPriceCents: 10000,
-    priceEnv: "STRIPE_PRICE_STARTER_MONTHLY",
-  },
-  starter_annual: {
-    tier: "starter",
-    cadence: "annual",
-    monthlyPriceCents: 7500,
-    priceEnv: "STRIPE_PRICE_STARTER_ANNUAL",
-  },
-  premium_monthly: {
-    tier: "premium",
-    cadence: "monthly",
-    monthlyPriceCents: 25000,
-    priceEnv: "STRIPE_PRICE_PREMIUM_MONTHLY",
-  },
-  premium_annual: {
-    tier: "premium",
-    cadence: "annual",
-    monthlyPriceCents: 15000,
-    priceEnv: "STRIPE_PRICE_PREMIUM_ANNUAL",
-  },
-};
-
-/** Creators a company can run on Noni per plan. Null means unlimited. */
-export const PLAN_CREATOR_CAP: Record<PlanTier, number | null> = {
-  starter: 5,
-  premium: 15,
-  enterprise: null,
-};
-
-export const PLAN_TIER_LABEL: Record<PlanTier, string> = {
-  starter: "Starter",
-  premium: "Premium",
-  enterprise: "Enterprise",
-};
+export { PLAN_CREATOR_CAP, PLAN_PRICING, PLAN_TIER_LABEL };
 
 /** Maps a stored subscription_plan value to tier and cadence. Legacy rows
     from the single-plan era ("monthly"/"annual") are grandfathered as
@@ -228,9 +184,10 @@ export interface SubscriptionWrite {
 export async function activateSubscription(
   companyId: string,
   sub: SubscriptionWrite,
+  status: SubscriptionStatus = "active",
 ): Promise<string | null> {
   const patch: BillingPatch = {
-    subscription_status: "active",
+    subscription_status: status,
     subscription_plan: sub.plan,
     subscription_price_cents: PLAN_PRICING[sub.plan].monthlyPriceCents,
     subscription_renews_at: sub.renewsAtIso,
@@ -281,15 +238,191 @@ export async function recordCredit(
   });
 }
 
-/* ── Creator cap enforcement ── */
+/* ── Plan access: the paywall and the creator cap ──
+   design_handoff_pricing_plans: a company with no plan sees the plan picker,
+   and every plan caps creators per campaign. Every place this repo adds
+   creators (admin Team invites, manager creator invites, ops invites) or
+   sends a campaign to creators (manager Publish week) asks these helpers
+   first. */
 
-/** The company's current plan tier, or null with no active subscription.
-    No subscription means no cap: pilot and pre-checkout companies keep
-    working, the cap bites once they are on a plan. */
-export async function companyPlanTier(companyId: string): Promise<PlanTier | null> {
+/** Statuses that keep a company running. past_due is Stripe's retry window
+    after a failed renewal: work continues while Billing asks for a new card. */
+const ENTITLED_STATUSES: ReadonlySet<string> = new Set([
+  "active",
+  "trialing",
+  "past_due",
+]);
+
+export interface PlanAccess {
+  /** True when the company may invite creators and publish campaigns. */
+  entitled: boolean;
+  /** Stored subscription_status ("none" with no plan). */
+  status: string;
+  /** Plan tier, null with no plan (pilot companies included). */
+  tier: PlanTier | null;
+  /** Creators per campaign; null is unlimited (Enterprise and pilots). */
+  cap: number | null;
+  /** In-house or ops-flagged pilot company running without a plan. */
+  pilot: boolean;
+}
+
+export async function companyPlanAccess(companyId: string): Promise<PlanAccess> {
   const row = await readBillingRow(companyId);
-  if (rowStr(row, "subscription_status") !== "active") return null;
-  return parseStoredPlan(rowStr(row, "subscription_plan")).tier;
+  const status = rowStr(row, "subscription_status") ?? "none";
+  const hasPlan = status !== "none" && rowStr(row, "subscription_plan") !== null;
+  if (hasPlan) {
+    const { tier } = parseStoredPlan(rowStr(row, "subscription_plan"));
+    return {
+      entitled: ENTITLED_STATUSES.has(status),
+      status,
+      tier,
+      cap: PLAN_CREATOR_CAP[tier],
+      pilot: false,
+    };
+  }
+  /* Pilots ops runs by hand (the in-house testing company, or any company
+     with company_billing.billing_simulated set) keep working without a plan
+     so existing pilots are not cut off. Everyone else hits the paywall. */
+  const pilot = companyId === IN_HOUSE_COMPANY_ID || rowBool(row, "billing_simulated");
+  return { entitled: pilot, status, tier: null, cap: null, pilot };
+}
+
+/** The company's current plan tier, or null with no entitled plan. */
+export async function companyPlanTier(companyId: string): Promise<PlanTier | null> {
+  const access = await companyPlanAccess(companyId);
+  return access.entitled ? access.tier : null;
+}
+
+/** Who is being told about a block: admins can fix it in Billing, managers
+    and ops need to hand it to the company admin. */
+export type GateAudience = "admin" | "manager" | "ops";
+
+export interface PlanBlock {
+  error: string;
+  /** True when the fix is on /admin/billing (picker, upgrade or card). */
+  upgrade: true;
+}
+
+function paywallMessage(access: PlanAccess, action: string, audience: GateAudience): string {
+  if (access.status === "unpaid") {
+    return audience === "admin"
+      ? `Your last payment failed, so ${action} is paused. Update your card in Billing to pick up where you left off.`
+      : `The company's last Noni payment failed, so ${action} is paused until the company admin updates the card in Billing.`;
+  }
+  return audience === "admin"
+    ? `Pick a plan in Billing to start ${action}. Every plan includes campaigns, briefs, approvals and payouts; plans differ only in how many creators run on a campaign.`
+    : `This company needs a Noni plan before ${action}. Ask the company admin to pick one in Billing.`;
+}
+
+function capMessage(tier: PlanTier, audience: GateAudience, lead?: string): string {
+  const hint = capUpgradeHint(tier);
+  const who =
+    audience === "admin" ? "" : " Ask the company admin to upgrade in Billing.";
+  return `${lead ? `${lead} ` : ""}${hint}${who}`;
+}
+
+/** Null when one more creator invite is allowed, else what blocks it. */
+export async function creatorInviteBlock(
+  companyId: string,
+  audience: GateAudience,
+): Promise<PlanBlock | null> {
+  const access = await companyPlanAccess(companyId);
+  if (!access.entitled) {
+    return { error: paywallMessage(access, "inviting creators", audience), upgrade: true };
+  }
+  if (access.tier === null || access.cap === null) return null;
+  const creators = await companyCreatorCount(companyId);
+  if (creators < access.cap) return null;
+  return {
+    error: capMessage(
+      access.tier,
+      audience,
+      `Your team already has ${creators} creators, counting pending invites.`,
+    ),
+    upgrade: true,
+  };
+}
+
+/** Creators a published campaign reaches: roster creators plus members
+    who can create, with an approved account (the publish-campaign edge
+    function's exact audience). */
+export async function publishAudienceCount(companyId: string): Promise<number> {
+  const supabase = createServiceClient();
+  const [roster, approved] = await Promise.all([
+    supabase
+      .from("company_roster")
+      .select("id")
+      .eq("company_id", companyId)
+      .or("member_role.eq.creator,can_create.eq.true"),
+    supabase
+      .from("creator_accounts")
+      .select("creator_id")
+      .eq("company_id", companyId)
+      .eq("status", "approved"),
+  ]);
+  const approvedIds = new Set(
+    ((approved.data ?? []) as { creator_id: string | null }[]).map((a) => a.creator_id),
+  );
+  return ((roster.data ?? []) as { id: string | null }[]).filter(
+    (r) => r.id !== null && approvedIds.has(r.id),
+  ).length;
+}
+
+/** Null when the company may publish a campaign, else what blocks it. */
+export async function publishBlock(
+  companyId: string,
+  audience: GateAudience,
+): Promise<PlanBlock | null> {
+  const access = await companyPlanAccess(companyId);
+  if (!access.entitled) {
+    return { error: paywallMessage(access, "publishing campaigns", audience), upgrade: true };
+  }
+  if (access.tier === null || access.cap === null) return null;
+  const reach = await publishAudienceCount(companyId);
+  if (reach <= access.cap) return null;
+  return {
+    error: capMessage(
+      access.tier,
+      audience,
+      `This campaign would go to ${reach} creators.`,
+    ),
+    upgrade: true,
+  };
+}
+
+/** Running campaigns (assignments scheduled today or later) with more
+    distinct creators than the cap, named for the downgrade guard. */
+export async function campaignsOverCap(
+  companyId: string,
+  cap: number,
+): Promise<{ name: string; creators: number }[]> {
+  const supabase = createServiceClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const { data } = await supabase
+    .from("assignments")
+    .select("campaign_id, creator_id")
+    .eq("company_id", companyId)
+    .gte("scheduled_date", today)
+    .not("campaign_id", "is", null);
+  const byCampaign = new Map<string, Set<string>>();
+  for (const a of (data ?? []) as { campaign_id: string | null; creator_id: string }[]) {
+    if (!a.campaign_id) continue;
+    const set = byCampaign.get(a.campaign_id) ?? new Set<string>();
+    set.add(a.creator_id);
+    byCampaign.set(a.campaign_id, set);
+  }
+  const over = [...byCampaign].filter(([, set]) => set.size > cap);
+  if (over.length === 0) return [];
+  const { data: campaigns } = await supabase
+    .from("campaigns")
+    .select("id, name")
+    .in("id", over.map(([id]) => id));
+  const names = new Map(
+    ((campaigns ?? []) as { id: string; name: string }[]).map((c) => [c.id, c.name]),
+  );
+  return over
+    .map(([id, set]) => ({ name: names.get(id) ?? "Untitled campaign", creators: set.size }))
+    .sort((a, b) => b.creators - a.creators);
 }
 
 /** Creators the company is using: accepted creator profiles plus pending,
@@ -347,7 +480,7 @@ export function mockTopUp(
 
 /* ── Live Stripe helpers ── */
 
-/** FieldVision, the in-house testing company. It runs on a seeded credit
+/** The in-house testing company. It runs on a seeded credit
     balance, so the monthly budget flow never creates a Stripe budget
     subscription or touches its balance. */
 export const IN_HOUSE_COMPANY_ID = "59f83fa9-8c5b-44aa-814e-f7cc863eac3b";
@@ -448,9 +581,17 @@ export async function applyStripeSubscription(
   subscription: Stripe.Subscription,
   card?: { brand: string; last4: string } | null,
 ): Promise<string | null> {
-  const active =
-    subscription.status === "active" || subscription.status === "trialing";
-  if (!active) return clearSubscription(companyId);
+  /* Stripe statuses: active and trialing run; past_due (retrying a failed
+     renewal) and unpaid (retries exhausted) keep the plan, the subscription
+     id and the card so Billing can show "Payment failed, update your card"
+     and the Billing Portal can fix it. incomplete is a first payment still
+     in flight and has not bought a plan yet. Only a subscription that is
+     really over clears state. */
+  const status = storedStatus(subscription.status);
+  if (status === null) {
+    if (subscription.status === "incomplete") return null;
+    return clearSubscription(companyId);
+  }
 
   const item = subscription.items.data[0];
   const plan = planForStripePrice(
@@ -459,7 +600,9 @@ export async function applyStripeSubscription(
     item?.price.recurring?.interval ?? null,
   );
   const periodEnd = item?.current_period_end;
-  return activateSubscription(companyId, {
+  return activateSubscription(
+    companyId,
+    {
     plan,
     renewsAtIso: periodEnd
       ? new Date(periodEnd * 1000).toISOString()
@@ -471,7 +614,21 @@ export async function applyStripeSubscription(
         ? subscription.customer
         : subscription.customer.id,
     stripeSubscriptionId: subscription.id,
-  });
+    },
+    status,
+  );
+}
+
+/** Maps a Stripe subscription status to what company_billing stores, or
+    null when the subscription no longer represents a plan. */
+function storedStatus(status: string): SubscriptionStatus | null {
+  /* canceled, incomplete, incomplete_expired and paused map to null. */
+  return status === "active" ||
+    status === "trialing" ||
+    status === "past_due" ||
+    status === "unpaid"
+    ? status
+    : null;
 }
 
 /* ── Connect OAuth state (companyId, HMAC signed against CSRF) ── */
@@ -521,7 +678,8 @@ export async function runAutoTopUpCheck(ctx: BillingContext): Promise<void> {
   const row = await readBillingRow(ctx.companyId);
   const due =
     rowBool(row, "auto_top_up") &&
-    rowStr(row, "subscription_status") === "active" &&
+    (rowStr(row, "subscription_status") === "active" ||
+      rowStr(row, "subscription_status") === "trialing") &&
     rowNum(row, "credit_balance_cents") < AUTO_TOP_UP_THRESHOLD_CENTS;
   if (!due) return;
 

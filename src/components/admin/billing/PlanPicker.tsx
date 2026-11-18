@@ -2,60 +2,24 @@
 
 import { useState } from "react";
 
+import { WaitlistModal } from "@/components/WaitlistModal";
 import type {
   BillingCadence,
   PlanTier,
   Subscription,
   SubscriptionPlan,
 } from "@/lib/admin/types";
+import {
+  ENTERPRISE_PLAN,
+  MAX_ANNUAL_SAVINGS_PCT,
+  PLAN_TIER_LABEL,
+  SELF_SERVE_PLANS,
+} from "@/lib/plans";
+import { contactMailto } from "@/lib/site-config";
 
-export const TIER_LABEL: Record<PlanTier, string> = {
-  starter: "Starter",
-  premium: "Premium",
-  enterprise: "Enterprise",
-};
+export const TIER_LABEL: Record<PlanTier, string> = PLAN_TIER_LABEL;
 
-const SUPPORT_EMAIL =
-  process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "founders@fieldvisionai.com";
-
-const ENTERPRISE_MAILTO =
-  `mailto:${SUPPORT_EMAIL}?subject=` +
-  encodeURIComponent("Noni Enterprise plan");
-
-/* Card copy straight from design_handoff_pricing_plans/PricingPlans.html.
-   The creator cap line is bold and always first. */
-const SELF_SERVE = [
-  {
-    tier: "starter" as const,
-    blurb: "For your first campaigns with a small creator crew.",
-    monthly: 100,
-    annual: 75,
-    feats: [
-      "Unlimited campaigns and briefs",
-      "TikTok and Instagram tracking",
-      "Creator payouts through Stripe",
-    ],
-    capFeat: { bold: "Up to 5 creators", rest: " per campaign" },
-  },
-  {
-    tier: "premium" as const,
-    blurb: "For teams running a full scale creator program.",
-    monthly: 250,
-    annual: 150,
-    feats: [
-      "Everything in Starter",
-      "Room to scale across creator pods",
-      "Priority support",
-    ],
-    capFeat: { bold: "Up to 15 creators", rest: " per campaign" },
-  },
-];
-
-const ENTERPRISE_FEATS = [
-  "Everything in Premium",
-  "Dedicated account manager",
-  "Custom onboarding for your team",
-];
+const ENTERPRISE_MAILTO = contactMailto("Noni Enterprise plan");
 
 function CheckIcon({ dark }: { dark?: boolean }) {
   return (
@@ -88,26 +52,39 @@ function Feat({ dark, children }: { dark?: boolean; children: React.ReactNode })
 
 /* Pricing plan picker (design_handoff_pricing_plans). Shown inline on the
    Billing tab when a company has no subscription, and in the change-plan
-   flow when it does. Annual is the default cadence. */
+   flow when it does. The public /pricing page renders the same cards with
+   `publicCta` instead of checkout. Annual is the default cadence. */
 export function PlanPicker({
-  subscription,
-  simulated,
+  subscription = { status: "none" },
+  simulated = false,
   onChoose,
+  publicCta,
+  heading = "Pick the plan that fits your creator program",
+  eyebrow = "Subscription",
 }: {
-  subscription: Subscription;
+  subscription?: Subscription;
   /** Dev without Stripe keys, or a pilot company: simulated checkout. */
-  simulated: boolean;
+  simulated?: boolean;
   /** Resolves true when the flow moved on (redirected or state written). */
-  onChoose: (plan: SubscriptionPlan) => Promise<boolean>;
+  onChoose?: (plan: SubscriptionPlan) => Promise<boolean>;
+  /** Public page mode: every self-serve CTA runs this instead of checkout. */
+  publicCta?: { label: string; onClick: (plan: SubscriptionPlan) => void };
+  heading?: string;
+  eyebrow?: string;
 }) {
   const [cadence, setCadence] = useState<BillingCadence>("annual");
   const [busy, setBusy] = useState<SubscriptionPlan | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
   const annual = cadence === "annual";
-  const active = subscription.status === "active";
+  const active = subscription.status !== "none";
   const currentTier = active ? subscription.tier : null;
 
   const pick = async (plan: SubscriptionPlan) => {
-    if (busy) return;
+    if (publicCta) {
+      publicCta.onClick(plan);
+      return;
+    }
+    if (busy || !onChoose) return;
     setBusy(plan);
     const done = await onChoose(plan);
     if (!done) setBusy(null);
@@ -123,10 +100,10 @@ export function PlanPicker({
     <div className="flex flex-col items-center py-8">
       <div className="max-w-[560px] text-center">
         <span className="inline-flex whitespace-nowrap bg-blue-100 px-3.5 py-1.5 text-[12.5px] font-bold tracking-[0.3px] text-blue-700 rounded-pill">
-          Subscription
+          {eyebrow}
         </span>
         <h1 className="display m-0 mt-[18px] text-[38px] font-bold leading-[1.1] tracking-[-1px] text-ink">
-          Pick the plan that fits your creator program
+          {heading}
         </h1>
         <p className="mb-0 mt-3.5 text-[15px] font-medium leading-[1.6] text-slate-500">
           Every plan includes unlimited campaigns, briefs, approvals,
@@ -135,7 +112,7 @@ export function PlanPicker({
         </p>
       </div>
 
-      <div className="mt-9 flex items-center gap-3">
+      <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
         <div className="inline-flex border border-line bg-white p-1 shadow-[0_1px_2px_rgba(15,23,32,0.04)] rounded-pill">
           {(["monthly", "annual"] as const).map((c) => (
             <button
@@ -153,16 +130,18 @@ export function PlanPicker({
           ))}
         </div>
         <span className="whitespace-nowrap bg-green-soft px-3 py-[5px] text-[12px] font-bold text-green rounded-pill">
-          Save up to 40% annually
+          Save up to {MAX_ANNUAL_SAVINGS_PCT}% annually
         </span>
       </div>
 
       <div className="mt-9 grid w-full max-w-[1000px] items-stretch gap-5 lg:grid-cols-3">
-        {SELF_SERVE.map((p) => {
+        {SELF_SERVE_PLANS.map((p) => {
           const popular = p.tier === "premium";
           const current = currentTier === p.tier;
           const plan: SubscriptionPlan = `${p.tier}_${cadence}`;
-          const cta = current
+          const cta = publicCta
+            ? publicCta.label
+            : current
             ? "Current plan"
             : active
               ? `Switch to ${TIER_LABEL[p.tier]}`
@@ -233,7 +212,7 @@ export function PlanPicker({
         <div className="flex flex-col rounded-[20px] border border-ink-900 bg-ink-900 px-7 py-[30px] text-white">
           <span className="text-[17px] font-bold">Enterprise</span>
           <span className="mt-1 text-[13px] font-medium leading-[1.5] text-white/65">
-            For agencies and studios running creators at scale.
+            {ENTERPRISE_PLAN.blurb}
           </span>
           <div className="mt-[22px] flex items-baseline gap-2">
             <span className="text-[42px] font-bold tracking-[-1.5px]">Custom</span>
@@ -245,20 +224,29 @@ export function PlanPicker({
             <span className="mt-[22px] w-full cursor-default border border-white/35 py-[13px] text-center text-[14px] font-bold text-white/60 rounded-pill">
               Current plan
             </span>
-          ) : (
+          ) : ENTERPRISE_MAILTO ? (
             <a
               href={ENTERPRISE_MAILTO}
               className="mt-[22px] w-full border border-white/35 bg-transparent py-[13px] text-center text-[14px] font-bold text-white no-underline transition-colors duration-150 rounded-pill hover:bg-white/10"
             >
               Contact us
             </a>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setContactOpen(true)}
+              className="mt-[22px] w-full cursor-pointer border border-white/35 bg-transparent py-[13px] text-center text-[14px] font-bold text-white transition-colors duration-150 rounded-pill hover:bg-white/10"
+            >
+              Contact us
+            </button>
           )}
           <div className="mb-[18px] mt-6 h-px bg-white/15" />
           <div className="flex flex-col gap-3 text-[13.5px] font-semibold leading-[1.45]">
             <Feat dark>
-              <b>Unlimited creators</b> per campaign
+              <b>{ENTERPRISE_PLAN.capFeat.bold}</b>
+              {ENTERPRISE_PLAN.capFeat.rest}
             </Feat>
-            {ENTERPRISE_FEATS.map((f) => (
+            {ENTERPRISE_PLAN.feats.map((f) => (
               <Feat dark key={f}>
                 {f}
               </Feat>
@@ -271,6 +259,13 @@ export function PlanPicker({
         Checkout and card details are handled by Stripe. The same card funds
         your creator budget.
       </p>
+
+      <WaitlistModal
+        open={contactOpen}
+        onClose={() => setContactOpen(false)}
+        kind="enterprise"
+        source={publicCta ? "pricing" : "billing"}
+      />
     </div>
   );
 }

@@ -2,12 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import {
-  companyCreatorCount,
-  companyPlanTier,
-  PLAN_CREATOR_CAP,
-  PLAN_TIER_LABEL,
-} from "@/lib/admin/billing";
+import { creatorInviteBlock } from "@/lib/admin/billing";
 import { MOCK_DATASET } from "@/lib/admin/mock-data";
 import {
   managerAccessPayload,
@@ -25,7 +20,9 @@ import {
 import type { Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
 
-export type TeamActionResult = { ok: true } | { ok: false; error: string };
+export type TeamActionResult =
+  | { ok: true }
+  | { ok: false; error: string; upgrade?: boolean };
 
 /* Mock mode (dev + ADMIN_QA_MOCK=1): reads come from MOCK_DATASET, so the
    invite writes it in place too, same pattern as @/lib/admin/billing. */
@@ -82,24 +79,14 @@ export async function sendTeamInvite(input: {
   const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
 
-  /* Plans differ only in how many creators a company can run, so the cap
-     is enforced here, the one place creators get added. */
+  /* Paywall and creator cap (design_handoff_pricing_plans): creators need
+     an active plan with room under its cap. Managers do not count. */
   if (input.role === "Creator") {
-    const tier = await companyPlanTier(companyId);
-    const cap = tier ? PLAN_CREATOR_CAP[tier] : null;
-    if (tier && cap !== null) {
-      const creators = await companyCreatorCount(companyId);
-      if (creators >= cap) {
-        const fix =
-          tier === "starter"
-            ? "Upgrade to Premium in Billing for 15."
-            : "Contact us in Billing about Enterprise for unlimited creators.";
-        return {
-          ok: false,
-          error: `${PLAN_TIER_LABEL[tier]} allows ${cap} creators. ${fix}`,
-        };
-      }
-    }
+    const block = await creatorInviteBlock(
+      companyId,
+      isCompanyAdmin(profile) ? "admin" : "ops",
+    );
+    if (block) return { ok: false, error: block.error, upgrade: true };
   }
 
   const { data, error } = await callEdgeFunction<InviteResponse>(

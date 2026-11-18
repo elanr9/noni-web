@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { sendTeamInvite, updateManagerAccess } from "@/app/admin/team/actions";
+import { PlanBlockMessage } from "@/components/admin/billing/PlanNotice";
 import { Avatar, Card, Chip, Field, Label, Modal, PageHead, Pill } from "@/components/kit";
 import type { ManagerAccess, Member, MemberRole } from "@/lib/admin/types";
 
@@ -24,7 +25,7 @@ function InviteModal({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; upgrade: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
   const roleLabel = role === "Campaign manager" ? "campaign manager" : "creator";
 
@@ -38,7 +39,7 @@ function InviteModal({
         email: email.trim(),
       });
       if (!result.ok) {
-        setError(result.error);
+        setError({ text: result.error, upgrade: result.upgrade === true });
         return;
       }
       setSentTo(name.trim().split(" ")[0]);
@@ -97,7 +98,7 @@ function InviteModal({
             yours and they keep the rest.
           </p>
           {error ? (
-            <p className="m-0 text-[13px] font-semibold text-danger">{error}</p>
+            <PlanBlockMessage error={error.text} upgrade={error.upgrade} canOpenBilling />
           ) : null}
           <Pill
             icon={Send}

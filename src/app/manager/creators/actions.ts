@@ -2,13 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
+import { creatorInviteBlock } from "@/lib/admin/billing";
+import { getSessionProfile, canManageCampaigns, isCompanyAdmin } from "@/lib/auth";
 import { callEdgeFunction, type InviteResponse } from "@/lib/edge";
 import { getManagerContext } from "@/lib/manager/context";
 import { signedMediaUrl } from "@/lib/manager/storage";
 import { createServiceClient } from "@/lib/supabase/service";
 
-export type CreatorActionResult = { ok: true } | { ok: false; error: string };
+export type CreatorActionResult =
+  | { ok: true }
+  | { ok: false; error: string; upgrade?: boolean };
 
 /* Sends a creator invite through the same edge function the admin Team page
    uses (src/app/admin/team/actions.ts sendTeamInvite): the function writes
@@ -35,6 +38,13 @@ export async function sendCreatorInvite(input: {
   if (!access.inviteCreators) {
     return { ok: false, error: "Creator invites are off for managers." };
   }
+
+  /* Same paywall and creator cap as the admin Team page. */
+  const block = await creatorInviteBlock(
+    companyId,
+    isCompanyAdmin(profile) ? "admin" : "manager",
+  );
+  if (block) return { ok: false, error: block.error, upgrade: true };
 
   const { data, error } = await callEdgeFunction<InviteResponse>(
     "invite-campaign-manager",

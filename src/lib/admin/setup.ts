@@ -1,8 +1,10 @@
 /* The gamified setup to-do, derived from the dataset exactly per the
    handoff README:
    1. Brain: Product AND Audience docs non-empty.
-   2. Billing: subscription active AND monthly spend limit set AND Stripe
-      connected.
+   2. Billing: a running subscription (active or trialing) AND a creator
+      budget (monthly budget set, or credit already on the balance). Stripe
+      Connect is optional sales analytics for companies that sell on
+      Stripe, so it never gates the step.
    3. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
@@ -41,11 +43,10 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
   const audience = dataset.brainDocs.find((d) => d.kind === "audience");
   const brainDone = Boolean(product?.body.trim() && audience?.body.trim());
 
+  const { subscription, monthlySpendLimit, creditBalance } = dataset.billing;
   const billingDone =
-    dataset.billing.subscription.status === "active" &&
-    dataset.billing.monthlySpendLimit !== null &&
-    dataset.billing.monthlySpendLimit > 0 &&
-    dataset.billing.stripeConnected;
+    (subscription.status === "active" || subscription.status === "trialing") &&
+    ((monthlySpendLimit !== null && monthlySpendLimit > 0) || creditBalance > 0);
 
   /* A company that does not do UGC yet still starts with one of each. */
   const showManagers = onboarding.doesUgc ? onboarding.managerCount > 0 : true;
@@ -66,7 +67,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       key: "billing",
       done: billingDone,
       title: "Set your budget and subscription",
-      sub: "Purchase your subscription, set the monthly budget that pays bounties, and connect Stripe so Analytics shows real numbers.",
+      sub: "Pick your plan and set the monthly budget that pays creator bounties. Selling on Stripe? Connecting it for sales analytics is optional.",
       action: "Open Billing",
       href: "/admin/billing",
     },

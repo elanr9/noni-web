@@ -41,6 +41,7 @@ import type {
   Stat,
   StatStrip,
   Subscription,
+  SubscriptionStatus,
 } from "./types";
 import { parseManagerAccess } from "./types";
 
@@ -785,15 +786,24 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
   }
 
   /* Billing (subscription and Stripe columns may not exist yet) */
-  const subActive = readStr(billingRow, "subscription_status") === "active";
+  /* active, trialing, past_due and unpaid all carry a plan; the last two
+     drive the "Payment failed, update your card" state on Billing. */
+  const storedStatus = readStr(billingRow, "subscription_status");
+  const subStatus: SubscriptionStatus | null =
+    storedStatus === "active" ||
+    storedStatus === "trialing" ||
+    storedStatus === "past_due" ||
+    storedStatus === "unpaid"
+      ? storedStatus
+      : null;
   const { tier, cadence } = parseStoredPlan(readStr(billingRow, "subscription_plan"));
   const fallbackPricing = Object.values(PLAN_PRICING).find(
     (p) => p.tier === tier && p.cadence === cadence,
   );
   const renewsAtIso = readStr(billingRow, "subscription_renews_at");
-  const subscription: Subscription = subActive
+  const subscription: Subscription = subStatus
     ? {
-        status: "active",
+        status: subStatus,
         tier,
         cadence,
         price:

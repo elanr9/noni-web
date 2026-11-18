@@ -1,9 +1,8 @@
 import Link from "next/link";
 
+import { GetTheApp } from "@/components/GetTheApp";
 import { createServiceClient } from "@/lib/supabase/service";
 import { AdminInviteLanding } from "./InviteAuth";
-
-const APP_STORE_URL = "https://apps.apple.com/app/id6799189794";
 
 type PageProps = {
   params: Promise<{ token: string }>;
@@ -11,6 +10,7 @@ type PageProps = {
 
 type InviteRow = {
   email: string;
+  invited_name: string | null;
   role: string;
   accepted_at: string | null;
   expires_at: string;
@@ -39,7 +39,7 @@ export default async function InvitePage({ params }: PageProps) {
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("company_invites")
-    .select("email, role, accepted_at, expires_at, companies(name)")
+    .select("email, invited_name, role, accepted_at, expires_at, companies(name)")
     .eq("token", token)
     .maybeSingle();
 
@@ -129,33 +129,26 @@ export default async function InvitePage({ params }: PageProps) {
           <>
             You have been invited to create content for{" "}
             <span className="font-semibold text-ink">{companyName}</span> on
-            Noni. Get the app and sign in with{" "}
+            Noni. Get the app below and sign in with{" "}
             <span className="font-semibold text-ink">{invite.email}</span>.
           </>
         ) : (
           <>
             You have been invited to manage{" "}
             <span className="font-semibold text-ink">{companyName}</span> on
-            Noni. Get the app and sign in with{" "}
+            Noni. Get the app below and sign in with{" "}
             <span className="font-semibold text-ink">{invite.email}</span>. Noni
             sets you up as a campaign manager automatically.
           </>
         )}
       </p>
 
-      <div className="mt-6 space-y-3">
-        <a
-          href={APP_STORE_URL}
-          className="inline-flex w-full items-center justify-center rounded-full bg-ink px-6 py-3.5 text-[15px] font-bold text-white"
-        >
-          Download on the App Store
-        </a>
-        <a
-          href="noni://"
-          className="inline-flex w-full items-center justify-center rounded-full border border-line bg-white px-6 py-3.5 text-[15px] font-bold text-ink transition hover:bg-soft"
-        >
-          Already have the app? Open it
-        </a>
+      <div className="mt-6">
+        <GetTheApp
+          email={invite.email}
+          name={invite.invited_name ?? undefined}
+          source={isCreatorInvite ? "invite_creator" : "invite_manager"}
+        />
       </div>
 
       <p className="mt-6 text-[13px] text-muted">

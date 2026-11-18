@@ -18,6 +18,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { PlanBanner, type PlanBannerKind } from "@/components/admin/billing/PlanNotice";
 import { CompanyPill, CompanyProvider } from "@/components/CompanySwitcher";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import type { CompanySummary } from "@/lib/company-summary";
@@ -108,6 +109,7 @@ export function AdminShell({
   setupComplete,
   dualRole = false,
   companies = [],
+  planBanner = null,
 }: {
   children: ReactNode;
   companyName: string;
@@ -121,6 +123,8 @@ export function AdminShell({
   dualRole?: boolean;
   /** Every membership; the switcher shows when there is more than one. */
   companies?: CompanySummary[];
+  /** No plan (paywall) or a failed renewal; hidden on Billing itself. */
+  planBanner?: PlanBannerKind | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -260,6 +264,9 @@ export function AdminShell({
               key={pathname}
               className="mx-auto w-full max-w-[1100px] px-4 pb-[72px] pt-[30px] animate-om-rise md:px-11"
             >
+              {planBanner && !pathname.startsWith("/admin/billing") ? (
+                <PlanBanner kind={planBanner} />
+              ) : null}
               {children}
             </div>
           </div>

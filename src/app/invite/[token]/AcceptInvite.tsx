@@ -19,7 +19,7 @@ function friendlyError(
   }
   switch (raw) {
     case "sign in with the email address the invite was sent to":
-      return `This invite was sent to ${invitedEmail}. Sign in with that Google account to accept it.`;
+      return `This invite was sent to ${invitedEmail}. Sign in with that email (Google, or Apple sharing that email) to accept it.`;
     case "invite already accepted":
       return "This invite was already used.";
     case "invite expired":

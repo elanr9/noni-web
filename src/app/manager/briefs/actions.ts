@@ -28,7 +28,8 @@ import {
   type TalkingPoint,
   type WeekPostItem,
 } from "@/components/manager/briefs/lib";
-import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
+import { publishBlock } from "@/lib/admin/billing";
+import { getSessionProfile, canManageCampaigns, isCompanyAdmin } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import { BUCKET_MIMES, extensionForContentType } from "@/lib/media-library-shared";
 import {
@@ -258,6 +259,15 @@ export async function publishWeek(
   if (!(await campaignInCompany(gate.companyId, campaignId))) {
     return { ok: false, error: "Week not found." };
   }
+  /* Paywall and creator cap (design_handoff_pricing_plans): publishing
+     needs an active plan, and a campaign reaches every approved creator,
+     so that audience must fit the plan's per-campaign cap. */
+  const { profile } = await getSessionProfile();
+  const block = await publishBlock(
+    gate.companyId,
+    isCompanyAdmin(profile) ? "admin" : "manager",
+  );
+  if (block) return { ok: false, error: block.error };
   const { data, error } = await callEdgeFunction<
     Partial<PublishResult> & { error?: string }
   >("publish-campaign", { campaign_id: campaignId });

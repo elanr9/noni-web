@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import type { NextRequest } from "next/server";
 
 import { getStripe, verifyConnectState, writeBilling } from "@/lib/admin/billing";
+import { callEdgeFunction } from "@/lib/edge";
 
 export async function GET(request: NextRequest): Promise<Response> {
   const params = request.nextUrl.searchParams;
@@ -36,11 +37,29 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
   if (!accountId) redirect("/admin/billing?connect=error");
 
+  /* Never attach Noni's own Stripe account (the one behind
+     STRIPE_SECRET_KEY) to a customer company. */
+  let platformAccountId: string | null = null;
+  try {
+    platformAccountId = (await stripe.accounts.retrieve(null)).id;
+  } catch {
+    redirect("/admin/billing?connect=error");
+  }
+  if (!platformAccountId || accountId === platformAccountId) {
+    redirect("/admin/billing?connect=error");
+  }
+
   const error = await writeBilling(companyId, {
     stripe_connected: true,
     stripe_account_id: accountId,
   });
   if (error) redirect("/admin/billing?connect=error");
+
+  /* Pull the first 90 days of sales and sign-ups now, so Analytics has
+     numbers when the admin lands back on the page; the daily sync keeps them
+     fresh after that. Best effort: a slow or failed pull never blocks the
+     connect, the nightly run picks it up. */
+  await callEdgeFunction("sync-conversions", { days: 90 }).catch(() => null);
 
   revalidatePath("/admin", "layout");
   redirect("/admin/billing");

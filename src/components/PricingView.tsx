@@ -1,0 +1,132 @@
+"use client";
+
+import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+
+import { PlanPicker } from "@/components/admin/billing/PlanPicker";
+import { WaitlistModal } from "@/components/WaitlistModal";
+import { PLAN_CREATOR_CAP } from "@/lib/plans";
+
+/* Public /pricing (design_handoff_pricing_plans). Renders the exact plan
+   cards the Billing tab uses (one catalog in @/lib/plans). Companies are set
+   up by Noni, so every self-serve CTA opens the business form; the plan is
+   bought from Billing after onboarding. */
+
+const STEPS = [
+  {
+    title: "Tell us about your company",
+    body: "Send the form. We set up your workspace and email you a sign-in link, usually within a business day.",
+  },
+  {
+    title: "Onboard in a few minutes",
+    body: "Sign in with Google, answer a few questions, and Noni reads your website to learn your brand.",
+  },
+  {
+    title: "Pick your plan and invite creators",
+    body: `Choose Starter or Premium in Billing with Stripe Checkout, then invite up to ${PLAN_CREATOR_CAP.starter} or ${PLAN_CREATOR_CAP.premium} creators per campaign.`,
+  },
+];
+
+const FAQ = [
+  {
+    q: "What counts toward the creator cap?",
+    a: "Every creator on your team, including pending invites. Each campaign goes to all of your approved creators, so the cap is how many creators run on a campaign.",
+  },
+  {
+    q: "What happens to the creator budget?",
+    a: "Separate from your plan. You set a monthly budget that is charged to the same card and added to your balance as credits. Noni pays your creators from that balance.",
+  },
+  {
+    q: "Can I switch or cancel?",
+    a: "Any time from Billing. Switching is prorated by Stripe. Downgrades wait until no running campaign has more creators than the smaller plan allows.",
+  },
+  {
+    q: "Do I need to sell on Stripe?",
+    a: "No. Connecting Stripe is optional and only adds sales numbers to Analytics. Your plan and creator budget are paid by card through Stripe Checkout either way.",
+  },
+];
+
+export function PricingView() {
+  const [formOpen, setFormOpen] = useState(false);
+
+  return (
+    <main className="font-ops">
+      <div className="mx-auto max-w-[1080px] px-4 md:px-8">
+        <PlanPicker
+          eyebrow="Pricing"
+          heading="Simple plans for your creator program"
+          publicCta={{ label: "Get started", onClick: () => setFormOpen(true) }}
+        />
+      </div>
+
+      <section className="mx-auto max-w-[1000px] px-4 pb-6 pt-6 md:px-8">
+        <h2 className="m-0 text-center text-[26px] font-bold tracking-[-0.6px] text-ink">
+          How getting started works
+        </h2>
+        <ol className="m-0 mt-7 grid list-none gap-4 p-0 md:grid-cols-3">
+          {STEPS.map((step, i) => (
+            <li
+              key={step.title}
+              className="rounded-[20px] border border-line bg-white px-6 py-6 shadow-[0_1px_3px_rgba(15,23,32,0.04)]"
+            >
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-pill bg-blue-100 text-[13px] font-bold text-blue-700">
+                {i + 1}
+              </span>
+              <h3 className="m-0 mt-4 text-[16px] font-bold text-ink">{step.title}</h3>
+              <p className="m-0 mt-1.5 text-[13.5px] font-medium leading-[1.6] text-slate-500">
+                {step.body}
+              </p>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setFormOpen(true)}
+            className="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap border-none bg-blue-500 px-6 py-3 text-[14.5px] font-bold text-white shadow-accent rounded-pill transition-colors hover:bg-blue-400"
+          >
+            Get started <ArrowRight size={16} />
+          </button>
+          <Link
+            href="/login"
+            className="inline-flex whitespace-nowrap border border-line-strong bg-white px-6 py-3 text-[14.5px] font-bold text-ink no-underline rounded-pill transition-colors hover:bg-fill-quiet"
+          >
+            Already invited? Sign in
+          </Link>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[760px] px-4 pb-20 pt-12 md:px-8">
+        <h2 className="m-0 text-center text-[26px] font-bold tracking-[-0.6px] text-ink">
+          Questions
+        </h2>
+        <div className="mt-7 flex flex-col gap-3">
+          {FAQ.map((item) => (
+            <details
+              key={item.q}
+              className="group rounded-[16px] border border-line bg-white px-5 py-4 [&_summary::-webkit-details-marker]:hidden"
+            >
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[14.5px] font-bold text-ink">
+                {item.q}
+                <span className="text-[18px] font-semibold text-slate-400 transition-transform group-open:rotate-45">
+                  +
+                </span>
+              </summary>
+              <p className="m-0 mt-2.5 text-[13.5px] font-medium leading-[1.6] text-slate-500">
+                {item.a}
+              </p>
+            </details>
+          ))}
+        </div>
+      </section>
+
+      <WaitlistModal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        kind="business"
+        source="pricing"
+      />
+    </main>
+  );
+}

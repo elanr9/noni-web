@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { completeOnboarding } from "@/app/onboarding/actions";
+import { GetTheApp } from "@/components/GetTheApp";
 import { Field, Pill } from "@/components/kit";
+import { IOS_APP_AVAILABILITY } from "@/lib/site-config";
 
 /* The /admin onboarding question flow, one question per screen, ported from
    design_handoff_admin_app_web/AdminOnbFlow.jsx. Text steps use a Next
@@ -37,8 +39,6 @@ const DASH_INDEX: Record<Exclude<StepId, "welcome" | "done">, number> = {
   selfManager: 6,
   download: 6,
 };
-
-const APP_STORE_URL = "https://apps.apple.com/app/id6799189794";
 
 const ADMIN_ROLES = [
   "Founder",
@@ -243,12 +243,15 @@ export interface OnboardingFlowProps {
   defaultName: string;
   /** Prefilled from the company row the ops console created. */
   defaultWebsite: string;
+  /** The signed-in Google address; the TestFlight invite goes here. */
+  email: string;
 }
 
 export function OnboardingFlow({
   companyName,
   defaultName,
   defaultWebsite,
+  email,
 }: OnboardingFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState<StepId>("welcome");
@@ -509,7 +512,11 @@ export function OnboardingFlow({
       <OnbStep
         stepKey="download"
         total={total}
-        title="Download the Noni App to run your campaigns!"
+        title={
+          IOS_APP_AVAILABILITY === "invite_only"
+            ? "Get the Noni app to run your campaigns"
+            : "Download the Noni app to run your campaigns"
+        }
         subtitle={`This Google account is already set as a campaign manager for ${companyName}.`}
       >
         <div className="flex justify-center">
@@ -524,16 +531,25 @@ export function OnboardingFlow({
             />
           </span>
         </div>
-        <a
-          href={APP_STORE_URL}
-          target="_blank"
-          rel="noreferrer"
-          onClick={() => setStep("done")}
-          className="mt-[22px] flex w-full items-center justify-center rounded-pill bg-blue-500 font-bold text-white no-underline shadow-accent"
-          style={{ padding: "15px 22px", fontSize: 15 }}
-        >
-          Download now
-        </a>
+        <div className="mt-[22px]">
+          <GetTheApp
+            email={email}
+            name={name.trim()}
+            source="onboarding"
+            look="ops"
+            showOpenApp={false}
+            onDownload={() => setStep("done")}
+          />
+        </div>
+        <div className="mt-3 text-center">
+          <button
+            type="button"
+            onClick={() => setStep("done")}
+            className="cursor-pointer border-none bg-transparent p-2 text-[13.5px] font-bold text-slate-400"
+          >
+            {IOS_APP_AVAILABILITY === "invite_only" ? "Continue" : "I'll do this later"}
+          </button>
+        </div>
       </OnbStep>
     );
   }
@@ -548,7 +564,7 @@ export function OnboardingFlow({
           {"That's it."}
         </h1>
         <p className="mb-0 mt-2.5 text-[14.5px] font-semibold leading-[1.6] text-slate-400">
-          {`${companyName} is live on Noni. Your setup steps are waiting inside. We'll show you around first.`}
+          {`${companyName} is live on Noni. While we read your website to learn your brand, we'll show you around. Your setup steps are waiting inside.`}
         </p>
         {error ? (
           <p className="mb-0 mt-4 text-[13px] font-semibold text-danger">
