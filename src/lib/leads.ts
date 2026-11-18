@@ -1,9 +1,20 @@
-/* Lead capture shared by the landing waitlist, the business "Get started"
+/* Lead capture shared by the landing forms (creator applications, book a
+   call), the waitlist, the business "Get started"
    form, the Enterprise "Contact us" form and the TestFlight invite request.
    Client safe: the form posts here-defined shapes to /api/leads, which
    inserts into public.leads with the service role. */
 
-export const LEAD_KINDS = ["waitlist", "business", "enterprise", "testflight"] as const;
+export const LEAD_KINDS = [
+  "waitlist",
+  "business",
+  "enterprise",
+  "testflight",
+  /* A creator applying to make posts for brands on Noni. `website` holds
+     their TikTok or Instagram handle. */
+  "creator",
+  /* A company asking for a call. `message` holds the times that work. */
+  "call",
+] as const;
 export type LeadKind = (typeof LEAD_KINDS)[number];
 
 export interface LeadInput {
@@ -57,7 +68,10 @@ export function parseLead(body: unknown): ParsedLead {
     str(b.name, LIMITS.name) || (kind === "testflight" ? email.split("@")[0] : "");
   if (!name) return { ok: false, error: "Add your name." };
   const company = str(b.company, LIMITS.company);
-  if ((kind === "business" || kind === "enterprise") && !company) {
+  if (kind === "creator" && !str(b.website, LIMITS.website)) {
+    return { ok: false, error: "Add your TikTok or Instagram handle." };
+  }
+  if ((kind === "business" || kind === "enterprise" || kind === "call") && !company) {
     return { ok: false, error: "Add your company name." };
   }
   return {

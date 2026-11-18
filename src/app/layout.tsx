@@ -27,7 +27,7 @@ const display = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "Noni",
+    default: "Noni: your whole UGC program in one app",
     template: "%s · Noni",
   },
   icons: {
@@ -35,14 +35,16 @@ export const metadata: Metadata = {
     apple: "/brand/app-icon.png",
   },
   applicationName: "Noni",
-  description: "Automated UGC Content Submissions.",
+  description:
+    "Your whole UGC program in one app: briefs, filming, review, posting to TikTok and Instagram, analytics and creator payouts.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.usenoni.app",
   ),
   openGraph: {
     title: "Noni",
     siteName: "Noni",
-    description: "Automated UGC Content Submissions.",
+    description:
+      "Your whole UGC program in one app: briefs, filming, review, posting to TikTok and Instagram, analytics and creator payouts.",
     type: "website",
   },
   appleWebApp: {

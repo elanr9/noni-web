@@ -18,6 +18,21 @@ export function Footer() {
         </div>
         <ul className="flex flex-wrap gap-x-5 gap-y-2 text-[14px] text-ink-soft">
           <li>
+            <Link href="/#for-businesses" className="hover:text-ink">
+              For Businesses
+            </Link>
+          </li>
+          <li>
+            <Link href="/#for-creators" className="hover:text-ink">
+              For Creators
+            </Link>
+          </li>
+          <li>
+            <Link href="/#features" className="hover:text-ink">
+              Features
+            </Link>
+          </li>
+          <li>
             <Link href="/login" className="hover:text-ink">
               Login
             </Link>

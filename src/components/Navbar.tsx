@@ -16,7 +16,7 @@ export function Navbar() {
   return (
     <header
       className={`sticky top-0 z-50 transition-all duration-300 ${
-        scrolled ? "border-b border-line bg-white" : "bg-white"
+        scrolled ? "border-b border-line bg-white/90 backdrop-blur-md" : "bg-white"
       }`}
     >
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 md:h-[72px] md:px-8">
@@ -34,17 +34,30 @@ export function Navbar() {
           noni
         </Link>
 
-        <nav className="flex items-center gap-1 md:gap-2">
+        <nav className="flex items-center gap-0.5 md:gap-1">
+          {[
+            { href: "/#features", label: "Features" },
+            { href: "/#pricing", label: "Pricing" },
+            { href: "/#founders", label: "Founders" },
+            { href: "/#faq", label: "FAQ" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="hidden whitespace-nowrap rounded-full px-3.5 py-2 text-[14px] font-semibold text-ink-soft transition hover:text-ink md:inline-flex"
+            >
+              {item.label}
+            </Link>
+          ))}
           <Link
-            href="/pricing"
-            className="whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold text-ink-soft transition hover:text-ink md:px-4 md:text-[14px]"
+            href="/#pricing"
+            className="whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold text-ink-soft transition hover:text-ink md:hidden"
           >
-            <span className="hidden sm:inline">For businesses</span>
-            <span className="sm:hidden">Pricing</span>
+            Pricing
           </Link>
           <Link
             href="/login"
-            className="rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:px-5 md:py-2.5 md:text-[14px]"
+            className="ml-1 rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:ml-2 md:px-5 md:py-2.5 md:text-[14px]"
           >
             Login
           </Link>

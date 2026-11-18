@@ -51,3 +51,8 @@ export function contactMailto(subject: string): string | null {
   if (!CONTACT_EMAIL) return null;
   return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`;
 }
+
+/* Where a company books a call with the founders (a Calendly or Cal.com
+   link in NEXT_PUBLIC_BOOKING_URL). Leave it empty and "Book a call" opens
+   the request form instead, which emails the founders. */
+export const BOOKING_URL: string | null = cleanUrl(process.env.NEXT_PUBLIC_BOOKING_URL);

@@ -6,8 +6,9 @@ import { ArrowRight, Check, X } from "lucide-react";
 
 import { submitLead, type LeadKind } from "@/lib/leads";
 
-/* Public lead form in a modal. One component for the landing waitlist, the
-   business "Get started" path and the Enterprise "Contact us" CTA. Posts to
+/* Public lead form in a modal. One component for creator applications, the
+   book-a-call request, the waitlist, the business "Get started" path and
+   the Enterprise "Contact us" CTA. Posts to
    /api/leads, which stores the lead in public.leads. */
 
 export type LeadModalKind = Exclude<LeadKind, "testflight">;
@@ -30,6 +31,20 @@ const COPY: Record<
     doneTitle: "Thanks, we're on it",
     doneBody:
       "We'll set up your workspace and email you a sign-in link. You pick your plan when you finish onboarding.",
+  },
+  creator: {
+    title: "Apply as a creator",
+    sub: "Tell us where you post. We read every application and email you when a brand on Noni is a fit.",
+    cta: "Send application",
+    doneTitle: "Application sent",
+    doneBody: "Thanks. We read every application and will email you when a brand on Noni is a fit.",
+  },
+  call: {
+    title: "Book a call",
+    sub: "Twenty minutes with a founder. We show you Noni with your brand in it and set up your workspace.",
+    cta: "Request a call",
+    doneTitle: "Thanks, we'll be in touch",
+    doneBody: "A founder will email you within a business day to lock in a time.",
   },
   enterprise: {
     title: "Talk to us about Enterprise",
@@ -58,7 +73,8 @@ export function WaitlistModal({
   source = "landing",
 }: WaitlistModalProps) {
   const copy = COPY[kind];
-  const isCompany = kind !== "waitlist";
+  const isCreator = kind === "creator";
+  const isCompany = kind !== "waitlist" && !isCreator;
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -101,8 +117,8 @@ export function WaitlistModal({
       email,
       phone: isCompany ? undefined : phone,
       company: isCompany ? company : undefined,
-      website: isCompany ? website : undefined,
-      message: isCompany ? message : undefined,
+      website: isCompany || isCreator ? website : undefined,
+      message: isCompany || isCreator ? message : undefined,
       source,
       url: honeypot,
     });
@@ -220,8 +236,30 @@ export function WaitlistModal({
                         placeholder={
                           kind === "enterprise"
                             ? "How many creators do you run? (optional)"
-                            : "Anything we should know? (optional)"
+                            : kind === "call"
+                              ? "What days and times work for you? (optional)"
+                              : "Anything we should know? (optional)"
                         }
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        className={`${inputClass} resize-none`}
+                      />
+                    </>
+                  ) : isCreator ? (
+                    <>
+                      <input
+                        type="text"
+                        required
+                        placeholder="TikTok or Instagram handle"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        value={website}
+                        onChange={(e) => setWebsite(e.target.value)}
+                        className={inputClass}
+                      />
+                      <textarea
+                        rows={3}
+                        placeholder="What do you post about? (optional)"
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         className={`${inputClass} resize-none`}
