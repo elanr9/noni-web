@@ -21,6 +21,7 @@ import type { AdminBilling, SubscriptionPlan } from "@/lib/admin/types";
 
 import { AmountModal, money } from "./AmountModal";
 import { PlanPicker, TIER_LABEL } from "./PlanPicker";
+import { SignupTrackingCard } from "./SignupTrackingCard";
 
 const MONTH_SHORT = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -40,7 +41,7 @@ type Section = "plan" | "budget" | "stripe";
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "plan", label: "Plan" },
   { id: "budget", label: "Budget" },
-  { id: "stripe", label: "Stripe" },
+  { id: "stripe", label: "Sales data" },
 ];
 
 /* The product tour spotlights targets that live on specific sections;
@@ -443,6 +444,8 @@ export function BillingView({
             )}
           </Card>
         ) : null}
+
+        {shown === "stripe" ? <SignupTrackingCard /> : null}
       </div>
 
       {modal === "limit" ? (

@@ -13,6 +13,9 @@ const NOTICES: Record<string, string> = {
   "checkout=cancelled": "Checkout was cancelled. Your plan has not changed.",
   "connect=declined": "The Stripe connection was declined.",
   "connect=error": "The Stripe connection failed. Try again.",
+  "supabase=declined": "The Supabase connection was declined.",
+  "supabase=error": "The Supabase connection failed. Try again.",
+  "supabase=empty": "That Supabase organization has no projects to connect.",
 };
 
 export default async function AdminBillingPage({
@@ -32,6 +35,7 @@ export default async function AdminBillingPage({
   const notice =
     NOTICES[`checkout=${typeof sp.checkout === "string" ? sp.checkout : ""}`] ??
     NOTICES[`connect=${typeof sp.connect === "string" ? sp.connect : ""}`] ??
+    NOTICES[`supabase=${typeof sp.supabase === "string" ? sp.supabase : ""}`] ??
     null;
 
   return (
