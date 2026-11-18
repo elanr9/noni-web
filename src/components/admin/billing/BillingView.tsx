@@ -423,9 +423,11 @@ export function BillingView({
             {billing.stripeConnected ? null : (
               <>
                 <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
-                  Optional. If you sell on Stripe, a read-only connection lets
-                  Analytics show real sales and sign-ups next to every post. We
-                  never move money from your Stripe. Not on Stripe? Skip this;
+                  Optional. If you sell on Stripe, connecting it lets
+                  Analytics show real sales and sign-ups next to every post.
+                  Stripe will ask you to approve access to your account; Noni
+                  only reads sales and sign-ups and never moves money or
+                  changes anything. Not on Stripe? Skip this;
                   your plan and creator budget work without it.
                 </p>
                 <div className="mt-3.5">

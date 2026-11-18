@@ -395,7 +395,9 @@ export async function setAutoTopUp(on: boolean): Promise<BillingActionResult> {
 }
 
 /** Stripe card CTA. Live mode returns the Connect OAuth authorize URL with
-    a read-only scope; /api/stripe/connect handles the callback. */
+    the read_write scope (Stripe does not offer read-only connections on
+    this platform); /api/stripe/connect handles the callback. Noni only
+    ever reads from the connected account. */
 export async function startStripeConnect(): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
@@ -436,7 +438,7 @@ export async function startStripeConnect(): Promise<BillingActionResult> {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,
-    scope: "read_only",
+    scope: "read_write",
     redirect_uri: `${origin}/api/stripe/connect`,
     state: signConnectState(ctx.companyId),
   });

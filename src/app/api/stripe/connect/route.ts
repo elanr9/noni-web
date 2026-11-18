@@ -1,8 +1,9 @@
 /* Stripe Connect OAuth callback (Agent C). The startStripeConnect action
-   sends the admin to connect.stripe.com with scope read_only and an HMAC
+   sends the admin to connect.stripe.com with scope read_write and an HMAC
    signed state carrying the company id; Stripe returns here with a code to
-   exchange for the connected account id. Read-only by design: the account
-   only powers the sales and sign-up numbers in Analytics. */
+   exchange for the connected account id. Stripe grants read and write, but
+   Noni only reads: the account only powers the sales and sign-up numbers in
+   Analytics. */
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
