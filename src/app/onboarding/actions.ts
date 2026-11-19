@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { startBrainIngest, type BrainResult } from "@/app/admin/brain/knowledge-actions";
+import type { IngestState } from "@/lib/admin/brain-model";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import { createClient } from "@/lib/supabase/server";
@@ -23,68 +25,150 @@ function toCount(value: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
 }
 
-/* Persists the question-flow answers: profile name + onboarded flag,
-   company website, the answer columns added by
-   supabase/migrations/20260812000100_company_onboarding_answers.sql, and
-   the self-as-manager seeding. */
-export async function completeOnboarding(
-  input: OnboardingSubmission,
-): Promise<OnboardingResult> {
+/* Mock mode (dev + ADMIN_QA_MOCK=1): nothing is written, same switch as
+   @/app/admin/brain/actions. */
+function mockMode(): boolean {
+  return process.env.NODE_ENV === "development" && process.env.ADMIN_QA_MOCK === "1";
+}
+
+type Gate =
+  | { ok: true; userId: string; companyId: string }
+  | { ok: false; error: string };
+
+async function requireOnboardingAdmin(): Promise<Gate> {
   const { userId, profile } = await getSessionProfile();
   if (!userId || !isCompanyAdmin(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Company admins only." };
   }
+  return { ok: true, userId, companyId: profile.active_company_id };
+}
+
+/* Writes the account answers given so far, so a refresh or a return visit
+   picks the flow up where it stopped. profiles.onboarded stays false until
+   completeOnboarding. */
+async function writeAnswers(
+  gate: { userId: string; companyId: string },
+  input: Partial<OnboardingSubmission>,
+): Promise<OnboardingResult> {
+  const supabase = await createClient();
+
+  const fullName = input.fullName?.trim();
+  if (fullName) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ full_name: fullName })
+      .eq("id", gate.userId);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  const website = input.website?.trim();
+  if (website) {
+    const { error } = await supabase
+      .from("companies")
+      .update({ website })
+      .eq("id", gate.companyId);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  const answers: Record<string, unknown> = {};
+  if (input.adminRole !== undefined) answers.admin_role = input.adminRole || null;
+  if (input.doesUgc !== undefined) answers.does_ugc = input.doesUgc === true;
+  if (input.creatorCount !== undefined) answers.creator_count = toCount(input.creatorCount);
+  if (input.managerCount !== undefined) answers.manager_count = toCount(input.managerCount);
+  if (input.selfIsManager !== undefined) answers.self_is_manager = input.selfIsManager === true;
+  if (Object.keys(answers).length > 0) {
+    /* The answer columns may not be migrated yet; src/lib/admin/data.ts reads
+       them defensively, so a failure here must not block onboarding. */
+    await supabase.from("companies").update(answers).eq("id", gate.companyId);
+  }
+  return { ok: true };
+}
+
+export async function saveOnboardingProgress(
+  input: Partial<OnboardingSubmission>,
+): Promise<OnboardingResult> {
+  if (mockMode()) return { ok: true };
+  const gate = await requireOnboardingAdmin();
+  if (!gate.ok) return gate;
+  return writeAnswers(gate, input);
+}
+
+/* The website step: saves the address and starts reading the company.
+   Two jobs start here, both answering at once and working in the background:
+   - brain-ingest builds the fact brain the review and the founder questions
+     are filled from. Its state comes back so the flow can show progress.
+   - research-company writes the industry playbook (brand_docs kind
+     industry_research). The brief writer the web calls today (ingest-brief)
+     still takes its facts, dates and insider details from that document, and
+     brain-ingest does no web research, so it keeps running. It used to start
+     on the last click; starting it here gives it the length of the survey. */
+export async function startOnboardingScan(input: {
+  website: string;
+  appStoreUrl?: string;
+}): Promise<BrainResult<IngestState>> {
+  const website = input.website.trim();
+  if (!website) return { ok: false, error: "Your website is required." };
+
+  if (!mockMode()) {
+    const gate = await requireOnboardingAdmin();
+    if (!gate.ok) return gate;
+    const saved = await writeAnswers(gate, { website });
+    if (!saved.ok) return saved;
+
+    try {
+      const research = await callEdgeFunction<unknown>("research-company", { website });
+      if (research.error !== null) {
+        console.error(`Onboarding research did not start: ${research.error}`);
+      }
+    } catch (err) {
+      console.error("Onboarding research did not start", err);
+    }
+  }
+
+  const store = input.appStoreUrl?.trim();
+  return startBrainIngest({
+    website,
+    appStoreUrls: store ? [store] : [],
+    importLegacy: true,
+  });
+}
+
+/* Closes the flow: writes every account answer once more (so nothing is
+   lost if a step's save failed) and marks the profile onboarded. */
+export async function completeOnboarding(
+  input: OnboardingSubmission,
+): Promise<OnboardingResult> {
+  if (mockMode()) return { ok: true };
+  const gate = await requireOnboardingAdmin();
+  if (!gate.ok) return gate;
 
   const fullName = input.fullName.trim();
   const website = input.website.trim();
   if (!fullName) return { ok: false, error: "Your name is required." };
   if (!website) return { ok: false, error: "Your website is required." };
 
-  const companyId = profile.active_company_id;
   const doesUgc = input.doesUgc === true;
-  const creatorCount = doesUgc ? toCount(input.creatorCount) : 0;
   const managerCount = doesUgc ? toCount(input.managerCount) : 0;
-  const selfIsManager = managerCount > 0 && input.selfIsManager === true;
+  const saved = await writeAnswers(gate, {
+    fullName,
+    website,
+    adminRole: input.adminRole,
+    doesUgc,
+    creatorCount: doesUgc ? toCount(input.creatorCount) : 0,
+    managerCount,
+    /* Self-as-manager needs no seeding: the admin's company_members row
+       exists from the invite (role company_admin), and company admins hold
+       every permission implicitly. */
+    selfIsManager: managerCount > 0 && input.selfIsManager === true,
+  });
+  if (!saved.ok) return saved;
 
   const supabase = await createClient();
-
-  const { error: websiteError } = await supabase
-    .from("companies")
-    .update({ website })
-    .eq("id", companyId);
-  if (websiteError) return { ok: false, error: websiteError.message };
-
-  /* The answer columns may not be migrated yet; src/lib/admin/data.ts reads
-     them defensively, so a failure here must not block onboarding. */
-  await supabase
-    .from("companies")
-    .update({
-      admin_role: input.adminRole || null,
-      does_ugc: doesUgc,
-      creator_count: creatorCount,
-      manager_count: managerCount,
-      self_is_manager: selfIsManager,
-    })
-    .eq("id", companyId);
-
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({ full_name: fullName, onboarded: true })
-    .eq("id", userId);
+    .update({ onboarded: true })
+    .eq("id", gate.userId);
   if (profileError) return { ok: false, error: profileError.message };
-
-  /* Self-as-manager needs no seeding anymore: the admin's company_members
-     row exists from the invite (role company_admin), and company admins
-     hold every permission implicitly. */
-
-  /* The website step promises "We'll scan your site". Kick off the same
-     industry research the Company Brain card starts (research-company edge
-     function, which answers right away and crawls in the background). A
-     failure here must not block onboarding: the Brain card offers a retry. */
-  const research = await callEdgeFunction<unknown>("research-company", { website });
-  if (research.error !== null) {
-    console.error(`Onboarding research did not start: ${research.error}`);
-  }
 
   revalidatePath("/admin");
   return { ok: true };

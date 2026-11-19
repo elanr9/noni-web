@@ -123,8 +123,8 @@ const TOUR: TourStep[] = [
   {
     target: "brain-docs",
     href: "/admin/brain",
-    title: "Product and Audience",
-    body: "Two living docs Noni writes and keeps current. Edit them any time and the briefs follow.",
+    title: "What Noni knows",
+    body: "Facts from your site and your answers, each with its source. Confirm, fix or reject them and the briefs follow.",
   },
   {
     target: "brain-inspiration",

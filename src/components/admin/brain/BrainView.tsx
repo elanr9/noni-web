@@ -32,8 +32,12 @@ import {
   speakBrainDoc,
   type BrainActionResult,
 } from "@/app/admin/brain/actions";
+import type { BrainResult } from "@/app/admin/brain/knowledge-actions";
+import { KnowledgeView } from "@/components/admin/brain/Knowledge";
 import { Segmented } from "@/components/admin/posts/Segmented";
 import { IndustryResearchCard, ReferenceLearningCard } from "@/components/admin/brain/ResearchCards";
+import { useVoiceRecorder } from "@/components/admin/brain/useVoiceRecorder";
+import type { FactsList, IngestState } from "@/lib/admin/brain-model";
 import type { CompanyResearch, ReferenceLearning } from "@/lib/admin/research";
 import { CompanyMark, useCompanies } from "@/components/CompanySwitcher";
 import { Card, Chip, Label, Modal, PageHead, Pill } from "@/components/kit";
@@ -51,8 +55,12 @@ import type {
   ScreenshotShape,
 } from "@/lib/admin/types";
 
-/* Company Brain tab (BrainPage in AdminSetupTabs.jsx): Product + Audience
-   doc cards with an editor modal, plus the inspiration accounts card. */
+/* Company Brain tab. The fact brain (KnowledgeView: coverage, conflicts and
+   questions, records by type, add knowledge, what the AI sees) leads. Below
+   it sit the parts the brief writer the web calls today still reads from
+   their own tables: features with screenshots, the reference playbook,
+   inspiration accounts, the Product and Audience docs and the industry
+   research. */
 
 const DOC_META: Record<"product" | "audience", { hint: string; editorHint: string }> = {
   product: {
@@ -70,12 +78,6 @@ const PLATFORMS = [
   { value: "tiktok", label: "TikTok", icon: Music2 },
   { value: "instagram", label: "Instagram", icon: AtSign },
 ] as const;
-
-const RECORDER_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
-
-function recorderMime(): string {
-  return RECORDER_TYPES.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
-}
 
 function fmtCount(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
@@ -548,38 +550,16 @@ function LibraryCard({ features }: { features: ProductFeature[] }) {
 function DocEditorModal({ doc, onClose }: { doc: BrainDoc; onClose: () => void }) {
   const [text, setText] = useState(doc.body);
   const [cleaning, setCleaning] = useState(false);
-  const [recording, setRecording] = useState(false);
   const [saving, startSave] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
   const textRef = useRef(text);
-  const liveRef = useRef(true);
   const meta = DOC_META[doc.kind];
 
   useEffect(() => {
     textRef.current = text;
   }, [text]);
 
-  const stopTracks = () => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-  };
-
-  useEffect(() => {
-    liveRef.current = true;
-    return () => {
-      liveRef.current = false;
-      recorderRef.current?.stop();
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-    };
-  }, []);
-
-  const finishVoice = (blob: Blob) => {
-    const ext = blob.type.includes("mp4") ? "m4a" : "webm";
-    const type = (blob.type || "audio/webm").split(";")[0];
-    const audio = new File([blob], `voice.${ext}`, { type });
+  const voice = useVoiceRecorder((audio) => {
     setError(null);
     setCleaning(true);
     void speakBrainDoc({ kind: doc.kind, existing: textRef.current, audio }).then((result) => {
@@ -587,53 +567,13 @@ function DocEditorModal({ doc, onClose }: { doc: BrainDoc; onClose: () => void }
       else setError(result.error);
       setCleaning(false);
     });
-  };
-
-  const stopRecording = () => {
-    const recorder = recorderRef.current;
-    if (!recorder || recorder.state === "inactive") return;
-    recorder.stop();
-  };
-
+  });
+  const recording = voice.recording;
+  const stopRecording = voice.stop;
   const startRecording = async () => {
     if (recording || cleaning) return;
     setError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mime = recorderMime();
-      const recorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime })
-        : new MediaRecorder(stream);
-      chunksRef.current = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) chunksRef.current.push(event.data);
-      };
-      recorder.onstop = () => {
-        setRecording(false);
-        recorderRef.current = null;
-        stopTracks();
-        if (!liveRef.current) return;
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
-        chunksRef.current = [];
-        if (blob.size < 200) {
-          setError("Didn't catch that. Try speaking again.");
-          return;
-        }
-        finishVoice(blob);
-      };
-      recorderRef.current = recorder;
-      recorder.start(250);
-      setRecording(true);
-    } catch (err) {
-      stopTracks();
-      const name = err instanceof DOMException ? err.name : "";
-      setError(
-        name === "NotAllowedError"
-          ? "Microphone access is blocked. Allow it in the browser and try again."
-          : "Couldn't start the microphone.",
-      );
-    }
+    await voice.start();
   };
 
   const cleanUp = () => {
@@ -682,10 +622,10 @@ function DocEditorModal({ doc, onClose }: { doc: BrainDoc; onClose: () => void }
           busy ? "opacity-50" : ""
         }`}
       />
-      {error ? (
-        <p className="m-0 mt-2 text-[13px] font-semibold text-danger">{error}</p>
+      {error ?? voice.error ? (
+        <p className="m-0 mt-2 text-[13px] font-semibold text-danger">{error ?? voice.error}</p>
       ) : null}
-      <div className="mt-3.5 flex items-center gap-2.5">
+      <div className="mt-3.5 flex flex-wrap items-center gap-2.5">
         <Pill
           size="sm"
           variant={recording ? "danger" : "tint"}
@@ -827,6 +767,8 @@ export function BrainView({
   website,
   research,
   learning,
+  knowledge,
+  ingest,
 }: {
   docs: BrainDoc[];
   accounts: InspirationAccount[];
@@ -836,6 +778,9 @@ export function BrainView({
   website: string;
   research: CompanyResearch | null;
   learning: ReferenceLearning | null;
+  /** The fact brain as brain-facts lists it, or why it could not be read. */
+  knowledge: BrainResult<FactsList>;
+  ingest: BrainResult<IngestState>;
 }) {
   const [editing, setEditing] = useState<BrainDoc | null>(null);
   const [adding, setAdding] = useState(false);
@@ -843,6 +788,13 @@ export function BrainView({
   const [platform, setPlatform] = useState<Platform>("tiktok");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  /* Content written before the fact brain, which it can import once. */
+  const hasLegacy =
+    docs.some((d) => d.body.trim()) ||
+    features.length > 0 ||
+    research?.status === "done" ||
+    (learning?.studies.length ?? 0) > 0;
 
   const run = (action: () => Promise<BrainActionResult>) => {
     setError(null);
@@ -869,20 +821,17 @@ export function BrainView({
 
   return (
     <div>
-      <PageHead
-        title="Company Brain"
-        sub="Noni writes every hook, script and caption from this. The better it is, the better every brief."
-      />
+      <PageHead title="Company Brain" />
       <CompanyLogoCard logoPath={logoPath} />
-      <div data-tour="brain-docs" className="grid grid-cols-2 gap-3.5">
-        {docs.map((d) => (
-          <DocCard key={d.kind} doc={d} onOpen={() => setEditing(d)} />
-        ))}
-      </div>
-      <IndustryResearchCard defaultWebsite={website} initial={research} />
-      <ReferenceLearningCard initial={learning} />
+      <KnowledgeView
+        initialFacts={knowledge}
+        initialIngest={ingest}
+        hasLegacy={hasLegacy}
+        website={website}
+      />
       <FeaturesCard features={features} templates={templates} />
       <LibraryCard features={features} />
+      <ReferenceLearningCard initial={learning} />
       <Card pad={0} className="mt-3.5">
         <div data-tour="brain-inspiration" className="flex items-center gap-2.5 px-5 py-4">
           <span className="flex-1">
@@ -1007,6 +956,12 @@ export function BrainView({
           </div>
         ))}
       </Card>
+      <div className="mt-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        {docs.map((d) => (
+          <DocCard key={d.kind} doc={d} onOpen={() => setEditing(d)} />
+        ))}
+      </div>
+      <IndustryResearchCard defaultWebsite={website} initial={research} />
       {editing ? (
         <DocEditorModal doc={editing} onClose={() => setEditing(null)} />
       ) : null}

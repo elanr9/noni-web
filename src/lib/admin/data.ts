@@ -434,6 +434,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     featureScreenshotsRes,
     briefTemplatesRes,
     sourcePostsRes,
+    brainSurveyRes,
   ] = await Promise.all([
     /* select("*") so onboarding-answer columns that have not been migrated
        yet do not error the query; readers default when absent. */
@@ -533,6 +534,13 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       )
       .eq("company_id", companyId)
       .order("score", { ascending: false }),
+    /* The founder survey (noni migration 135). Until that table exists the
+       query errors and the survey simply reads as not done. */
+    supabase
+      .from("brain_survey")
+      .select("completed_at")
+      .eq("company_id", companyId)
+      .maybeSingle(),
   ]);
 
   const companyRow = (companyRes.data ?? null) as LooseRow | null;
@@ -1006,6 +1014,9 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     dayActivity,
     billing,
     brainDocs,
+    brainSurveyDone: Boolean(
+      (brainSurveyRes.data as { completed_at: string | null } | null)?.completed_at,
+    ),
     inspirationAccounts,
     features,
     briefTemplates,

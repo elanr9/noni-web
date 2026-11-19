@@ -1,6 +1,7 @@
 /* The gamified setup to-do, derived from the dataset exactly per the
    handoff README:
-   1. Brain: Product AND Audience docs non-empty.
+   1. Brain: the founder survey finished, or (the earlier rule, still true
+      for companies that wrote them) Product AND Audience docs non-empty.
    2. Billing: a running subscription (active or trialing) AND a creator
       budget (monthly budget set, or credit already on the balance). Stripe
       Connect is optional sales analytics for companies that sell on
@@ -41,7 +42,9 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
 
   const product = dataset.brainDocs.find((d) => d.kind === "product");
   const audience = dataset.brainDocs.find((d) => d.kind === "audience");
-  const brainDone = Boolean(product?.body.trim() && audience?.body.trim());
+  const brainDone =
+    dataset.brainSurveyDone === true ||
+    Boolean(product?.body.trim() && audience?.body.trim());
 
   const { subscription, monthlySpendLimit, creditBalance } = dataset.billing;
   const billingDone =
@@ -60,8 +63,8 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       done: brainDone,
       title: "Fill in your company brain",
       sub: "Help us learn more about your company.",
-      action: "Open Company Brain",
-      href: "/admin/brain",
+      action: "Answer the questions",
+      href: "/admin/brain/survey",
     },
     {
       key: "billing",

@@ -89,6 +89,14 @@ describe("deriveSetupStatus", () => {
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(true);
   });
 
+  it("marks brain done once the founder survey is finished, docs or not", () => {
+    const brain = (d: AdminDataset) =>
+      deriveSetupStatus(d).steps.find((s) => s.key === "brain");
+    expect(brain(dataset({ brainSurveyDone: true }))?.done).toBe(true);
+    expect(brain(dataset({ brainSurveyDone: false }))?.done).toBe(false);
+    expect(brain(dataset())?.href).toBe("/admin/brain/survey");
+  });
+
   it("marks brain done only when Product AND Audience have content", () => {
     const productOnly = dataset({
       brainDocs: [
