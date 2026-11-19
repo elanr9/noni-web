@@ -13,13 +13,17 @@ function RemoveCompanyModal({
   company,
   onClose,
   onConfirm,
+  busy,
+  error,
 }: {
   company: Company;
   onClose: () => void;
   onConfirm: () => void;
+  busy: boolean;
+  error: string | null;
 }) {
   const [text, setText] = useState("");
-  const ready = text.trim().toLowerCase() === "remove this company";
+  const ready = !busy && text.trim().toLowerCase() === "remove this company";
 
   return (
     <Modal title={`Remove ${company.name}`} onClose={onClose}>
@@ -39,6 +43,11 @@ function RemoveCompanyModal({
             className="box-border w-full border border-line bg-white px-3.5 py-3 text-[14.5px] font-semibold text-ink outline-none rounded-ops-sm"
           />
         </label>
+        {error ? (
+          <p role="alert" className="m-0 text-[13px] font-semibold text-danger">
+            {error}
+          </p>
+        ) : null}
         <div className="flex gap-2.5">
           <Pill variant="quiet" onClick={onClose} className="flex-1">
             Cancel
@@ -50,7 +59,7 @@ function RemoveCompanyModal({
             onClick={onConfirm}
             className="flex-1"
           >
-            Remove company
+            {busy ? "Removing…" : "Remove company"}
           </Pill>
         </div>
       </div>
@@ -68,6 +77,8 @@ export function CompanyBilling({
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [pinged, setPinged] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const b: Billing | null = billing;
   if (!b) return null;
@@ -82,10 +93,22 @@ export function CompanyBilling({
     void pingTopUp({ companyId: company.id, adminFirstName: b.pingTo });
   };
 
-  const confirmRemove = () => {
-    setConfirming(false);
-    void removeCompany({ companyId: company.id });
-    router.push("/ops/companies");
+  const confirmRemove = async () => {
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      const result = await removeCompany({ companyId: company.id });
+      if (!result.ok) {
+        setRemoveError(result.error);
+        return;
+      }
+      router.push("/ops/companies");
+      router.refresh();
+    } catch {
+      setRemoveError("The company could not be removed. Try again.");
+    } finally {
+      setRemoving(false);
+    }
   };
 
   return (
@@ -173,8 +196,14 @@ export function CompanyBilling({
       {confirming ? (
         <RemoveCompanyModal
           company={company}
-          onClose={() => setConfirming(false)}
-          onConfirm={confirmRemove}
+          onClose={() => {
+            if (removing) return;
+            setConfirming(false);
+            setRemoveError(null);
+          }}
+          onConfirm={() => void confirmRemove()}
+          busy={removing}
+          error={removeError}
         />
       ) : null}
     </div>
