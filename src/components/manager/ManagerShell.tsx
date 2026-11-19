@@ -16,7 +16,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
-import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { AccountSwitcher, PLATFORM_WORKSPACE } from "@/components/AccountSwitcher";
 import { CompanyPill, CompanyProvider } from "@/components/CompanySwitcher";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import type { CompanySummary } from "@/lib/company-summary";
@@ -96,6 +96,7 @@ export function ManagerShell({
   reviewCount,
   roleLabel = "Campaign manager",
   dualRole = false,
+  platform = false,
   companies = [],
 }: {
   children: ReactNode;
@@ -109,6 +110,8 @@ export function ManagerShell({
   /** Company admin who is also a campaign manager: offer version cards. */
   dualRole?: boolean;
   /** Every membership; the switcher shows when there is more than one. */
+  /** The Noni platform account working here: offer the way back to ops. */
+  platform?: boolean;
   companies?: CompanySummary[];
 }) {
   const pathname = usePathname();
@@ -194,6 +197,7 @@ export function ManagerShell({
           name={name ?? roleLabel}
           subtitle={roleLabel}
           modes={dualRole ? { active: "manager" } : undefined}
+          workspaces={platform ? [PLATFORM_WORKSPACE] : undefined}
         />
       </div>
     </>

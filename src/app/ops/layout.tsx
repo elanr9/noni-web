@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OpsShell } from "@/components/ops/OpsShell";
 import { ProfileModalHost } from "@/components/ops/users/ProfileModalHost";
-import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
+import { getSessionProfile, isPlatformAdmin, listCompanySummaries } from "@/lib/auth";
 import { getOpsData } from "@/lib/ops/data";
 
 export default async function OpsLayout({
@@ -34,7 +34,20 @@ export default async function OpsLayout({
     );
   }
 
-  const data = await getOpsData();
+  const [data, memberships] = await Promise.all([getOpsData(), listCompanySummaries()]);
+  /* Companies the platform account has itself joined as admin or manager. */
+  const workspaces = memberships.flatMap((m) =>
+    m.role === "company_admin" || m.role === "campaign_manager"
+      ? [
+          {
+            title: m.name,
+            subtitle: m.role === "company_admin" ? "Company admin" : "Campaign manager",
+            href: m.role === "company_admin" ? "/admin" : "/manager",
+            companyId: m.company_id,
+          },
+        ]
+      : [],
+  );
   const companyNames = Object.fromEntries(
     data.companies.map((c) => [c.id, c.name]),
   );
@@ -42,6 +55,7 @@ export default async function OpsLayout({
   return (
     <OpsShell
       name={profile?.full_name}
+      workspaces={workspaces}
       searchData={{
         companies: data.companies,
         people: data.people,

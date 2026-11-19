@@ -16,16 +16,75 @@ import {
   type Permissions,
 } from "@/lib/permissions";
 
-/* profiles.role is only the platform admin marker. Every other role comes
-   from the membership row for the active company (current_role()). */
+/* profiles.role is only the platform admin marker, carried here as
+   `platform`. `role` is the membership in the active company; a platform
+   admin who has not joined the active company (or has none) reads "admin".
+   So the Noni account can also run a company: /ops asks isPlatformAdmin,
+   the company dashboards ask the role. */
 export type Profile = {
   id: string;
   full_name: string | null;
   role: Role | null;
+  platform: boolean;
   active_company_id: string | null;
+  /** For a company admin this also needs the active company's own setup
+      to be finished, so each new company gets its onboarding. */
   onboarded: boolean;
   email?: string | null;
 };
+
+type ActiveMembership = { role: Role | null; companyOnboarded: boolean };
+
+/* The signed-in user's seat in their active company. Read with the service
+   role, keyed to the session's own user id. */
+async function activeMembership(
+  userId: string,
+  companyId: string | null | undefined,
+): Promise<ActiveMembership> {
+  if (!companyId) return { role: null, companyOnboarded: false };
+  const { data } = await createServiceClient()
+    .from("company_members")
+    .select("role, companies(onboarded_at)")
+    .eq("profile_id", userId)
+    .eq("company_id", companyId)
+    .is("removed_at", null)
+    .maybeSingle();
+  const row = data as
+    | { role: string | null; companies: { onboarded_at: string | null } | null }
+    | null;
+  return {
+    role: asRole(row?.role),
+    companyOnboarded: Boolean(row?.companies?.onboarded_at),
+  };
+}
+
+async function toProfile(
+  row: {
+    id: string;
+    full_name: string | null;
+    active_company_id: string | null;
+    onboarded: boolean | null;
+  },
+  platform: boolean,
+  email: string | null,
+): Promise<Profile> {
+  const seat = await activeMembership(row.id, row.active_company_id);
+  const memberRole = seat.role === "admin" ? null : seat.role;
+  const role: Role | null = platform ? (memberRole ?? "admin") : memberRole;
+  const personOnboarded = row.onboarded ?? false;
+  return {
+    id: row.id,
+    full_name: row.full_name,
+    role,
+    platform,
+    active_company_id: row.active_company_id,
+    onboarded:
+      role === "company_admin"
+        ? personOnboarded && seat.companyOnboarded
+        : personOnboarded,
+    email,
+  };
+}
 
 export async function getSessionProfile(): Promise<{
   userId: string | null;
@@ -38,36 +97,24 @@ export async function getSessionProfile(): Promise<{
 
   if (!user) return { userId: null, profile: null };
 
-  const [{ data: profile }, { data: activeRole }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name, role, active_company_id, onboarded")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase.rpc("current_role"),
-  ]);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, full_name, role, active_company_id, onboarded")
+    .eq("id", user.id)
+    .maybeSingle();
 
   const promoted = await ensurePlatformAdmin(user, profile?.role);
   if (promoted) return { userId: user.id, profile: promoted };
 
-  const role: Role | null =
-    profile?.role === "admin" ? "admin" : asRole(activeRole);
-
   return {
     userId: user.id,
     profile: profile
-      ? {
-          id: profile.id,
-          full_name: profile.full_name,
-          role,
-          active_company_id: profile.active_company_id,
-          onboarded: profile.onboarded ?? false,
-          email: user.email ?? null,
-        }
+      ? await toProfile(profile, profile.role === "admin", user.email ?? null)
       : {
           id: user.id,
           full_name: null,
           role: null,
+          platform: false,
           active_company_id: null,
           onboarded: false,
           email: user.email,
@@ -108,7 +155,7 @@ async function ensurePlatformAdmin(
       .select("id, full_name, active_company_id, onboarded")
       .single();
     if (error || !data) return null;
-    return { ...data, role: "admin", email };
+    return toProfile(data, true, email);
   }
 
   const { data, error } = await service
@@ -118,11 +165,17 @@ async function ensurePlatformAdmin(
     .select("id, full_name, active_company_id, onboarded")
     .single();
   if (error || !data) return null;
-  return { ...data, role: "admin", email };
+  return toProfile(data, true, email);
 }
 
 export function isPlatformAdmin(profile: Profile | null): boolean {
-  return profile?.role === "admin";
+  return profile?.platform === true;
+}
+
+/* The platform account with no seat in its active company: it belongs on
+   /ops, never on a company dashboard. */
+export function isPlatformOnly(profile: Profile | null): boolean {
+  return profile?.platform === true && profile.role === "admin";
 }
 
 export function isCompanyAdmin(profile: Profile | null): boolean {

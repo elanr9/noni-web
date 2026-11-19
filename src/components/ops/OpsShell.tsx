@@ -20,7 +20,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { AccountSwitcher, type Workspace } from "@/components/AccountSwitcher";
 import { CommandSearch, type CommandItem } from "@/components/kit";
 import type { Company, Invite, Person } from "@/lib/ops/types";
 
@@ -142,10 +142,13 @@ function SideItem({
 export function OpsShell({
   children,
   name,
+  workspaces,
   searchData,
 }: {
   children: ReactNode;
   name?: string | null;
+  /** Companies this platform account also runs or manages. */
+  workspaces?: Workspace[];
   searchData: OpsSearchData;
 }) {
   const pathname = usePathname();
@@ -212,7 +215,11 @@ export function OpsShell({
             ))}
           </nav>
           <div className="mt-3 border-t border-line">
-            <AccountSwitcher name={name ?? "Noni ops"} subtitle="Noni admin" />
+            <AccountSwitcher
+              name={name ?? "Noni ops"}
+              subtitle="Noni admin"
+              workspaces={workspaces}
+            />
           </div>
         </aside>
         <main className="flex min-w-0 flex-1 flex-col">

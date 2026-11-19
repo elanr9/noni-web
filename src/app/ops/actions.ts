@@ -7,7 +7,6 @@ import {
   type CreateCompanyResponse,
   type InviteResponse,
 } from "@/lib/edge";
-import { uploadCompanyLogo } from "@/lib/company-logo";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type OpsActionResult = { ok: true } | { ok: false; error: string };
@@ -98,27 +97,6 @@ export async function createCompany(input: {
   revalidatePath("/ops/companies");
   revalidatePath("/ops/invites");
   return { ok: true, companyId: data.company.id, existingCompanies: count ?? 0 };
-}
-
-/* Logo for a freshly provisioned company. Platform ops has no membership,
-   so the storage policies do not apply; the service role writes the file
-   after the platform admin gate. */
-export async function setCompanyLogo(
-  companyId: string,
-  formData: FormData,
-): Promise<OpsActionResult> {
-  const denied = await requirePlatformAdmin();
-  if (denied) return { ok: false, error: denied };
-  if (!companyId) return { ok: false, error: "Company id is required." };
-  const file = formData.get("logo");
-  if (!(file instanceof File)) return { ok: false, error: "Pick an image first." };
-
-  const result = await uploadCompanyLogo(createServiceClient(), companyId, file);
-  if (!result.ok) return result;
-
-  revalidatePath("/ops/companies");
-  revalidatePath(`/ops/companies/${companyId}`);
-  return { ok: true };
 }
 
 export async function inviteCampaignManager(input: {

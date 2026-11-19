@@ -17,7 +17,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
-import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { AccountSwitcher, PLATFORM_WORKSPACE } from "@/components/AccountSwitcher";
 import { PlanBanner, type PlanBannerKind } from "@/components/admin/billing/PlanNotice";
 import { CompanyPill, CompanyProvider } from "@/components/CompanySwitcher";
 import { NotificationsBell } from "@/components/NotificationsBell";
@@ -108,6 +108,7 @@ export function AdminShell({
   setupRemaining,
   setupComplete,
   dualRole = false,
+  platform = false,
   companies = [],
   planBanner = null,
 }: {
@@ -121,6 +122,8 @@ export function AdminShell({
   setupComplete: boolean;
   /** Admin who is also a campaign manager: offer version cards. */
   dualRole?: boolean;
+  /** The Noni platform account running this company: offer the way back. */
+  platform?: boolean;
   /** Every membership; the switcher shows when there is more than one. */
   companies?: CompanySummary[];
   /** No plan (paywall) or a failed renewal; hidden on Billing itself. */
@@ -215,6 +218,7 @@ export function AdminShell({
           name={name ?? "Admin"}
           subtitle="Company admin"
           modes={dualRole ? { active: "admin" } : undefined}
+          workspaces={platform ? [PLATFORM_WORKSPACE] : undefined}
         />
       </div>
     </>

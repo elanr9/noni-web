@@ -24,8 +24,12 @@ function CompanyRow({ c, last }: { c: Company; last: boolean }) {
         </span>
       </span>
       <span className="w-[210px] text-right text-[13px] font-semibold text-slate-400">
-        {c.campaigns} campaigns · {c.posts} posts ·{" "}
-        <span className="whitespace-nowrap">{c.views} views</span>
+        {c.status === "Active" ? (
+          <>
+            {c.campaigns} campaigns · {c.posts} posts ·{" "}
+            <span className="whitespace-nowrap">{c.views} views</span>
+          </>
+        ) : null}
       </span>
       <Chip tone={statusTone(c.status)}>{c.status}</Chip>
       <ChevronRight size={16} className="shrink-0 text-slate-400" />
@@ -35,12 +39,16 @@ function CompanyRow({ c, last }: { c: Company; last: boolean }) {
 
 export function CompaniesView({ companies }: { companies: Company[] }) {
   const [modal, setModal] = useState(false);
-  const shown = companies.filter((c) => c.status === "Active");
+  /* Active first, then companies whose admin has not accepted yet. */
+  const shown = [
+    ...companies.filter((c) => c.status === "Active"),
+    ...companies.filter((c) => c.status !== "Active"),
+  ];
   return (
     <div>
       <PageHead
         title="Companies"
-        sub="Every company on Noni, one admin each. New company sends that admin an email invite — they appear here once they accept."
+        sub="Every company on Noni, one admin each. New company sends that admin an email invite; the company shows as Invite pending until they accept."
         right={
           <Pill icon={Plus} onClick={() => setModal(true)}>
             New company
@@ -50,7 +58,7 @@ export function CompaniesView({ companies }: { companies: Company[] }) {
       <Card pad={0} className="overflow-hidden">
         {shown.length === 0 ? (
           <p className="m-0 px-5 py-[22px] text-[13.5px] font-semibold text-slate-400">
-            No active companies yet. New company sends the first invite.
+            No companies yet. New company sends the first invite.
           </p>
         ) : null}
         {shown.map((c, i) => (

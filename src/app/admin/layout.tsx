@@ -5,11 +5,11 @@ import { AdminShell, type AdminSearchPerson } from "@/components/admin/AdminShel
 import { TourHost } from "@/components/admin/tour/TourHost";
 import { SwitchCompanyGate } from "@/components/SwitchCompanyGate";
 import {
-  canUseWebDashboard,
   getSessionProfile,
   isCampaignManager,
   isCompanyAdmin,
   isPlatformAdmin,
+  isPlatformOnly,
   listCompanySummaries,
 } from "@/lib/auth";
 import { companyPlanAccess } from "@/lib/admin/billing";
@@ -24,13 +24,13 @@ export default async function AdminLayout({
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login?next=/admin");
   const companies = await listCompanySummaries();
-  /* The noni platform account runs the ops console, not the company
-     dashboard. It has no company here, so /admin is always wrong for it. */
-  if (isPlatformAdmin(profile)) redirect("/ops");
+  /* The noni platform account runs the ops console. It opens a company
+     dashboard only for a company it has joined. */
+  if (isPlatformOnly(profile)) redirect("/ops");
   /* Campaign managers get their own dashboard. */
   if (isCampaignManager(profile)) redirect("/manager");
   /* Company admins run this dashboard; everyone else gets a friendly gate. */
-  if (!canUseWebDashboard(profile)) {
+  if (!isCompanyAdmin(profile)) {
     const canSwitch = companies.some((c) => c.role === "company_admin");
     return (
       <SwitchCompanyGate
@@ -71,6 +71,7 @@ export default async function AdminLayout({
       setupRemaining={setup.remaining}
       setupComplete={setup.complete}
       dualRole={data.company.onboarding.selfIsManager}
+      platform={isPlatformAdmin(profile)}
       companies={companies}
       planBanner={planBanner}
     >

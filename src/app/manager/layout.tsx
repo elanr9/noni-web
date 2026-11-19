@@ -7,6 +7,7 @@ import {
   isCampaignManager,
   isCompanyAdmin,
   isPlatformAdmin,
+  isPlatformOnly,
   listCompanySummaries,
 } from "@/lib/auth";
 import {
@@ -22,7 +23,7 @@ export default async function ManagerLayout({
 }) {
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login?next=/manager");
-  if (isPlatformAdmin(profile)) redirect("/ops");
+  if (isPlatformOnly(profile)) redirect("/ops");
   const adminViewer = isCompanyAdmin(profile);
   const companies = await listCompanySummaries();
   if (
@@ -65,6 +66,7 @@ export default async function ManagerLayout({
       reviewCount={reviewCount}
       roleLabel={adminViewer ? "Company admin" : "Campaign manager"}
       dualRole={adminViewer && context.selfIsManager}
+      platform={isPlatformAdmin(profile)}
       companies={companies}
     >
       {children}

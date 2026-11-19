@@ -170,6 +170,14 @@ export async function completeOnboarding(
     .eq("id", gate.userId);
   if (profileError) return { ok: false, error: profileError.message };
 
+  /* Setup is per company: an account that already finished it elsewhere
+     still walks a new company through it. */
+  const { error: companyError } = await supabase
+    .from("companies")
+    .update({ onboarded_at: new Date().toISOString() })
+    .eq("id", gate.companyId);
+  if (companyError) return { ok: false, error: companyError.message };
+
   revalidatePath("/admin");
   return { ok: true };
 }

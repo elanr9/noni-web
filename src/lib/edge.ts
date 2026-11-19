@@ -12,7 +12,7 @@ export type CompanyInvite = {
 
 export type InviteResponse = { invite: CompanyInvite };
 
-export type AcceptInviteResponse = { ok: true; company_id: string };
+export type AcceptInviteResponse = { ok: true; company_id: string; role: string };
 
 export type CreateCompanyResponse = {
   company: {

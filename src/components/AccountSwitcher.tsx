@@ -25,6 +25,22 @@ import { createClient } from "@/lib/supabase/client";
 
 export type DashboardMode = "admin" | "manager";
 
+/* Another place this same account works: the ops console for the Noni
+   platform account, or a company it has joined. A companyId is made the
+   active company before the dashboard opens. */
+export type Workspace = {
+  title: string;
+  subtitle?: string;
+  href: string;
+  companyId?: string;
+};
+
+export const PLATFORM_WORKSPACE: Workspace = {
+  title: "Noni platform",
+  subtitle: "Ops console",
+  href: "/ops",
+};
+
 const MODE_CARDS: Array<{
   mode: DashboardMode;
   title: string;
@@ -46,10 +62,12 @@ export function AccountSwitcher({
   name,
   subtitle,
   modes,
+  workspaces,
 }: {
   name: string;
   subtitle: string;
   modes?: { active: DashboardMode };
+  workspaces?: Workspace[];
 }) {
   const [open, setOpen] = useState(false);
   const [accounts, setAccounts] = useState<StoredAccount[]>([]);
@@ -104,6 +122,22 @@ export function AccountSwitcher({
       setError(e instanceof Error ? e.message : "Could not switch accounts.");
       setAccounts(listSwitchableAccounts());
     }
+  }
+
+  async function onOpenWorkspace(workspace: Workspace) {
+    setBusy(true);
+    setError(null);
+    if (workspace.companyId) {
+      const { error: switchError } = await createClient().rpc("set_active_company", {
+        p_company_id: workspace.companyId,
+      });
+      if (switchError) {
+        setBusy(false);
+        setError("Could not open that company. Try again.");
+        return;
+      }
+    }
+    window.location.assign(workspace.href);
   }
 
   async function onAddAccount() {
@@ -178,6 +212,37 @@ export function AccountSwitcher({
                     </a>
                   );
                 })}
+              </div>
+            </div>
+          ) : null}
+          {workspaces && workspaces.length > 0 ? (
+            <div className="mb-1.5 border-b border-line pb-1.5">
+              <span className="block px-2.5 pb-1.5 pt-1 text-[11px] font-extrabold uppercase tracking-[0.9px] text-slate-400">
+                Also yours
+              </span>
+              <div className="flex flex-col gap-0.5">
+                {workspaces.map((workspace) => (
+                  <button
+                    key={workspace.href + (workspace.companyId ?? "")}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void onOpenWorkspace(workspace)}
+                    className="flex w-full cursor-pointer items-center gap-2.5 rounded-[11px] border-none bg-transparent px-2.5 py-2 text-left transition-colors duration-[160ms] ease-om hover:bg-fill-quiet disabled:opacity-50"
+                  >
+                    <Avatar name={workspace.title} size={28} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] font-bold text-ink">
+                        {workspace.title}
+                      </span>
+                      {workspace.subtitle ? (
+                        <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-slate-400">
+                          {workspace.subtitle}
+                        </span>
+                      ) : null}
+                    </span>
+                    <ArrowRight size={14} className="shrink-0 text-slate-400" />
+                  </button>
+                ))}
               </div>
             </div>
           ) : null}
