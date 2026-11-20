@@ -54,11 +54,15 @@ const TOUR_SECTION: Record<string, Section> = {
 };
 
 export function BillingView({
+  companyId,
   billing,
   simulated,
   notice,
   tourStep,
 }: {
+  /** The company this page was rendered for; the actions refuse when the
+      account has since switched to another one. */
+  companyId: string;
   billing: AdminBilling;
   /** Dev without Stripe keys, or a pilot company: simulated billing. */
   simulated: boolean;
@@ -110,27 +114,27 @@ export function BillingView({
   };
 
   const purchase = async (plan: SubscriptionPlan): Promise<boolean> => {
-    const done = await run(() => (active ? switchPlan(plan) : startCheckout(plan)));
+    const done = await run(() => (active ? switchPlan(companyId, plan) : startCheckout(companyId, plan)));
     if (done) setChangingPlan(false);
     return done;
   };
 
   const cancel = async () => {
-    const done = await run(cancelPlan);
+    const done = await run(() => cancelPlan(companyId));
     if (done) setChangingPlan(false);
   };
 
   const openPortal = async () => {
     if (portalBusy) return;
     setPortalBusy(true);
-    await run(openBillingPortal);
+    await run(() => openBillingPortal(companyId));
     setPortalBusy(false);
   };
 
   const connect = async () => {
     if (connecting) return;
     setConnecting(true);
-    await run(startStripeConnect);
+    await run(() => startStripeConnect(companyId));
     setConnecting(false);
   };
 
@@ -370,7 +374,7 @@ export function BillingView({
                       top-up {billing.autoTopUp ? "on" : "off"}
                       <button
                         type="button"
-                        onClick={() => void run(() => setAutoTopUp(!billing.autoTopUp))}
+                        onClick={() => void run(() => setAutoTopUp(companyId, !billing.autoTopUp))}
                         className="cursor-pointer border-none bg-transparent p-0 text-[12.5px] font-bold text-blue-700"
                       >
                         {billing.autoTopUp ? "Turn off" : "Turn on"}
@@ -456,7 +460,7 @@ export function BillingView({
           ctaLabel={(v) => `Set budget to ${money(v)}/mo`}
           busyLabel="Setting up budget…"
           initial={limit > 0 ? limit : 1000}
-          onSubmit={(v) => run(() => setMonthlyBudget(v))}
+          onSubmit={(v) => run(() => setMonthlyBudget(companyId, v))}
           onClose={() => setModal(null)}
         />
       ) : null}
@@ -467,7 +471,7 @@ export function BillingView({
           customLabel="Or a custom amount"
           ctaLabel={(v) => `Add ${money(v)}`}
           busyLabel="Adding credit…"
-          onSubmit={(v) => run(() => topUpCredit(v))}
+          onSubmit={(v) => run(() => topUpCredit(companyId, v))}
           onClose={() => setModal(null)}
         />
       ) : null}

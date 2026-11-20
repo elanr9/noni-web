@@ -309,6 +309,9 @@ function OnbStep({
 }
 
 export interface OnboardingFlowProps {
+  /** The company this flow was opened for; the saves refuse when the
+      account has since switched to another one. */
+  companyId: string;
   companyName: string;
   /** Prefilled from the profile or the Google account. */
   defaultName: string;
@@ -330,6 +333,7 @@ export interface OnboardingFlowProps {
 }
 
 export function OnboardingFlow({
+  companyId,
   companyName,
   defaultName,
   defaultWebsite,
@@ -386,7 +390,7 @@ export function OnboardingFlow({
     if (!site || scanStarting) return;
     setScanError(null);
     setScanStarting(true);
-    void startOnboardingScan({ website: site, appStoreUrl }).then((result) => {
+    void startOnboardingScan(companyId, { website: site, appStoreUrl }).then((result) => {
       setScanStarting(false);
       if (!result.ok) {
         setScanError(result.error);
@@ -401,7 +405,7 @@ export function OnboardingFlow({
     if (busy) return;
     setBusy(true);
     setError(null);
-    const result = await completeOnboarding({
+    const result = await completeOnboarding(companyId, {
       fullName: name.trim(),
       adminRole: role,
       website: website.trim(),
@@ -469,7 +473,7 @@ export function OnboardingFlow({
         primary="Next"
         primaryDisabled={!name.trim()}
         onPrimary={() => {
-          void saveOnboardingProgress({ fullName: name });
+          void saveOnboardingProgress(companyId, { fullName: name });
           go("role");
         }}
       >
@@ -500,7 +504,7 @@ export function OnboardingFlow({
               selected={role === r}
               onClick={() => {
                 setRole(r);
-                void saveOnboardingProgress({ adminRole: r });
+                void saveOnboardingProgress(companyId, { adminRole: r });
                 advanceAfterPick("website");
               }}
             />
@@ -560,7 +564,7 @@ export function OnboardingFlow({
             selected={doesUgc === true}
             onClick={() => {
               setDoesUgc(true);
-              void saveOnboardingProgress({ doesUgc: true });
+              void saveOnboardingProgress(companyId, { doesUgc: true });
               advanceAfterPick("creators");
             }}
           />
@@ -570,7 +574,7 @@ export function OnboardingFlow({
             selected={doesUgc === false}
             onClick={() => {
               setDoesUgc(false);
-              void saveOnboardingProgress({
+              void saveOnboardingProgress(companyId, {
                 doesUgc: false,
                 creatorCount: 0,
                 managerCount: 0,
@@ -593,7 +597,7 @@ export function OnboardingFlow({
         subtitle="You'll invite them once you're inside."
         primary={creatorCount === 0 ? "I don't have any" : "Next"}
         onPrimary={() => {
-          void saveOnboardingProgress({ creatorCount });
+          void saveOnboardingProgress(companyId, { creatorCount });
           go("managers");
         }}
         onBack={() => go("ugc")}
@@ -619,6 +623,7 @@ export function OnboardingFlow({
         primary={managerCount === 0 ? "I don't have one" : "Next"}
         onPrimary={() => {
           void saveOnboardingProgress(
+            companyId,
             managerCount > 0 ? { managerCount } : { managerCount, selfIsManager: false },
           );
           go(managerCount > 0 ? "selfManager" : "scan");
@@ -655,7 +660,7 @@ export function OnboardingFlow({
             selected={selfIsManager === true}
             onClick={() => {
               setSelfIsManager(true);
-              void saveOnboardingProgress({ selfIsManager: true });
+              void saveOnboardingProgress(companyId, { selfIsManager: true });
               advanceAfterPick("download");
             }}
           />
@@ -664,7 +669,7 @@ export function OnboardingFlow({
             selected={selfIsManager === false}
             onClick={() => {
               setSelfIsManager(false);
-              void saveOnboardingProgress({ selfIsManager: false });
+              void saveOnboardingProgress(companyId, { selfIsManager: false });
               advanceAfterPick("scan");
             }}
           />

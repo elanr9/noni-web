@@ -247,7 +247,7 @@ export function overviewStats(
     views: "2.0M",
     posts: companies.reduce((n, c) => n + c.posts, 0),
     campaigns: companies.reduce((n, c) => n + c.campaigns, 0),
-    creators: people.filter((p) => p.role === "Creator").length,
+    creators: new Set(people.filter((p) => p.role === "Creator").map((p) => p.id)).size,
     dViews: "+15% vs July",
     dPosts: "+14% vs July",
     dCamp: `${active.length} companies`,

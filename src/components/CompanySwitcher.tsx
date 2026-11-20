@@ -20,6 +20,10 @@ import {
 
 import { companyLogoUrl } from "@/lib/company-logo";
 import {
+  findSummary,
+  isWebRow,
+  splitSummaries,
+  summaryKey,
   toCompanySummaries,
   type CompanyStatusRow,
   type CompanySummary,
@@ -122,15 +126,19 @@ export function WaitBadge({ count, size = 20 }: { count: number; size?: number }
 
 type CompanyContextValue = {
   companies: CompanySummary[];
+  /** The active company's row the web works in. */
   active: CompanySummary | null;
-  /** Every other membership, sorted by what is waiting. */
+  /** Every side of the active company: a manager who also creates has two. */
+  activeRows: CompanySummary[];
+  /** Every other company's rows, sorted by what is waiting. */
   others: CompanySummary[];
   waitingElsewhere: number;
   switching: string | null;
   pickerOpen: boolean;
   setPickerOpen: (open: boolean) => void;
-  /** Switches the active company and lands on `href` when that role may open it. */
-  switchTo: (companyId: string, href?: string) => Promise<boolean>;
+  /** Switches the active company and lands on `href` when that role may
+      open it. `role` names the side when a company has two rows. */
+  switchTo: (companyId: string, href?: string, role?: Role) => Promise<boolean>;
   /** Header mark updates the moment a new logo lands. */
   setActiveLogo: (path: string | null) => void;
 };
@@ -185,6 +193,32 @@ export function CompanyProvider({
     };
   }, [supabase, refetch]);
 
+  /* The active company is one value shared with other tabs and the app.
+     When this tab comes back into view and the account has moved to another
+     company, re-render the page for it so nothing here acts on stale data.
+     (The mutating server actions also refuse a stale company themselves.) */
+  const activeId = useRef<string | null>(null);
+  useEffect(() => {
+    activeId.current = companies.find((c) => c.is_active)?.company_id ?? null;
+  }, [companies]);
+  useEffect(() => {
+    const resync = async () => {
+      if (document.visibilityState !== "visible") return;
+      const before = activeId.current;
+      const next = await refetch();
+      if (!next) return;
+      const now = next.find((c) => c.is_active)?.company_id ?? null;
+      if (now !== before) router.refresh();
+    };
+    const onChange = () => void resync();
+    document.addEventListener("visibilitychange", onChange);
+    window.addEventListener("focus", onChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onChange);
+      window.removeEventListener("focus", onChange);
+    };
+  }, [refetch, router]);
+
   /* A switch that crossed sides reloaded the page; finish its toast here. */
   useEffect(() => {
     const raw = window.sessionStorage.getItem(TOAST_KEY);
@@ -207,8 +241,8 @@ export function CompanyProvider({
   }, [toast]);
 
   const switchTo = useCallback(
-    async (companyId: string, href?: string) => {
-      const target = companies.find((c) => c.company_id === companyId);
+    async (companyId: string, href?: string, role?: Role) => {
+      const target = findSummary(companies, companyId, role);
       if (!target || switching) return false;
       const home = homeFor(target.role);
       if (!home) return false;
@@ -233,7 +267,7 @@ export function CompanyProvider({
         return true;
       }
       const next = await refetch();
-      setToast(next?.find((c) => c.company_id === companyId) ?? target);
+      setToast((next && findSummary(next, companyId, target.role)) ?? target);
       setSwitching(null);
       router.push(destination);
       router.refresh();
@@ -249,15 +283,9 @@ export function CompanyProvider({
   }, []);
 
   const value = useMemo<CompanyContextValue>(() => {
-    const active = companies.find((c) => c.is_active) ?? companies[0] ?? null;
-    const others = companies
-      .filter((c) => c !== active)
-      .sort((a, b) => b.waiting - a.waiting);
     return {
       companies,
-      active,
-      others,
-      waitingElsewhere: others.reduce((n, c) => n + c.waiting, 0),
+      ...splitSummaries(companies),
       switching,
       pickerOpen,
       setPickerOpen,
@@ -293,8 +321,8 @@ function CompanyRow({
   busy: boolean;
   onPick: () => void;
 }) {
-  const appOnly = homeFor(company.role) === null;
-  const line = busy ? "Switching" : appOnly ? "App only" : company.line;
+  const appOnly = !isWebRow(company);
+  const line = busy ? "Switching" : appOnly ? "Creator · in the app" : company.line;
   return (
     <button
       type="button"
@@ -330,8 +358,16 @@ function CompanyRow({
 
 /* Header pill: mark, name, chevrons, divider, badge. Click opens the popover. */
 export function CompanyPill() {
-  const { active, others, waitingElsewhere, switching, pickerOpen, setPickerOpen, switchTo } =
-    useCompanies();
+  const {
+    active,
+    activeRows,
+    others,
+    waitingElsewhere,
+    switching,
+    pickerOpen,
+    setPickerOpen,
+    switchTo,
+  } = useCompanies();
   const wrap = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -374,12 +410,15 @@ export function CompanyPill() {
       {pickerOpen ? (
         <div className="absolute left-0 top-[calc(100%+8px)] z-40 flex w-[340px] flex-col gap-3 border border-line bg-white p-3 shadow-xl rounded-[18px] animate-om-rise">
           <div className="overflow-hidden border border-line rounded-[14px]">
-            <CompanyRow
-              company={active}
-              current
-              busy={false}
-              onPick={() => setPickerOpen(false)}
-            />
+            {activeRows.map((c) => (
+              <CompanyRow
+                key={summaryKey(c)}
+                company={c}
+                current={c === active}
+                busy={false}
+                onPick={() => setPickerOpen(false)}
+              />
+            ))}
           </div>
           {others.length ? (
             <div>
@@ -389,11 +428,11 @@ export function CompanyPill() {
               <div className="overflow-hidden border border-line rounded-[14px]">
                 {others.map((c) => (
                   <CompanyRow
-                    key={c.company_id}
+                    key={summaryKey(c)}
                     company={c}
                     current={false}
-                    busy={switching === c.company_id}
-                    onPick={() => void switchTo(c.company_id)}
+                    busy={switching === c.company_id && isWebRow(c)}
+                    onPick={() => void switchTo(c.company_id, undefined, c.role)}
                   />
                 ))}
               </div>
@@ -409,7 +448,7 @@ export function CompanyPill() {
    is waiting elsewhere. */
 export function ElsewhereStrip() {
   const { others, switchTo, setPickerOpen } = useCompanies();
-  const waiting = others.filter((c) => c.waiting > 0 && homeFor(c.role) !== null);
+  const waiting = others.filter((c) => c.waiting > 0 && isWebRow(c));
   if (!waiting.length) return null;
   const first = waiting[0];
   const rest = waiting.length - 1;
@@ -445,7 +484,7 @@ export function ElsewhereStrip() {
       ) : null}
       <button
         type="button"
-        onClick={() => void switchTo(first.company_id)}
+        onClick={() => void switchTo(first.company_id, undefined, first.role)}
         className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap bg-ink py-[7px] pl-3 pr-[11px] text-[13px] font-bold text-white rounded-pill"
       >
         Switch

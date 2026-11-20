@@ -81,7 +81,8 @@ async function startGoogleSignIn(
   switchAccount: boolean,
 ): Promise<string | null> {
   const supabase = createClient();
-  if (switchAccount) await supabase.auth.signOut();
+  /* This browser only, so the other account stays signed in on the app. */
+  if (switchAccount) await supabase.auth.signOut({ scope: "local" });
   const next = `/invite/${token}/accept`;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -186,7 +187,9 @@ export function AdminInviteGate({
         setError(result.error);
         return;
       }
-      router.replace("/onboarding");
+      /* Onboarding for a company still to be set up, its dashboard when it
+         already is. */
+      router.replace(result.destination ?? "/dash");
       router.refresh();
     })();
   }, [attempt, router, token, wrongAccount]);

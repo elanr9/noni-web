@@ -17,12 +17,16 @@ import { PERMISSION_DEFS, type PermissionKey, type Permissions } from "@/lib/per
    the post detail; campaign managers get the company's briefs list. */
 export function MemberProfile({
   member,
+  companyId,
   companyName,
   posts,
   briefs,
   canRemove = false,
 }: {
   member: Member;
+  /** The company this page was rendered for; the actions refuse when the
+      account has since switched to another one. */
+  companyId: string;
   companyName: string;
   posts: AdminPost[];
   briefs: AdminBrief[];
@@ -46,6 +50,7 @@ export function MemberProfile({
     setPermissionError(null);
     startTransition(async () => {
       const result = await updateMemberPermissions({
+        companyId,
         memberId: member.id,
         patch: { [key]: next },
       });
@@ -60,7 +65,7 @@ export function MemberProfile({
     if (pending) return;
     setError(null);
     startTransition(async () => {
-      const result = await removeTeamMember(member.id);
+      const result = await removeTeamMember(companyId, member.id);
       if (!result.ok) {
         setError(result.error);
         return;

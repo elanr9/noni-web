@@ -83,7 +83,7 @@ export function ProfileModalHost({
           icon={ArrowRight}
           onClick={() => {
             close();
-            router.push(`/ops/users/${p.id}`);
+            router.push(`/ops/users/${p.id}?company=${encodeURIComponent(p.company)}`);
           }}
           className="flex-1"
         >

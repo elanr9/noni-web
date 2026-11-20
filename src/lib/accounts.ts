@@ -7,8 +7,10 @@
    supabase.auth.setSession with the stored tokens, which rewrites the
    auth cookies so the server picks up the new user on the next request.
 
-   Creator accounts are remembered but never offered by the switcher: the
-   web dashboards are for admins and campaign managers only. */
+   Accounts that only create are remembered but never offered by the
+   switcher: the web dashboards are for admins and campaign managers only.
+   One account can hold seats in several companies, so the remembered role
+   is the best web seat across all of them, not just the active company. */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -60,7 +62,27 @@ export function listStoredAccounts(): StoredAccount[] {
   return readStore();
 }
 
-/** Accounts the web switcher may offer. Creator accounts stay app-only. */
+/* The role remembered for an account. The platform account and an active
+   admin or manager seat are kept as they are. Someone whose active company
+   has them as a creator still counts as an admin or manager when any other
+   company does, so the switcher keeps offering the account. */
+export function webRole(
+  activeRole: string | null | undefined,
+  membershipRoles: ReadonlyArray<string | null | undefined>,
+): StoredRole {
+  if (
+    activeRole === "admin" ||
+    activeRole === "company_admin" ||
+    activeRole === "campaign_manager"
+  ) {
+    return activeRole;
+  }
+  if (membershipRoles.includes("company_admin")) return "company_admin";
+  if (membershipRoles.includes("campaign_manager")) return "campaign_manager";
+  return "creator";
+}
+
+/** Accounts the web switcher may offer. Creator-only accounts stay app-only. */
 export function listSwitchableAccounts(): StoredAccount[] {
   return readStore().filter((a) => a.role !== "creator");
 }
@@ -85,22 +107,28 @@ export async function rememberCurrentAccount(
   } = await supabase.auth.getSession();
   if (!session) return null;
 
-  /* The role comes from the active membership (current_role()), never
-     from profiles.role, which only marks the platform admin. */
-  const [{ data: profile }, { data: activeRole }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("id, full_name")
-      .eq("id", session.user.id)
-      .maybeSingle(),
-    supabase.rpc("current_role"),
-  ]);
+  /* The role comes from the memberships (current_role() for the active
+     company, my_companies() for the rest), never from profiles.role, which
+     only marks the platform admin. */
+  const [{ data: profile }, { data: activeRole }, { data: memberships }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("id", session.user.id)
+        .maybeSingle(),
+      supabase.rpc("current_role"),
+      supabase.rpc("my_companies"),
+    ]);
+  const membershipRoles = Array.isArray(memberships)
+    ? (memberships as Array<{ role?: string | null }>).map((m) => m.role)
+    : [];
 
   const account: StoredAccount = {
     userId: session.user.id,
     email: session.user.email ?? null,
     fullName: (profile?.full_name as string | null) ?? null,
-    role: ((activeRole as StoredRole | null) ?? "creator") as StoredRole,
+    role: webRole(activeRole as string | null, membershipRoles),
     accessToken: session.access_token,
     refreshToken: session.refresh_token,
     savedAt: Date.now(),
@@ -130,13 +158,18 @@ export async function switchToAccount(
     throw new Error("Session expired. Sign in again for that account.");
   }
 
-  /* setSession may have rotated the refresh token; keep the fresh one. */
-  upsert({
-    ...target,
-    accessToken: data.session.access_token,
-    refreshToken: data.session.refresh_token,
-    savedAt: Date.now(),
-  });
+  /* setSession may have rotated the refresh token, and the account's seats
+     may have changed since it was saved: re-read both from the live session.
+     If that read fails, at least keep the fresh tokens. */
+  const refreshed = await rememberCurrentAccount(supabase).catch(() => null);
+  if (!refreshed) {
+    upsert({
+      ...target,
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      savedAt: Date.now(),
+    });
+  }
 }
 
 export function roleLabel(role: StoredRole): string {
@@ -144,11 +177,4 @@ export function roleLabel(role: StoredRole): string {
   if (role === "company_admin") return "Company admin";
   if (role === "campaign_manager") return "Campaign manager";
   return "Creator";
-}
-
-/** Where each role lands on the web. */
-export function roleHome(role: StoredRole): string {
-  if (role === "admin") return "/ops";
-  if (role === "campaign_manager") return "/manager";
-  return "/admin";
 }

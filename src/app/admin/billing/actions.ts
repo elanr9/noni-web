@@ -33,7 +33,9 @@ import {
   signConnectState,
   STRIPE_NOT_CONFIGURED,
   writeBilling,
+  type BillingContext,
 } from "@/lib/admin/billing";
+import { isStaleCompany, STALE_COMPANY_ERROR } from "@/lib/stale-company";
 import { MOCK_STRIPE_ACCOUNT_ID } from "@/lib/admin/mock-data";
 import type { SubscriptionPlan } from "@/lib/admin/types";
 
@@ -42,6 +44,13 @@ export type BillingActionResult =
   | { ok: false; error: string };
 
 const NOT_ALLOWED = "Only the company admin can change billing.";
+
+/* Every action takes the company id the Billing page was rendered for. The
+   active company is shared with other tabs and the app, so a page left open
+   across a switch must not charge or change the plan of another company. */
+function staleFor(ctx: BillingContext, renderedFor: string): boolean {
+  return !ctx.mock && isStaleCompany(ctx.companyId, renderedFor);
+}
 
 function refresh(): void {
   revalidatePath("/admin", "layout");
@@ -59,10 +68,12 @@ async function siteOrigin(): Promise<string> {
 /** Plan modal CTA. Live mode returns a Stripe Checkout URL to redirect to;
     mock and simulated modes activate the plan directly. */
 export async function startCheckout(
+  renderedFor: string,
   plan: SubscriptionPlan,
 ): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
+  if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
 
   if (ctx.mock) {
     mockActivateSubscription(plan);
@@ -126,10 +137,12 @@ export async function startCheckout(
     confirms the state this writes optimistically. Downgrades are blocked
     while the team runs more creators than the target plan allows. */
 export async function switchPlan(
+  renderedFor: string,
   plan: SubscriptionPlan,
 ): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
+  if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
 
   if (ctx.mock) {
     mockActivateSubscription(plan);
@@ -203,9 +216,10 @@ export async function switchPlan(
 
 /** Manage plan: cancel. Live mode cancels at Stripe immediately and clears
     state; the customer.subscription.deleted webhook confirms it. */
-export async function cancelPlan(): Promise<BillingActionResult> {
+export async function cancelPlan(renderedFor: string): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
+  if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
 
   if (ctx.mock) {
     mockBilling().subscription = { status: "none" };
@@ -234,9 +248,13 @@ export async function cancelPlan(): Promise<BillingActionResult> {
     creates (or resizes) a second Stripe subscription that charges $X every
     month; the invoice.paid webhook converts each charge into +$X of credits.
     Noni never fronts payouts. */
-export async function setMonthlyBudget(dollars: number): Promise<BillingActionResult> {
+export async function setMonthlyBudget(
+  renderedFor: string,
+  dollars: number,
+): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
+  if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
   if (!Number.isInteger(dollars) || dollars <= 0) {
     return { ok: false, error: "The budget must be a positive dollar amount." };
   }
@@ -351,9 +369,13 @@ export async function setMonthlyBudget(dollars: number): Promise<BillingActionRe
 
 /** Top up modal: one-off credit. Live mode charges the saved subscription
     card off session (PaymentIntents) before recording the credit. */
-export async function topUpCredit(dollars: number): Promise<BillingActionResult> {
+export async function topUpCredit(
+  renderedFor: string,
+  dollars: number,
+): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
+  if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
   if (!Number.isInteger(dollars) || dollars <= 0) {
     return { ok: false, error: "The top-up must be a positive dollar amount." };
   }
@@ -378,9 +400,13 @@ export async function topUpCredit(dollars: number): Promise<BillingActionResult>
 
 /** Inline auto top-up toggle. Turning it on runs the refill check right
     away, so a low balance refills without waiting for the next page read. */
-export async function setAutoTopUp(on: boolean): Promise<BillingActionResult> {
+export async function setAutoTopUp(
+  renderedFor: string,
+  on: boolean,
+): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
+  if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
 
   if (ctx.mock) {
     mockBilling().autoTopUp = on;
@@ -398,9 +424,10 @@ export async function setAutoTopUp(on: boolean): Promise<BillingActionResult> {
     the read_write scope (Stripe does not offer read-only connections on
     this platform); /api/stripe/connect handles the callback. Noni only
     ever reads from the connected account. */
-export async function startStripeConnect(): Promise<BillingActionResult> {
+export async function startStripeConnect(renderedFor: string): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
+  if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
 
   if (ctx.mock) {
     mockBilling().stripeConnected = true;
@@ -451,9 +478,10 @@ export async function startStripeConnect(): Promise<BillingActionResult> {
 /** "Update card" and "View invoices": opens the Stripe Billing Portal for
     the company's customer, returning to /admin/billing. Simulated mode has
     no portal, so it stands in for a successful card update instead. */
-export async function openBillingPortal(): Promise<BillingActionResult> {
+export async function openBillingPortal(renderedFor: string): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
+  if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
 
   if (ctx.mock) {
     const sub = mockBilling().subscription;

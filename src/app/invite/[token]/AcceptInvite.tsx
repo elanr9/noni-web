@@ -48,12 +48,15 @@ export function AcceptInvite({
   role: InviteRole;
   companyName?: string;
   /** The account already works for a different company; accepting adds
-      this one without switching them away from the current one. */
+      this one, keeps the others and makes this one the active company. */
   hasOtherCompany?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [accepted, setAccepted] = useState(false);
+  const [accepted, setAccepted] = useState<{
+    destination: string | null;
+    switched: boolean;
+  } | null>(null);
 
   const isAdmin = role === "company_admin";
   const isCreator = role === "creator";
@@ -66,7 +69,7 @@ export function AcceptInvite({
         setError(friendlyError(result.error, email, invitedEmail, companyName));
         return;
       }
-      setAccepted(true);
+      setAccepted({ destination: result.destination, switched: result.switched });
     });
   }
 
@@ -75,24 +78,28 @@ export function AcceptInvite({
       <div className="text-center">
         <h1 className="display text-3xl font-semibold text-ink">You are in</h1>
         <p className="mt-3 text-[15px] text-muted">
-          {isAdmin
-            ? `Your account now runs ${companyName}. Finish a short onboarding to enter your dashboard.`
-            : isCreator
-              ? `${companyName} was added. Open the Noni app and pick it from the company menu to see your briefs.`
-              : hasOtherCompany
-                ? `${companyName} was added to your account. You are still working in your current company; switch to ${companyName} from the company menu whenever you like.`
-                : `Your account is now a campaign manager for ${companyName}. Open the Noni app to get to work.`}
+          {!accepted.switched
+            ? `${companyName} was added to your account. Pick it from the company menu to start working in it.`
+            : isAdmin
+              ? accepted.destination === "/onboarding"
+                ? `Your account now runs ${companyName}. Finish a short onboarding to enter your dashboard.`
+                : `Your account now runs ${companyName}.`
+              : isCreator
+                ? `${companyName} was added and is now your active company. Open the Noni app to see your briefs.`
+                : hasOtherCompany
+                  ? `${companyName} was added to your account and is now your active company. Your other companies stay in the company menu.`
+                  : `Your account is now a campaign manager for ${companyName}. Open the Noni app to get to work.`}
         </p>
-        {isAdmin ? (
+        {accepted.destination === "/onboarding" ? (
           <Link
             href="/onboarding"
             className="mt-6 inline-flex rounded-full bg-ink px-5 py-3 text-sm font-bold text-white"
           >
             Continue to onboarding
           </Link>
-        ) : !isCreator && hasOtherCompany ? (
+        ) : accepted.destination && (isAdmin || hasOtherCompany || !accepted.switched) ? (
           <Link
-            href="/dash"
+            href={accepted.destination}
             className="mt-6 inline-flex rounded-full bg-ink px-5 py-3 text-sm font-bold text-white"
           >
             Go to my dashboard
@@ -129,7 +136,7 @@ export function AcceptInvite({
             {companyName} on Noni. You are signed in as{" "}
             <span className="font-semibold text-ink">{email}</span>.{" "}
             {hasOtherCompany
-              ? `Accepting adds ${companyName} to this account. You keep your other companies and can switch between them at any time.`
+              ? `Accepting adds ${companyName} to this account and opens it. You keep your other companies and can switch between them at any time.`
               : `Accepting makes this account ${isAdmin ? "the company admin" : "a campaign manager"} for ${companyName}.`}
           </>
         )}

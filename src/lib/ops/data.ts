@@ -22,6 +22,7 @@ import type {
   InspirationAccount,
   Invite,
   Person,
+  PersonMembership,
   Post,
   PostFormat,
   Role,
@@ -31,6 +32,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 export interface OpsDataset {
   companies: Company[];
   people: Person[];
+  /** Profile id → every seat, removed ones included. */
+  memberships: Record<string, PersonMembership[]>;
   posts: Post[];
   invites: Invite[];
   companyDays: CompanyDays;
@@ -68,6 +71,17 @@ interface RosterRow {
   member_role: string;
   joined_at: string;
   id: string;
+  can_create: boolean | null;
+}
+
+/* company_members itself, so removed seats show on a person's profile. */
+interface MembershipRow {
+  company_id: string;
+  profile_id: string;
+  role: string;
+  can_create: boolean | null;
+  created_at: string;
+  removed_at: string | null;
 }
 
 interface InviteRow {
@@ -396,6 +410,7 @@ async function fetchOpsData(): Promise<OpsDataset> {
     briefsRes,
     revenueRes,
     rosterRes,
+    membershipsRes,
   ] = await Promise.all([
     supabase.from("companies").select("id, name, website, created_at"),
     supabase
@@ -451,12 +466,17 @@ async function fetchOpsData(): Promise<OpsDataset> {
       .select("amount_cents, attribution_links ( assignment_id, task_id )"),
     supabase
       .from("company_roster")
-      .select("company_id, member_role, joined_at, id"),
+      .select("company_id, member_role, joined_at, id, can_create"),
+    supabase
+      .from("company_members")
+      .select("company_id, profile_id, role, can_create, created_at, removed_at")
+      .order("created_at"),
   ]);
 
   const companyRows = (companiesRes.data ?? []) as CompanyRow[];
   const profileRows = (profilesRes.data ?? []) as ProfileRow[];
-  const rosterRows = (rosterRes.data ?? []) as RosterRow[];
+  const rosterRows = (rosterRes.data ?? []) as unknown as RosterRow[];
+  const membershipRows = (membershipsRes.data ?? []) as unknown as MembershipRow[];
   const profileById = new Map(profileRows.map((p) => [p.id, p]));
   const inviteRows = (invitesRes.data ?? []) as InviteRow[];
   const campaignRows = (campaignsRes.data ?? []) as CampaignRow[];
@@ -635,13 +655,16 @@ async function fetchOpsData(): Promise<OpsDataset> {
     creator: "Creator",
   };
 
+  /* Per company: someone creating for two companies has two rows, and each
+     row carries only that company's posts. */
   const statsByCreator = new Map<string, { posts: number; views: number }>();
   for (const g of groups) {
     if (!g.creatorId) continue;
-    const s = statsByCreator.get(g.creatorId) ?? { posts: 0, views: 0 };
+    const key = `${g.creatorId}:${g.post.company}`;
+    const s = statsByCreator.get(key) ?? { posts: 0, views: 0 };
     s.posts += 1;
     s.views += g.post.viewsN;
-    statsByCreator.set(g.creatorId, s);
+    statsByCreator.set(key, s);
   }
 
   const people: Person[] = rosterRows
@@ -660,8 +683,9 @@ async function fetchOpsData(): Promise<OpsDataset> {
           role === "Creator" ? (p.onboarded ? "Onboarded" : "Pending") : "Active",
         joined: fmtLongDate(p.created_at),
       };
+      if (m.can_create === true) person.canCreate = true;
       if (role === "Creator") {
-        const s = statsByCreator.get(p.id);
+        const s = statsByCreator.get(`${p.id}:${m.company_id}`);
         person.posts = s?.posts ?? 0;
         person.viewsN = s?.views ?? 0;
       }
@@ -683,6 +707,19 @@ async function fetchOpsData(): Promise<OpsDataset> {
       phone: "—",
       status: "Invite pending",
       joined: fmtLongDate(iv.created_at),
+    });
+  }
+
+  const memberships: Record<string, PersonMembership[]> = {};
+  for (const m of membershipRows) {
+    const role = ROLE_OF[m.role];
+    if (!role) continue;
+    (memberships[m.profile_id] ??= []).push({
+      company: m.company_id,
+      role,
+      canCreate: m.can_create === true,
+      joined: fmtLongDate(m.created_at),
+      removed: m.removed_at ? fmtLongDate(m.removed_at) : null,
     });
   }
 
@@ -822,7 +859,8 @@ async function fetchOpsData(): Promise<OpsDataset> {
     views: fmtViews(platformMonthViews),
     posts: monthPosts,
     campaigns: activeCompanies.reduce((n, c) => n + c.campaigns, 0),
-    creators: people.filter((p) => p.role === "Creator").length,
+    /* People, not seats: a creator in two companies is one creator. */
+    creators: new Set(people.filter((p) => p.role === "Creator").map((p) => p.id)).size,
     dCamp: `${activeCompanies.length} ${activeCompanies.length === 1 ? "company" : "companies"}`,
   };
   const dViews = pctDelta(platformMonthViews, platformPrevViews, prevMonthName);
@@ -833,6 +871,7 @@ async function fetchOpsData(): Promise<OpsDataset> {
   return {
     companies,
     people,
+    memberships,
     posts,
     invites,
     companyDays,

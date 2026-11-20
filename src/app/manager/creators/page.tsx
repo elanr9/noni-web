@@ -16,6 +16,7 @@ export default async function ManagerCreatorsPage() {
   return (
     <CreatorsRoster
       roster={roster}
+      companyId={companyId}
       companyName={context.companyName}
       viewFinancials={context.access.viewFinancials}
       canInvite={context.access.inviteCreators}

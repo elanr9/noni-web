@@ -64,7 +64,20 @@ export default async function InviteAcceptPage({ params }: PageProps) {
 
   if (profile && membership && membership.member_role === invite.role) {
     if (isAdminInvite) {
-      redirect(profile.onboarded ? "/admin" : "/onboarding");
+      /* profile.onboarded describes the active company. When that is the
+         invited one, route by it; when the account is working somewhere
+         else, the gate below switches it into this company first. */
+      if (profile.active_company_id === invite.company_id) {
+        redirect(profile.onboarded ? "/admin" : "/onboarding");
+      }
+      return (
+        <AdminInviteGate
+          token={token}
+          companyName={invite.companies?.name ?? "your company"}
+          invitedEmail={invite.email}
+          currentEmail={profile.email ?? ""}
+        />
+      );
     }
     redirect("/invite/" + token);
   }

@@ -56,6 +56,20 @@ export interface Person {
   posts?: number;
   /** Creators only, raw view count. */
   viewsN?: number;
+  /** A campaign manager or admin who also creates for this company. */
+  canCreate?: boolean;
+}
+
+/** One seat a person holds or held. A person in several companies has one
+    Person row per active seat; this lists them all, removed ones included. */
+export interface PersonMembership {
+  /** Company id. */
+  company: string;
+  role: Role;
+  canCreate: boolean;
+  joined: string;
+  /** Formatted removal date, or null while the seat is active. */
+  removed: string | null;
 }
 
 export interface PlatformStats {

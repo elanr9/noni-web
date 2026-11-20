@@ -37,9 +37,24 @@ export function UsersPage({
     setSort(f === "Creators" ? "Views" : "Name");
   };
   const activeIds = companies.filter((c) => c.status === "Active").map((c) => c.id);
-  const shown = people.filter(
-    (p) => p.role === ROLE_OF[filter] && activeIds.includes(p.company),
-  );
+  /* One row per person and tab: someone with the same role in several
+     companies is listed once, with every company named and creator numbers
+     added up. Clicking opens their first seat; the profile lists the rest. */
+  const byPerson = new Map<string, Person & { companies: string[] }>();
+  for (const p of people) {
+    if (p.role !== ROLE_OF[filter] || !activeIds.includes(p.company)) continue;
+    const row = byPerson.get(p.id);
+    if (!row) {
+      byPerson.set(p.id, { ...p, companies: [companyName(p.company)] });
+      continue;
+    }
+    row.companies.push(companyName(p.company));
+    if (p.role === "Creator") {
+      row.posts = (row.posts ?? 0) + (p.posts ?? 0);
+      row.viewsN = (row.viewsN ?? 0) + (p.viewsN ?? 0);
+    }
+  }
+  const shown = [...byPerson.values()];
   shown.sort((a, b) =>
     sort === "Views"
       ? (b.viewsN ?? 0) - (a.viewsN ?? 0)
@@ -69,9 +84,9 @@ export function UsersPage({
         ) : null}
         {shown.map((r, i) => (
           <div
-            key={`${r.id}-${r.company}`}
+            key={r.id}
             role="button"
-            onClick={() => openUserProfile(r)}
+            onClick={() => openUserProfile(people.find((p) => p.id === r.id && p.company === r.company) ?? r)}
             className={`flex cursor-pointer items-center gap-3.5 px-5 py-3.5 transition-colors duration-[160ms] ease-om hover:bg-fill-quiet ${
               i === shown.length - 1 ? "" : "border-b border-line"
             }`}
@@ -80,7 +95,7 @@ export function UsersPage({
             <span className="min-w-0 flex-1">
               <span className="block text-[14.5px] font-bold text-ink">{r.name}</span>
               <span className="mt-0.5 block text-[12.5px] font-semibold text-slate-400">
-                {companyName(r.company)}
+                {r.companies.join(" · ")}
               </span>
             </span>
             {r.role === "Creator" ? (

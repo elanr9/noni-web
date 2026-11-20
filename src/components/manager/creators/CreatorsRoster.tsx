@@ -24,9 +24,11 @@ const ALL_SORTS: Array<{ key: SortKey; label: string }> = [
 ];
 
 function InviteCreatorModal({
+  companyId,
   companyName,
   onClose,
 }: {
+  companyId: string;
   companyName: string;
   onClose: () => void;
 }) {
@@ -41,6 +43,7 @@ function InviteCreatorModal({
     setError(null);
     startTransition(async () => {
       const result = await sendCreatorInvite({
+        companyId,
         name: name.trim(),
         email: email.trim(),
       });
@@ -140,11 +143,15 @@ function Stat({
 
 export function CreatorsRoster({
   roster,
+  companyId,
   companyName,
   viewFinancials,
   canInvite,
 }: {
   roster: CreatorRoster;
+  /** The company this roster was rendered for; the invite refuses when
+      the account has since switched to another one. */
+  companyId: string;
   companyName: string;
   viewFinancials: boolean;
   canInvite: boolean;
@@ -288,6 +295,7 @@ export function CreatorsRoster({
 
       {inviting ? (
         <InviteCreatorModal
+          companyId={companyId}
           companyName={companyName}
           onClose={() => setInviting(false)}
         />

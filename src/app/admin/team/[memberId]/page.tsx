@@ -28,6 +28,7 @@ export default async function MemberProfilePage({
   return (
     <MemberProfile
       member={member}
+      companyId={data.company.id}
       companyName={data.company.name}
       posts={posts}
       briefs={data.briefs}

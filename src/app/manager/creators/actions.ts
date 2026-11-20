@@ -7,6 +7,7 @@ import { getSessionProfile, canManageCampaigns, isCompanyAdmin } from "@/lib/aut
 import { callEdgeFunction, type InviteResponse } from "@/lib/edge";
 import { getManagerContext } from "@/lib/manager/context";
 import { signedMediaUrl } from "@/lib/manager/storage";
+import { isStaleCompany, STALE_COMPANY_ERROR } from "@/lib/stale-company";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type CreatorActionResult =
@@ -17,8 +18,11 @@ export type CreatorActionResult =
    uses (src/app/admin/team/actions.ts sendTeamInvite): the function writes
    the company_invites row with role + company, which pre-binds the email so
    signing in with it lands the invitee as a creator with zero setup. Gated
-   on the company's inviteCreators manager access flag. */
+   on the company's inviteCreators manager access flag. `companyId` is the
+   company the roster was rendered for: the invite is refused when the
+   account has since switched to another one. */
 export async function sendCreatorInvite(input: {
+  companyId: string;
   name: string;
   email: string;
 }): Promise<CreatorActionResult> {
@@ -33,6 +37,9 @@ export async function sendCreatorInvite(input: {
   }
   const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
+  if (isStaleCompany(companyId, input.companyId)) {
+    return { ok: false, error: STALE_COMPANY_ERROR };
+  }
 
   const { access } = await getManagerContext(companyId);
   if (!access.inviteCreators) {

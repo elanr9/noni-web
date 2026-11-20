@@ -92,7 +92,7 @@ function buildDefaultIndex(data: OpsSearchData): OpsSearchEntry[] {
       ),
     ...data.people.map(
       (p): OpsSearchEntry => ({
-        id: "pe-" + p.id,
+        id: `pe-${p.id}-${p.company}`,
         section: "Users",
         icon: CircleUserRound,
         title: p.name,

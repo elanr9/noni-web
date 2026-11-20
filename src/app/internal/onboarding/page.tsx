@@ -15,6 +15,7 @@ export default async function OnboardingPreviewPage({
   const step = ONBOARDING_STEPS.find((s) => s === wanted) ?? "welcome";
   return (
     <OnboardingFlow
+      companyId={MOCK_DATASET.company.id}
       companyName={MOCK_DATASET.company.name}
       defaultName="Riley Chen"
       defaultWebsite="fieldvision.ai"

@@ -77,6 +77,7 @@ export default async function OnboardingPage() {
 
   return (
     <OnboardingFlow
+      companyId={profile!.active_company_id!}
       companyName={company?.name ?? "your company"}
       defaultName={defaultName}
       defaultWebsite={company?.website ?? ""}

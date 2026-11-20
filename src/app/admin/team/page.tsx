@@ -8,6 +8,7 @@ export default async function AdminTeamPage() {
 
   return (
     <TeamView
+      companyId={data.company.id}
       companyName={data.company.name}
       managers={data.managers}
       creators={data.creators}

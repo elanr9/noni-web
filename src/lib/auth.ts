@@ -27,8 +27,10 @@ export type Profile = {
   role: Role | null;
   platform: boolean;
   active_company_id: string | null;
-  /** For a company admin this also needs the active company's own setup
-      to be finished, so each new company gets its onboarding. */
+  /** For a company admin this is whether the active company's own setup is
+      finished, so each new company gets its onboarding and a company that
+      is already set up never sends its admin back through it. Everyone
+      else reads the person's own flag. */
   onboarded: boolean;
   email?: string | null;
 };
@@ -78,10 +80,7 @@ async function toProfile(
     role,
     platform,
     active_company_id: row.active_company_id,
-    onboarded:
-      role === "company_admin"
-        ? personOnboarded && seat.companyOnboarded
-        : personOnboarded,
+    onboarded: role === "company_admin" ? seat.companyOnboarded : personOnboarded,
     email,
   };
 }

@@ -40,6 +40,7 @@ export default async function AdminBillingPage({
 
   return (
     <BillingView
+      companyId={data.company.id}
       billing={data.billing}
       simulated={ctx?.simulated ?? stripeSimulated()}
       notice={notice}

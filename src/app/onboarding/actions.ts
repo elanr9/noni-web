@@ -6,6 +6,7 @@ import { startBrainIngest, type BrainResult } from "@/app/admin/brain/knowledge-
 import type { IngestState } from "@/lib/admin/brain-model";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
+import { isStaleCompany, STALE_COMPANY_ERROR } from "@/lib/stale-company";
 import { createClient } from "@/lib/supabase/server";
 
 export interface OnboardingSubmission {
@@ -35,10 +36,16 @@ type Gate =
   | { ok: true; userId: string; companyId: string }
   | { ok: false; error: string };
 
-async function requireOnboardingAdmin(): Promise<Gate> {
+/* `renderedFor` is the company the flow was opened for. The answers and
+   the finished mark belong to that company, so the write is refused when
+   the account has since switched to another one (another tab, or the app). */
+async function requireOnboardingAdmin(renderedFor: string): Promise<Gate> {
   const { userId, profile } = await getSessionProfile();
   if (!userId || !isCompanyAdmin(profile) || !profile?.active_company_id) {
     return { ok: false, error: "Company admins only." };
+  }
+  if (isStaleCompany(profile.active_company_id, renderedFor)) {
+    return { ok: false, error: STALE_COMPANY_ERROR };
   }
   return { ok: true, userId, companyId: profile.active_company_id };
 }
@@ -85,10 +92,11 @@ async function writeAnswers(
 }
 
 export async function saveOnboardingProgress(
+  renderedFor: string,
   input: Partial<OnboardingSubmission>,
 ): Promise<OnboardingResult> {
   if (mockMode()) return { ok: true };
-  const gate = await requireOnboardingAdmin();
+  const gate = await requireOnboardingAdmin(renderedFor);
   if (!gate.ok) return gate;
   return writeAnswers(gate, input);
 }
@@ -102,15 +110,18 @@ export async function saveOnboardingProgress(
      still takes its facts, dates and insider details from that document, and
      brain-ingest does no web research, so it keeps running. It used to start
      on the last click; starting it here gives it the length of the survey. */
-export async function startOnboardingScan(input: {
-  website: string;
-  appStoreUrl?: string;
-}): Promise<BrainResult<IngestState>> {
+export async function startOnboardingScan(
+  renderedFor: string,
+  input: {
+    website: string;
+    appStoreUrl?: string;
+  },
+): Promise<BrainResult<IngestState>> {
   const website = input.website.trim();
   if (!website) return { ok: false, error: "Your website is required." };
 
   if (!mockMode()) {
-    const gate = await requireOnboardingAdmin();
+    const gate = await requireOnboardingAdmin(renderedFor);
     if (!gate.ok) return gate;
     const saved = await writeAnswers(gate, { website });
     if (!saved.ok) return saved;
@@ -136,10 +147,11 @@ export async function startOnboardingScan(input: {
 /* Closes the flow: writes every account answer once more (so nothing is
    lost if a step's save failed) and marks the profile onboarded. */
 export async function completeOnboarding(
+  renderedFor: string,
   input: OnboardingSubmission,
 ): Promise<OnboardingResult> {
   if (mockMode()) return { ok: true };
-  const gate = await requireOnboardingAdmin();
+  const gate = await requireOnboardingAdmin(renderedFor);
   if (!gate.ok) return gate;
 
   const fullName = input.fullName.trim();

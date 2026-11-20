@@ -16,7 +16,6 @@ import {
   listSwitchableAccounts,
   rememberCurrentAccount,
   removeStoredAccount,
-  roleHome,
   roleLabel,
   switchToAccount,
   type StoredAccount,
@@ -53,8 +52,8 @@ const MODE_CARDS: Array<{
 
 /* Sidebar footer for every web shell (ops, admin, manager): shows who is
    signed in and opens a popover to swap between remembered admin and
-   campaign manager accounts, add another one, or sign out. Creator
-   accounts never appear; they live in the iOS app. When the signed-in
+   campaign manager accounts, add another one, or sign out. Accounts that
+   only create never appear; they live in the iOS app. When the signed-in
    account is a company admin who also runs campaigns (modes set), a This
    account section switches between the admin and campaign manager
    versions, mirroring the mobile switcher sheet. */
@@ -116,7 +115,10 @@ export function AccountSwitcher({
     const supabase = createClient();
     try {
       await switchToAccount(supabase, account.userId);
-      window.location.assign(roleHome(account.role));
+      /* /dash routes by that account's seats as they are now, not by what
+         was remembered when it was saved. */
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/dash");
     } catch (e) {
       setBusy(false);
       setError(e instanceof Error ? e.message : "Could not switch accounts.");
@@ -166,7 +168,9 @@ export function AccountSwitcher({
     setBusy(true);
     const supabase = createClient();
     if (currentId) removeStoredAccount(currentId);
-    await supabase.auth.signOut();
+    /* This browser only: the default scope would also end the same person's
+       session in the mobile app. */
+    await supabase.auth.signOut({ scope: "local" });
     window.location.assign("/login");
   }
 

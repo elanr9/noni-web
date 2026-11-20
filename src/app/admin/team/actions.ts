@@ -17,6 +17,7 @@ import {
   type PermissionKey,
   type Permissions,
 } from "@/lib/permissions";
+import { isStaleCompany, STALE_COMPANY_ERROR } from "@/lib/stale-company";
 import type { Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -37,8 +38,13 @@ function mockMode(): boolean {
    company_invites row with role + company, which is what pre-binds the
    email: signing in with it lands the invitee in the right role with zero
    setup. The name is display-only until the function persists one; Team
-   rows derive names from the email. */
+   rows derive names from the email.
+
+   Every action here takes the company id its page was rendered for and
+   refuses when the caller has since moved to another company (another tab
+   or the app switched it), so a stale page never writes to the wrong one. */
 export async function sendTeamInvite(input: {
+  companyId: string;
   role: MemberRole;
   name: string;
   email: string;
@@ -78,6 +84,9 @@ export async function sendTeamInvite(input: {
   }
   const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
+  if (isStaleCompany(companyId, input.companyId)) {
+    return { ok: false, error: STALE_COMPANY_ERROR };
+  }
 
   /* Paywall and creator cap (design_handoff_pricing_plans): creators need
      an active plan with room under its cap. Managers do not count. */
@@ -123,6 +132,7 @@ const INVITE_ID_PREFIX = "invite-";
    pending invite. The company admin cannot remove themselves. A later invite to
    the same Google account reattaches via claim_pending_invite. */
 export async function removeTeamMember(
+  renderedFor: string,
   memberId: string,
 ): Promise<TeamActionResult> {
   if (!memberId) return { ok: false, error: "Missing member." };
@@ -143,6 +153,9 @@ export async function removeTeamMember(
   }
   const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
+  if (isStaleCompany(companyId, renderedFor)) {
+    return { ok: false, error: STALE_COMPANY_ERROR };
+  }
   if (memberId === userId) {
     return { ok: false, error: "You cannot remove yourself." };
   }
@@ -203,6 +216,7 @@ export async function removeTeamMember(
 /* Per-member permissions live on the membership row for this company, so a
    manager who also works elsewhere keeps separate toggles per company. */
 export async function updateMemberPermissions(input: {
+  companyId: string;
   memberId: string;
   patch: Permissions;
 }): Promise<TeamActionResult> {
@@ -230,6 +244,9 @@ export async function updateMemberPermissions(input: {
   }
   const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
+  if (isStaleCompany(companyId, input.companyId)) {
+    return { ok: false, error: STALE_COMPANY_ERROR };
+  }
 
   const service = createServiceClient();
   const { data: row, error: readError } = await service
@@ -270,6 +287,7 @@ const ACCESS_KEYS = [
 /* Company-wide campaign manager access in the app. Stored on
    companies.settings.manager_access so the iOS app can read the same flags. */
 export async function updateManagerAccess(
+  renderedFor: string,
   patch: Partial<ManagerAccess>,
 ): Promise<TeamActionResult> {
   const keys = Object.keys(patch) as Array<keyof ManagerAccess>;
@@ -295,6 +313,9 @@ export async function updateManagerAccess(
   }
   const companyId = profile?.active_company_id;
   if (!companyId) return { ok: false, error: "No company on this account." };
+  if (isStaleCompany(companyId, renderedFor)) {
+    return { ok: false, error: STALE_COMPANY_ERROR };
+  }
 
   const service = createServiceClient();
   const { data: row, error: readError } = await service

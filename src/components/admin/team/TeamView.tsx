@@ -15,10 +15,12 @@ import type { ManagerAccess, Member, MemberRole } from "@/lib/admin/types";
 
 function InviteModal({
   role,
+  companyId,
   companyName,
   onClose,
 }: {
   role: MemberRole;
+  companyId: string;
   companyName: string;
   onClose: () => void;
 }) {
@@ -34,6 +36,7 @@ function InviteModal({
     setError(null);
     startTransition(async () => {
       const result = await sendTeamInvite({
+        companyId,
         role,
         name: name.trim(),
         email: email.trim(),
@@ -180,11 +183,15 @@ function TeamSection({
 }
 
 export function TeamView({
+  companyId,
   companyName,
   managers,
   creators,
   managerAccess,
 }: {
+  /** The company this page was rendered for; the actions refuse when the
+      account has since switched to another one. */
+  companyId: string;
   companyName: string;
   managers: Member[];
   creators: Member[];
@@ -201,7 +208,7 @@ export function TeamView({
     setAccess((prev) => ({ ...prev, [key]: next }));
     setAccessError(null);
     startTransition(async () => {
-      const result = await updateManagerAccess({ [key]: next });
+      const result = await updateManagerAccess(companyId, { [key]: next });
       if (!result.ok) {
         setAccess((prev) => ({ ...prev, [key]: !next }));
         setAccessError(result.error);
@@ -268,6 +275,7 @@ export function TeamView({
       </div>
       {inviting ? (
         <InviteModal
+          companyId={companyId}
           role={inviting}
           companyName={companyName}
           onClose={() => setInviting(null)}
