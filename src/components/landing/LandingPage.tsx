@@ -163,11 +163,11 @@ export function LandingPage() {
                   <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                   {IOS_APP_AVAILABILITY === "app_store" ? "Available on the App Store" : "Now in private beta on iPhone"}
                 </span>
-                <h1 className="display mt-5 text-[50px] font-extrabold leading-[1.02] text-ink sm:text-[64px] lg:text-[76px]">
-                  UGC Campaigns made easy
+                <h1 className="display mt-5 text-[42px] font-extrabold leading-[1.04] text-ink sm:text-[56px] lg:text-[64px]">
+                  Your entire UGC Campaigns all in one place
                 </h1>
                 <p className="mx-auto mt-5 max-w-[34ch] text-[18px] leading-[1.5] text-muted md:text-[20px] lg:mx-0">
-                  Write briefs, film, edit with AI, post, track results and pay your creators, all in one app.
+                  Write briefs, film, edit with AI, post, track results and pay your creators.
                 </p>
                 <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
                   <Link
