@@ -51,7 +51,12 @@ export function AuthCallbackClient({
     async function run() {
       const safeNext = next.startsWith("/") ? next : "/dash";
       if (!code) {
-        await fail("Missing auth code.");
+        /* A refused sign-in (no invite for that email) comes back with the
+           reason on the URL instead of a code. */
+        const refused =
+          new URLSearchParams(window.location.search).get("error_description") ??
+          new URLSearchParams(window.location.hash.replace(/^#/, "")).get("error_description");
+        await fail(refused ? refused.replace(/\+/g, " ") : "Missing auth code.");
         return;
       }
 
