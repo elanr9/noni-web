@@ -438,14 +438,15 @@ export function OnboardingFlow({
 
   /* Poll the scan while it runs, whichever screen is showing. */
   useEffect(() => {
-    if (!scanRuns) return;
+    /* While the start request is out, the server still holds the last scan. */
+    if (!scanRuns || scanStarting) return;
     const id = window.setInterval(() => {
       void getBrainIngestStatus().then((result) => {
         if (result.ok) setScan(result.data);
       });
     }, POLL_MS);
     return () => window.clearInterval(id);
-  }, [scanRuns]);
+  }, [scanRuns, scanStarting]);
 
   function go(next: StepId) {
     setStep(next);
@@ -461,9 +462,31 @@ export function OnboardingFlow({
     if (!site || scanStarting) return;
     setScanError(null);
     setScanStarting(true);
+    /* Show the scan running the moment it is asked for; the server's own
+       state replaces this when it answers. */
+    const before = scan;
+    setScan({
+      started: true,
+      ingest: {
+        status: "running",
+        phase: "crawl",
+        progress: { done: [], failed: [], notes: [] },
+        error: null,
+      },
+      summary: {
+        sources: 0,
+        sources_pending: 0,
+        facts: 0,
+        facts_confirmed: 0,
+        conflicts_open: 0,
+        coverage: 0,
+        missing: [],
+      },
+    });
     void startOnboardingScan(companyId, { website: site, appStoreUrl }).then((result) => {
       setScanStarting(false);
       if (!result.ok) {
+        setScan(before);
         setScanError(result.error);
         return;
       }
