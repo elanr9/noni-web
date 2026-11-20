@@ -51,7 +51,7 @@ export async function pingTopUp(input: {
       tokens.map((to) => ({
         to,
         title: "Budget running low",
-        body: "Your Noni credits are running low. Top up to keep bounties paying out.",
+        body: "Your Noni credits are running low. Top up to keep your creators getting paid.",
         data: { event: "credits_low", company_id: input.companyId },
       })),
     ),

@@ -108,6 +108,82 @@ function ScanStrip({ scan, error }: { scan: IngestState | null; error: string | 
   );
 }
 
+/* The scan, live, above the founder questions: what is being read, how far
+   it got, and a nudge that drafts will appear. Turns green when it is done. */
+function ScanCard({
+  scan,
+  site,
+  onRetry,
+}: {
+  scan: IngestState | null;
+  site: string;
+  onRetry: () => void;
+}) {
+  const run = scan?.ingest ?? null;
+  if (!run) return null;
+  const host = site.replace(/^https?:\/\//, "").replace(/\/$/, "") || "your site";
+  const done = run.status === "done";
+  const failed = run.status === "failed";
+  const steps = scanSteps(run);
+  const active = steps.find((x) => x.state === "active")?.label ?? "Getting started";
+  const { sources, facts } = scan!.summary;
+  const counts = [
+    sources > 0 ? `${sources} ${sources === 1 ? "page" : "pages"} read` : null,
+    facts > 0 ? `${facts} ${facts === 1 ? "fact" : "facts"} found` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div
+      role="status"
+      className={`mb-7 flex items-center gap-3.5 border px-[18px] py-4 rounded-[16px] transition-colors duration-[200ms] ease-om ${
+        failed
+          ? "border-transparent bg-amber-soft"
+          : done
+            ? "border-transparent bg-green-soft"
+            : "border-line bg-white shadow-card"
+      }`}
+    >
+      <span
+        className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-pill ${
+          failed ? "bg-white text-amber" : done ? "bg-white text-green" : "bg-blue-100 text-blue-700"
+        }`}
+      >
+        {done ? <Check size={19} /> : failed ? <span className="text-[17px] font-bold">!</span> : <Loader2 size={19} className="animate-spin" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[15.5px] font-bold text-ink">
+          {failed ? `Could not finish reading ${host}` : done ? `Read ${host}` : `Reading ${host}`}
+        </span>
+        <span className="mt-0.5 block text-[13.5px] font-semibold text-slate-500">
+          {failed
+            ? "Your answers still count. You can try the scan again."
+            : done
+              ? `${counts || "Done"}. Drafts are in your answers.`
+              : `${active}${counts ? ` · ${counts}` : ""}`}
+        </span>
+        {!done && !failed ? (
+          <span className="mt-2.5 flex gap-1" aria-hidden>
+            {steps.map((x) => (
+              <span
+                key={x.label}
+                className={`h-1 flex-1 rounded-pill ${
+                  x.state === "done" ? "bg-blue-500" : x.state === "active" ? "animate-pulse bg-blue-300" : "bg-line"
+                }`}
+              />
+            ))}
+          </span>
+        ) : null}
+      </span>
+      {failed ? (
+        <Pill size="sm" variant="tint" onClick={onRetry}>
+          Scan again
+        </Pill>
+      ) : null}
+    </div>
+  );
+}
+
 /* Full-screen frame for the screens after the account questions. */
 function Frame({
   children,
@@ -146,7 +222,7 @@ function ChoiceCard({
       type="button"
       onClick={onClick}
       className={`flex w-full cursor-pointer items-center gap-2.5 rounded-[14px] border text-left transition-colors duration-[160ms] ease-om ${
-        hint ? "px-[18px] py-[15px]" : "px-4 py-3.5"
+        hint ? "px-5 py-[18px]" : "px-5 py-[17px]"
       } ${
         selected
           ? "border-transparent bg-blue-100"
@@ -155,14 +231,14 @@ function ChoiceCard({
     >
       <span className="min-w-0 flex-1">
         <span
-          className={`block whitespace-nowrap text-[14.5px] font-bold ${
+          className={`block whitespace-nowrap text-[16px] font-bold ${
             selected ? "text-blue-700" : "text-ink"
           }`}
         >
           {title}
         </span>
         {hint ? (
-          <span className="mt-0.5 block text-[13px] font-semibold text-slate-400">
+          <span className="mt-1 block text-[14px] font-semibold text-slate-400">
             {hint}
           </span>
         ) : null}
@@ -261,32 +337,32 @@ function OnbStep({
     <div className="flex min-h-screen flex-col bg-ground font-ops">
       <TopBar right={topRight} />
       <div className="flex flex-1 items-start justify-center px-5 pb-[60px] pt-8 sm:px-6 sm:pt-12">
-        <div key={stepKey} className="w-[440px] max-w-full animate-om-rise">
-          <div className="mb-[30px] flex gap-1.5">
+        <div key={stepKey} className="w-[520px] max-w-full animate-om-rise">
+          <div className="mb-[34px] flex gap-1.5">
             {Array.from({ length: total }).map((_, i) => (
               <span
                 key={i}
-                className={`h-1 flex-1 rounded-pill transition-colors duration-[160ms] ease-om ${
+                className={`h-1.5 flex-1 rounded-pill transition-colors duration-[160ms] ease-om ${
                   i <= index ? "bg-blue-500" : "bg-line"
                 }`}
               />
             ))}
           </div>
-          <h1 className="m-0 text-[28px] font-bold tracking-[-0.7px] text-ink">
+          <h1 className="m-0 text-[30px] font-bold leading-[1.15] tracking-[-0.8px] text-ink sm:text-[36px]">
             {title}
           </h1>
           {subtitle ? (
-            <p className="mb-0 mt-[9px] text-[14.5px] font-semibold leading-[1.55] text-slate-400">
+            <p className="mb-0 mt-2.5 text-[16px] font-semibold leading-[1.55] text-slate-400">
               {subtitle}
             </p>
           ) : null}
-          <div className="mt-[26px]">{children}</div>
+          <div className="mt-[30px]">{children}</div>
           {primary ? (
             <Pill
               onClick={primaryDisabled ? undefined : onPrimary}
               disabled={primaryDisabled}
-              className="mt-[26px] w-full"
-              style={{ padding: "15px 22px", fontSize: 15 }}
+              className="mt-[30px] w-full"
+              style={{ padding: "17px 22px", fontSize: 16 }}
             >
               {primary}
             </Pill>
@@ -423,8 +499,11 @@ export function OnboardingFlow({
   }
 
   const strip = <ScanStrip scan={scan} error={scanError} />;
-  /* The wait screen gives way to the survey the moment the scan is done. */
-  const view: StepId = step === "scan" && scanStatus === "done" ? "survey" : step;
+  /* No waiting on the scan: the questions start at once and the scan keeps
+     going in the card above them. The scan screen only shows when the scan
+     stopped or never started, to offer another go. */
+  const scanStopped = Boolean(scanError) || scanStatus === "failed" || (!scan?.ingest && !scanStarting);
+  const view: StepId = step === "scan" && !scanStopped ? "survey" : step;
 
   if (view === "welcome") {
     const firstName = defaultName.trim().split(/\s+/)[0] ?? "";
@@ -478,6 +557,7 @@ export function OnboardingFlow({
         }}
       >
         <Field
+          size="lg"
           label="Your name"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -521,6 +601,7 @@ export function OnboardingFlow({
         stepKey="website"
         total={total}
         title="What's your website?"
+        subtitle="Noni reads it in the background while you answer the next few questions, then drafts your answers from it."
         primary={scanned ? "Next" : "Scan site"}
         primaryDisabled={!website.trim()}
         onPrimary={() => {
@@ -532,12 +613,14 @@ export function OnboardingFlow({
       >
         <div className="flex flex-col gap-4">
           <Field
+            size="lg"
             label="Website"
             value={website}
             onChange={(e) => setWebsite(e.target.value)}
             autoFocus
           />
           <Field
+            size="lg"
             label="App store link"
             value={appStoreUrl}
             onChange={(e) => setAppStoreUrl(e.target.value)}
@@ -837,9 +920,18 @@ export function OnboardingFlow({
     </>
   );
 
+  const s = scan?.summary;
+  const refreshKey = scan?.ingest
+    ? `${scan.ingest.status}:${scan.ingest.phase}:${s?.sources ?? 0}:${s?.facts ?? 0}`
+    : undefined;
+
   return (
-    <Frame width={540} right={scanRuns ? strip : undefined}>
+    <Frame width={640}>
+      <ScanCard scan={scan} site={scannedSite || website} onRetry={startScan} />
       <BrainSurvey
+        reviewLast
+        scanning={scanRuns || scanStarting}
+        refreshKey={refreshKey}
         renderDone={() => exit}
         fallback={
           <>

@@ -659,3 +659,17 @@ export async function segmentScreenshotUrls(
 }
 
 export type { Brief, BriefWithType, Campaign, CampaignBriefItem, PostType };
+
+/** The company's prepaid credit balance in cents, or null with no billing
+    row yet. Scoped by company_id like every read here. */
+export async function getCreditBalanceCents(companyId: string): Promise<number | null> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("company_billing")
+    .select("credit_balance_cents")
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (error) throw error;
+  const cents = (data as { credit_balance_cents: number | null } | null)?.credit_balance_cents;
+  return typeof cents === "number" ? cents : null;
+}

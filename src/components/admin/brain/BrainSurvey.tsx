@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic } from "lucide-react";
+import { Loader2, Mic, Sparkles } from "lucide-react";
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 
 import {
@@ -48,6 +48,14 @@ export interface BrainSurveyProps {
   renderDone: (summary: SurveySummary) => ReactNode;
   /** Shown beside "Try again" when the questions cannot be loaded. */
   fallback?: ReactNode;
+  /** Onboarding: the questions come first, while the site scan runs, and
+      the check of what the scan found comes after the last question. */
+  reviewLast?: boolean;
+  /** True while a scan is running; questions say drafts are on the way. */
+  scanning?: boolean;
+  /** Changes whenever the scan moves on; drafted answers and facts are
+      fetched again, without moving the person off their question. */
+  refreshKey?: string;
 }
 
 function startStep(state: SurveyState): number {
@@ -69,7 +77,7 @@ function QuietButton({ children, onClick }: { children: ReactNode; onClick: () =
 
 function Heading({ children }: { children: ReactNode }) {
   return (
-    <h1 className="m-0 text-[26px] font-bold leading-[1.2] tracking-[-0.6px] text-ink sm:text-[28px]">
+    <h1 className="m-0 text-[28px] font-bold leading-[1.15] tracking-[-0.8px] text-ink sm:text-[34px]">
       {children}
     </h1>
   );
@@ -91,11 +99,18 @@ function ReviewStep({
   factsError,
   onReload,
   onNext,
+  atEnd = false,
+  scanning = false,
+  pending = false,
 }: {
   facts: FactsList | null;
   factsError: string | null;
   onReload: () => void;
   onNext: () => void;
+  /** Shown after the questions (onboarding): the button finishes. */
+  atEnd?: boolean;
+  scanning?: boolean;
+  pending?: boolean;
 }) {
   const [shown, setShown] = useState(REVIEW_PAGE);
   const queue = facts ? reviewQueue(facts) : [];
@@ -105,11 +120,13 @@ function ReviewStep({
 
   return (
     <div>
-      <Heading>Check what we found</Heading>
+      <Heading>{atEnd ? "Last step: check what we found" : "Check what we found"}</Heading>
       {facts ? (
-        <p className="mb-0 mt-[9px] text-[14.5px] font-semibold text-slate-400">
+        <p className="mb-0 mt-[9px] text-[16px] font-semibold text-slate-400">
           {total === 0
-            ? "Nothing found yet"
+            ? scanning
+              ? "Still reading your site…"
+              : "Nothing found yet"
             : left === 0
               ? `${total} ${total === 1 ? "fact" : "facts"}, all confirmed`
               : `${total} ${total === 1 ? "fact" : "facts"} · ${left} to check`}
@@ -143,8 +160,8 @@ function ReviewStep({
         </Card>
       ) : null}
       {facts || factsError ? (
-        <Pill onClick={onNext} className="mt-[26px] w-full" style={BIG_PILL}>
-          Start questions
+        <Pill onClick={onNext} disabled={pending} className="mt-[26px] w-full" style={BIG_PILL}>
+          {atEnd ? (pending ? "Saving…" : left > 0 ? "Looks right, finish" : "Finish") : "Start questions"}
         </Pill>
       ) : (
         <p className="mb-0 mt-4 text-[14px] font-semibold text-slate-400">Loading…</p>
@@ -167,6 +184,8 @@ function QuestionStep({
   onSave,
   onSkip,
   onBack,
+  scanning = false,
+  canBack = true,
 }: {
   question: SurveyQuestion;
   index: number;
@@ -180,6 +199,8 @@ function QuestionStep({
   onSave: () => void;
   onSkip: () => void;
   onBack: () => void;
+  scanning?: boolean;
+  canBack?: boolean;
 }) {
   const [showSource, setShowSource] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -219,10 +240,14 @@ function QuestionStep({
         ) : null}
       </div>
       <Heading>{question.question}</Heading>
+      {question.why ? (
+        <p className="mb-0 mt-2.5 text-[16px] font-semibold leading-[1.5] text-slate-400">{question.why}</p>
+      ) : null}
       <div className="mt-[22px]">
         <TextArea
+          size="lg"
           value={text}
-          rows={6}
+          rows={7}
           autoFocus
           disabled={transcribing || pending}
           placeholder={voice.recording ? "Listening…" : question.hint}
@@ -230,10 +255,17 @@ function QuestionStep({
         />
       </div>
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {drafted.length === 0 && scanning && !question.answer && !text.trim() ? (
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-blue-700">
+            <Loader2 size={13} className="animate-spin" />
+            Reading your site. A draft lands here if it has the answer.
+          </span>
+        ) : null}
         {drafted.length > 0 ? (
           <>
-            <span className="text-[12.5px] font-semibold text-slate-400">
-              {`Drafted ${sourceLabel(drafted[0]).replace(/^From/, "from")}`}
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-green">
+              <Sparkles size={13} />
+              {`Drafted ${sourceLabel(drafted[0]).replace(/^From/, "from")}. Edit or confirm.`}
             </span>
             <button
               type="button"
@@ -274,7 +306,7 @@ function QuestionStep({
         {pending ? "Saving…" : unchanged ? "Keep answer" : fromSuggestion ? "Confirm" : "Save answer"}
       </Pill>
       <div className="mt-2 flex items-center justify-center gap-3">
-        <QuietButton onClick={onBack}>Back</QuietButton>
+        {canBack ? <QuietButton onClick={onBack}>Back</QuietButton> : null}
         {unchanged ? null : <QuietButton onClick={onSkip}>Skip</QuietButton>}
       </div>
     </div>
@@ -355,7 +387,15 @@ function SummaryStep({
 
 /* ── The flow ──────────────────────────────────────────────────────────── */
 
-export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback }: BrainSurveyProps) {
+export function BrainSurvey({
+  initialSurvey,
+  initialFacts,
+  renderDone,
+  fallback,
+  reviewLast = false,
+  scanning = false,
+  refreshKey,
+}: BrainSurveyProps) {
   const [survey, setSurvey] = useState<SurveyState | null>(
     initialSurvey?.ok ? initialSurvey.data : null,
   );
@@ -366,7 +406,10 @@ export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback 
   const [factsError, setFactsError] = useState<string | null>(
     initialFacts && !initialFacts.ok ? initialFacts.error : null,
   );
-  const [step, setStep] = useState(initialSurvey?.ok ? startStep(initialSurvey.data) : 0);
+  const firstStep = (state: SurveyState) => (reviewLast ? Math.max(1, startStep(state)) : startStep(state));
+  const [step, setStep] = useState(initialSurvey?.ok ? firstStep(initialSurvey.data) : 0);
+  /* Onboarding shows the scan review after the last question, at step 0. */
+  const [reviewingAtEnd, setReviewingAtEnd] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -380,7 +423,26 @@ export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback 
     }
     setLoadError(null);
     setSurvey(result.data);
-    setStep(startStep(result.data));
+    setStep(firstStep(result.data));
+  };
+
+  /* A scan update: take the new drafts, coverage and anything answered
+     elsewhere, keep the person on the question they are on. */
+  const mergeSurvey = (result: BrainResult<SurveyState>) => {
+    if (!result.ok) return;
+    setSurvey((prev) => {
+      if (!prev) return result.data;
+      const fresh = new Map(result.data.questions.map((q) => [q.key, q]));
+      return {
+        ...prev,
+        coverage: result.data.coverage,
+        missing: result.data.missing,
+        questions: prev.questions.map((q) => {
+          const next = fresh.get(q.key);
+          return next ? { ...q, suggestion: next.suggestion, answer: q.answer ?? next.answer } : q;
+        }),
+      };
+    });
   };
 
   const applyFacts = (result: BrainResult<FactsList>) => {
@@ -414,6 +476,21 @@ export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback 
       live = false;
     };
   }, [needSurvey, needFacts]);
+
+  /* Each time the scan moves on, pick up its drafts and facts. */
+  useEffect(() => {
+    if (!refreshKey) return;
+    let live = true;
+    void getBrainSurvey().then((result) => {
+      if (live) mergeSurvey(result);
+    });
+    void listBrainFacts().then((result) => {
+      if (live) applyFacts(result);
+    });
+    return () => {
+      live = false;
+    };
+  }, [refreshKey]);
 
   if (!survey) {
     return (
@@ -459,9 +536,21 @@ export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback 
     setStep(last);
   };
 
+  const factsToCheck = facts ? facts.conflicts.length + reviewQueue(facts).length : 0;
+  /* Onboarding: after the last question, check the scan's findings first. */
+  const toEnd = () => {
+    if (reviewLast && !reviewingAtEnd && (factsToCheck > 0 || scanning)) {
+      setReviewingAtEnd(true);
+      setStep(0);
+      return true;
+    }
+    return false;
+  };
+
   const goTo = (next: number, save: boolean) => {
     setError(null);
     if (next >= last) {
+      if (toEnd()) return;
       startTransition(finish);
       return;
     }
@@ -474,8 +563,8 @@ export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback 
       {questions.map((q, i) => (
         <span
           key={q.key}
-          className={`h-1 flex-1 rounded-pill transition-colors duration-[160ms] ease-om ${
-            i < at ? "bg-blue-500" : "bg-line"
+          className={`h-1.5 flex-1 rounded-pill transition-colors duration-[160ms] ease-om ${
+            i < at || reviewingAtEnd ? "bg-blue-500" : "bg-line"
           }`}
         />
       ))}
@@ -490,9 +579,13 @@ export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback 
           facts={facts}
           factsError={factsError}
           onReload={() => void loadFacts()}
+          atEnd={reviewingAtEnd}
+          scanning={scanning}
+          pending={pending}
           onNext={() => {
             setNote(null);
-            goTo(1, true);
+            if (reviewingAtEnd) startTransition(finish);
+            else goTo(1, true);
           }}
         />
       </div>
@@ -544,8 +637,9 @@ export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback 
           : s,
       );
       setNote(savedLine(saved));
-      if (at + 1 >= last) await finish();
-      else setStep(at + 1);
+      if (at + 1 >= last) {
+        if (!toEnd()) await finish();
+      } else setStep(at + 1);
     });
   };
 
@@ -570,6 +664,8 @@ export function BrainSurvey({ initialSurvey, initialFacts, renderDone, fallback 
           setNote(null);
           goTo(at - 1, false);
         }}
+        scanning={scanning}
+        canBack={!(reviewLast && at === 1)}
       />
     </div>
   );

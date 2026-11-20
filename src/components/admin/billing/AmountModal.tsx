@@ -34,7 +34,11 @@ export function AmountModal({
   onClose: () => void;
 }) {
   const [amt, setAmt] = useState(initial);
-  const [custom, setCustom] = useState("");
+  /* An initial amount that is not a quick pick (the estimator's suggestion)
+     starts in the custom field so it is visible and editable. */
+  const [custom, setCustom] = useState(
+    QUICK_PICKS.includes(initial) ? "" : String(initial),
+  );
   const [busy, setBusy] = useState(false);
   const value = custom ? parseInt(custom.replace(/[^0-9]/g, ""), 10) || 0 : amt;
 

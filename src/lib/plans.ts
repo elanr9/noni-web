@@ -97,7 +97,7 @@ export const SELF_SERVE_PLANS: SelfServePlanCard[] = [
     feats: [
       "Unlimited campaigns and briefs",
       "TikTok and Instagram tracking",
-      "Creator payouts through Stripe",
+      "Creator payouts by bank transfer",
     ],
     capFeat: { bold: `Up to ${PLAN_CREATOR_CAP.starter} creators`, rest: " per campaign" },
   },

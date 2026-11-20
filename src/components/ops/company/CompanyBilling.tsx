@@ -156,7 +156,7 @@ export function CompanyBilling({
           />
         </div>
         <div className="mt-2 text-[12.5px] font-semibold text-slate-400">
-          {Math.round(pct * 100)}% of August budget used · pays creator bounties
+          {Math.round(pct * 100)}% of August budget used · pays creators
         </div>
       </Card>
       <Card pad={0}>

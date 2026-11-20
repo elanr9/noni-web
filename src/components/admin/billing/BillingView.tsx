@@ -20,6 +20,7 @@ import { Card, Chip, Label, Pill } from "@/components/kit";
 import type { AdminBilling, SubscriptionPlan } from "@/lib/admin/types";
 
 import { AmountModal, money } from "./AmountModal";
+import { EstimateCard } from "./EstimateCard";
 import { PlanPicker, TIER_LABEL } from "./PlanPicker";
 import { SignupTrackingCard } from "./SignupTrackingCard";
 
@@ -73,6 +74,8 @@ export function BillingView({
 }) {
   const router = useRouter();
   const [modal, setModal] = useState<ModalKind>(null);
+  /* Prefill for the top-up modal when the estimator opens it. */
+  const [topUpInitial, setTopUpInitial] = useState<number | undefined>(undefined);
   /* The plan picker replaces the subscription card in the change-plan flow;
      with no subscription it is the subscription section. */
   const [changingPlan, setChangingPlan] = useState(false);
@@ -381,12 +384,27 @@ export function BillingView({
                       </button>
                     </span>
                   </span>
-                  <Pill size="sm" variant="quiet" icon={Plus} onClick={() => setModal("topup")}>
+                  <Pill
+                    size="sm"
+                    variant="quiet"
+                    icon={Plus}
+                    onClick={() => {
+                      setTopUpInitial(undefined);
+                      setModal("topup");
+                    }}
+                  >
                     Top up
                   </Pill>
                 </div>
               </Card>
             </div>
+
+            <EstimateCard
+              onTopUp={(dollars) => {
+                setTopUpInitial(dollars);
+                setModal("topup");
+              }}
+            />
 
             {billing.topUpHistory.length > 0 ? (
               <Card pad={0}>
@@ -471,6 +489,7 @@ export function BillingView({
           customLabel="Or a custom amount"
           ctaLabel={(v) => `Add ${money(v)}`}
           busyLabel="Adding credit…"
+          initial={topUpInitial}
           onSubmit={(v) => run(() => topUpCredit(companyId, v))}
           onClose={() => setModal(null)}
         />

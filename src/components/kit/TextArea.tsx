@@ -15,6 +15,8 @@ export interface TextAreaProps {
   disabled?: boolean;
   rows?: number;
   name?: string;
+  /** lg: the onboarding question screens. */
+  size?: "md" | "lg";
 }
 
 /* Multi-line twin of Field: same border, radius, type and focus ring. */
@@ -28,6 +30,7 @@ export function TextArea({
   disabled = false,
   rows = 5,
   name,
+  size = "md",
 }: TextAreaProps) {
   const box = (
     <textarea
@@ -39,7 +42,7 @@ export function TextArea({
       disabled={disabled}
       rows={rows}
       aria-label={label ? undefined : placeholder}
-      className={`box-border block w-full resize-y border border-line bg-white px-3.5 py-3 text-[14.5px] font-semibold leading-[1.55] text-ink outline-none rounded-ops-sm transition-opacity duration-[160ms] ease-om placeholder:text-slate-300 focus:border-blue-500 focus:[box-shadow:var(--ring-focus)] ${
+      className={`box-border block w-full resize-y border border-line bg-white ${size === "lg" ? "px-[18px] py-4 text-[17px]" : "px-3.5 py-3 text-[14.5px]"} font-semibold leading-[1.55] text-ink outline-none rounded-ops-sm transition-opacity duration-[160ms] ease-om placeholder:text-slate-300 focus:border-blue-500 focus:[box-shadow:var(--ring-focus)] ${
         disabled ? "opacity-50" : ""
       }`}
     />

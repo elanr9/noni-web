@@ -20,8 +20,9 @@ import { CompanyBilling } from "./CompanyBilling";
 import { CompanyBrain } from "./CompanyBrain";
 import { CompanyPosts } from "./CompanyPosts";
 import { CompanyTeam } from "./CompanyTeam";
+import { CompanyTestMode } from "./CompanyTestMode";
 
-const TABS = ["Analytics", "Team", "Posts", "Company Brain", "Billing"] as const;
+const TABS = ["Analytics", "Team", "Posts", "Company Brain", "Billing", "Test mode"] as const;
 type CompanyTab = (typeof TABS)[number];
 
 export interface CompanyDetailProps {
@@ -75,6 +76,7 @@ export function CompanyDetail({
         {tab === "Billing" ? (
           <CompanyBilling company={company} billing={billing} />
         ) : null}
+        {tab === "Test mode" ? <CompanyTestMode company={company} /> : null}
       </div>
     </div>
   );

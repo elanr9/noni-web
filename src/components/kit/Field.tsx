@@ -13,6 +13,8 @@ export interface FieldProps {
   autoFocus?: boolean;
   type?: "text" | "email" | "url";
   name?: string;
+  /** lg: the onboarding question screens. */
+  size?: "md" | "lg";
 }
 
 export function Field({
@@ -24,6 +26,7 @@ export function Field({
   autoFocus,
   type = "text",
   name,
+  size = "md",
 }: FieldProps) {
   return (
     <label className="flex flex-col gap-[7px]">
@@ -40,7 +43,7 @@ export function Field({
         onChange={onChange}
         placeholder={placeholder}
         autoFocus={autoFocus}
-        className="w-full border border-line bg-white px-3.5 py-3 text-[14.5px] font-semibold text-ink outline-none rounded-ops-sm focus:border-blue-500 focus:[box-shadow:var(--ring-focus)]"
+        className={`w-full border border-line bg-white ${size === "lg" ? "px-[18px] py-4 text-[17px]" : "px-3.5 py-3 text-[14.5px]"} font-semibold text-ink outline-none rounded-ops-sm focus:border-blue-500 focus:[box-shadow:var(--ring-focus)]`}
       />
     </label>
   );

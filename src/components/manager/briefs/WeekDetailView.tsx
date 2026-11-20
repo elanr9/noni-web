@@ -2,6 +2,7 @@
 
 import {
   CheckCircle2,
+  CircleAlert,
   ChevronRight,
   Images,
   LayoutList,
@@ -14,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useSyncExternalStore } from "react";
 
 import { Avatar, Card, Label, Modal, PageHead, Pill } from "@/components/kit";
+import { BASE_PAY_LINE, formatCents, weekGuaranteedCost } from "@/lib/creator-pay";
 
 import { publishWeek, saveWeekTargets } from "@/app/manager/briefs/actions";
 import { FormatThumb, PostTypeChip, ProgressBar } from "./bits";
@@ -358,6 +360,8 @@ export function WeekDetailView({
   posts,
   stats,
   showSales,
+  creditBalanceCents,
+  creatorCount,
 }: {
   campaign: Campaign;
   weekNumber: number | null;
@@ -365,6 +369,10 @@ export function WeekDetailView({
   posts: WeekPostItem[] | null;
   stats: BriefWeekStats | null;
   showSales: boolean;
+  /** Company credit balance; null on done weeks or with no billing row. */
+  creditBalanceCents: number | null;
+  /** Creators publish reaches (roster creators with an approved account). */
+  creatorCount: number;
 }) {
   const router = useRouter();
   const [lane, setLane] = useState<Lane>("video");
@@ -454,6 +462,19 @@ export function WeekDetailView({
     rows.length > 0 && leftCount === 0 ? "complete" : "in_progress";
   const videoTarget = campaign.video_target ?? 20;
   const slideshowTarget = campaign.slideshow_target ?? 10;
+  /* Guaranteed creator pay for the week: every approved creator gets every
+     brief left in it (publish-campaign skips killed slots), so base pay plus
+     the Noni fee per post, times the creators. View pay comes on top. */
+  const livePosts = items.filter((i) => !i.briefs.kill_reason);
+  const weekPostCount = livePosts.length;
+  const weekCost = weekGuaranteedCost({
+    creators: creatorCount,
+    videoPosts: livePosts.filter((i) => i.briefs.format === "video").length,
+    staticPosts: livePosts.filter((i) => i.briefs.format !== "video").length,
+  });
+  const weekCostCents = weekCost.companyCents;
+  const shortOnCredit =
+    weekCostCents > 0 && (creditBalanceCents ?? 0) < weekCostCents;
 
   const metaSuffix =
     status === "next"
@@ -596,8 +617,17 @@ export function WeekDetailView({
             ))}
           </div>
 
-          {editable ? (
-            <div className="-mt-1 flex justify-end">
+          <div className="-mt-1 flex items-center gap-3">
+            <span className="flex-1 text-[12.5px] font-semibold text-slate-400">
+              Guaranteed creator pay this week: {formatCents(weekCostCents)} (
+              {creatorCount} {creatorCount === 1 ? "creator" : "creators"} ×{" "}
+              {weekPostCount} {weekPostCount === 1 ? "post" : "posts"})
+              <span className="text-slate-300">
+                {" "}
+                · {BASE_PAY_LINE}
+              </span>
+            </span>
+            {editable ? (
               <button
                 type="button"
                 onClick={() => setTargetsOpen(true)}
@@ -605,7 +635,24 @@ export function WeekDetailView({
               >
                 Edit targets
               </button>
-            </div>
+            ) : null}
+          </div>
+
+          {shortOnCredit ? (
+            <Card
+              pad={14}
+              className="flex items-center gap-3"
+              style={{ background: "var(--color-amber-soft)", borderColor: "transparent" }}
+            >
+              <CircleAlert size={17} className="shrink-0 text-amber" />
+              <span className="flex-1 text-[13px] font-semibold leading-snug text-ink">
+                {showSales && creditBalanceCents !== null
+                  ? `Your credit balance (${formatCents(Math.max(0, creditBalanceCents))}) is below this week's guaranteed ${formatCents(weekCostCents)}.`
+                  : `Your credit balance is below this week's guaranteed ${formatCents(weekCostCents)}.`}{" "}
+                Ask a company admin to top up in Billing so creators can be
+                paid.
+              </span>
+            </Card>
           ) : null}
 
           {splitChips.length > 0 ? (

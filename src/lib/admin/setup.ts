@@ -70,7 +70,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       key: "billing",
       done: billingDone,
       title: "Set your budget and subscription",
-      sub: "Pick your plan and set the monthly budget that pays creator bounties. Selling on Stripe? Connecting it for sales analytics is optional.",
+      sub: "Pick your plan and set the monthly budget that pays your creators. Selling on Stripe? Connecting it for sales analytics is optional.",
       action: "Open Billing",
       href: "/admin/billing",
     },

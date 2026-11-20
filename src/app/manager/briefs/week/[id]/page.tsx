@@ -2,9 +2,11 @@ import { notFound, redirect } from "next/navigation";
 
 import { briefWeekStatus } from "@/components/manager/briefs/lib";
 import { WeekDetailView } from "@/components/manager/briefs/WeekDetailView";
+import { publishAudienceCount } from "@/lib/admin/billing";
 import { getSessionProfile } from "@/lib/auth";
 import {
   getCampaign,
+  getCreditBalanceCents,
   listCampaignBriefs,
   listWeekPosts,
   weekNumberOf,
@@ -30,12 +32,16 @@ export default async function WeekDetailPage({
   if (!campaign) notFound();
 
   const isDone = briefWeekStatus(campaign).status === "done";
-  const [context, weekNumber, items, posts, stats] = await Promise.all([
+  const [context, weekNumber, items, posts, stats, creditBalanceCents, creatorCount] =
+    await Promise.all([
     getManagerContext(companyId),
     weekNumberOf(companyId, campaign.id),
     listCampaignBriefs(companyId, campaign.id),
     isDone ? listWeekPosts(companyId, campaign.id) : Promise.resolve(null),
     isDone ? weekStatsFor(companyId, campaign) : Promise.resolve(null),
+    isDone ? Promise.resolve(null) : getCreditBalanceCents(companyId),
+    /* Who publish-campaign reaches: roster creators with an approved account. */
+    isDone ? Promise.resolve(0) : publishAudienceCount(companyId),
   ]);
 
   return (
@@ -46,6 +52,8 @@ export default async function WeekDetailPage({
       posts={posts}
       stats={stats}
       showSales={context.access.viewFinancials}
+      creditBalanceCents={creditBalanceCents}
+      creatorCount={creatorCount}
     />
   );
 }
