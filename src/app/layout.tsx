@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, Poppins } from "next/font/google";
-import localFont from "next/font/local";
+import { Manrope, Plus_Jakarta_Sans, Poppins } from "next/font/google";
 import "./globals.css";
 
 const body = Manrope({
@@ -17,12 +16,11 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700", "800"],
 });
 
-/* Self-hosted because Google Fonts strips Syne's stylistic sets, leaving the
-   ss04 double-storey g (globals.css .display) without glyphs to swap in. */
-const display = localFont({
-  src: "./fonts/syne-latin.woff2",
+/* Headlines (globals.css .display): rounded and easy to read at any size. */
+const display = Plus_Jakarta_Sans({
   variable: "--font-display",
-  weight: "400 800",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -36,7 +34,7 @@ export const metadata: Metadata = {
   },
   applicationName: "Noni",
   description:
-    "UGC campaigns made easy. One app for brands and their creators.",
+    "UGC campaigns made easy. Write briefs, film, edit with AI, post, track results and pay your creators, all in one app.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.usenoni.app",
   ),
@@ -44,7 +42,7 @@ export const metadata: Metadata = {
     title: "Noni",
     siteName: "Noni",
     description:
-      "UGC campaigns made easy. One app for brands and their creators.",
+      "UGC campaigns made easy. Write briefs, film, edit with AI, post, track results and pay your creators, all in one app.",
     type: "website",
   },
   appleWebApp: {

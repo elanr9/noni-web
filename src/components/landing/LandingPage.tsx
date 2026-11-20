@@ -58,15 +58,15 @@ const MANAGER_SHOTS: Shot[] = [
   },
   {
     title: "Every number",
-    line: "Views, sign-ups and sales by post.",
-    src: "/landing/analytics.png",
-    alt: "Noni Analytics: views, posts, sign-ups and sales",
+    line: "Views and sales for every creator.",
+    src: "/landing/creator.png",
+    alt: "A creator profile with views and sales",
   },
   {
     title: "Payouts handled",
     line: "Every creator paid from one budget.",
-    src: "/landing/creator.png",
-    alt: "A creator profile with views and sales",
+    src: "/landing/cearn.png",
+    alt: "A creator's earnings and payouts",
   },
 ];
 
@@ -163,11 +163,11 @@ export function LandingPage() {
                   <span className="h-1.5 w-1.5 rounded-full bg-accent" />
                   {IOS_APP_AVAILABILITY === "app_store" ? "Available on the App Store" : "Now in private beta on iPhone"}
                 </span>
-                <h1 className="display mt-5 text-[52px] font-semibold leading-[0.98] text-ink sm:text-[68px] lg:text-[84px]">
+                <h1 className="display mt-5 text-[50px] font-extrabold leading-[1.02] text-ink sm:text-[64px] lg:text-[76px]">
                   UGC Campaigns made easy
                 </h1>
-                <p className="mx-auto mt-5 max-w-[40ch] text-[18px] leading-[1.5] text-muted md:text-[20px] lg:mx-0">
-                  One app for brands and their creators.
+                <p className="mx-auto mt-5 max-w-[34ch] text-[18px] leading-[1.5] text-muted md:text-[20px] lg:mx-0">
+                  Write briefs, film, edit with AI, post, track results and pay your creators, all in one app.
                 </p>
                 <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
                   <Link
@@ -195,8 +195,8 @@ export function LandingPage() {
               className="mt-12 flex justify-center lg:mt-0"
             >
               <Phone
-                src="/landing/analytics.png"
-                alt="Noni Analytics: views, posts, sign-ups and sales"
+                src="/landing/post.png"
+                alt="One post in Noni with its views, sales and sign-ups"
                 priority
                 sizes="(min-width: 1024px) 300px, 70vw"
                 className="w-[70%] max-w-[300px]"
@@ -211,7 +211,7 @@ export function LandingPage() {
             <div className="mx-auto max-w-[1180px] rounded-[36px] bg-ink px-6 py-14 md:px-12 lg:py-20">
               <Reveal className="text-center">
                 <p className="text-[12.5px] font-extrabold uppercase tracking-[0.14em] text-accent">For campaign managers</p>
-                <h2 className="display mt-3 text-[36px] font-semibold leading-[1.04] text-white md:text-[50px]">
+                <h2 className="display mt-3 text-[36px] font-bold leading-[1.04] text-white md:text-[50px]">
                   Run every campaign from one app
                 </h2>
               </Reveal>
@@ -240,7 +240,7 @@ export function LandingPage() {
             <div className="mx-auto max-w-[1180px] rounded-[36px] bg-accent-soft px-6 py-14 md:px-12 lg:py-20">
               <Reveal className="text-center">
                 <Eyebrow>For creators</Eyebrow>
-                <h2 className="display mt-3 text-[36px] font-semibold leading-[1.04] text-ink md:text-[50px]">
+                <h2 className="display mt-3 text-[36px] font-bold leading-[1.04] text-ink md:text-[50px]">
                   Everything in one place
                 </h2>
                 <ol className="m-0 mx-auto mt-7 flex max-w-[760px] list-none flex-wrap items-center justify-center gap-2 p-0">
@@ -286,7 +286,7 @@ export function LandingPage() {
           <div className="mx-auto max-w-[920px] px-5 pt-20 md:px-8 lg:pt-28">
             <Reveal className="rounded-[36px] border border-line bg-white px-6 py-10 md:px-12 md:py-14">
               <Eyebrow>From the founders</Eyebrow>
-              <h2 className="display mt-3 text-[30px] font-semibold leading-[1.06] text-ink md:text-[40px]">
+              <h2 className="display mt-3 text-[30px] font-bold leading-[1.06] text-ink md:text-[40px]">
                 {FOUNDERS_NOTE.title}
               </h2>
               <div className="mt-5 flex flex-col gap-4 text-[16.5px] leading-[1.7] text-ink-soft">
@@ -337,7 +337,7 @@ export function LandingPage() {
           <div className="mx-auto max-w-[820px] px-5 pb-20 pt-20 md:px-8 lg:pb-28 lg:pt-28">
             <Reveal className="text-center">
               <Eyebrow>FAQ</Eyebrow>
-              <h2 className="display mt-3 text-[34px] font-semibold leading-[1.04] text-ink md:text-[44px]">
+              <h2 className="display mt-3 text-[34px] font-bold leading-[1.04] text-ink md:text-[44px]">
                 Questions
               </h2>
             </Reveal>
@@ -359,7 +359,7 @@ export function LandingPage() {
             </div>
 
             <Reveal className="mt-14 rounded-[32px] bg-soft px-6 py-10 text-center md:py-12">
-              <h2 className="display m-0 text-[28px] font-semibold leading-[1.08] text-ink md:text-[36px]">
+              <h2 className="display m-0 text-[28px] font-bold leading-[1.08] text-ink md:text-[36px]">
                 Ready when you are
               </h2>
               <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
