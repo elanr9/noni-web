@@ -1,7 +1,7 @@
 "use client";
 
-import { Loader2, Mic, Sparkles } from "lucide-react";
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { Check, Loader2, Mic, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
 import {
   answerBrainSurvey,
@@ -22,7 +22,6 @@ import {
   sourceLabel,
   surveyResumeStep,
   type FactsList,
-  type SurveyAnswerResult,
   type SurveyQuestion,
   type SurveyState,
 } from "@/lib/admin/brain-model";
@@ -84,14 +83,6 @@ function Heading({ children }: { children: ReactNode }) {
   );
 }
 
-function savedLine(result: SurveyAnswerResult): string {
-  if (result.extract_error) return "Saved · facts arrive with the next scan";
-  const n = result.facts.length;
-  const added = n === 0 ? "Saved" : `Saved · ${n} ${n === 1 ? "fact" : "facts"} added`;
-  return result.conflicts > 0
-    ? `${added} · ${result.conflicts} ${result.conflicts === 1 ? "conflict" : "conflicts"} to settle`
-    : added;
-}
 
 /* ── Step 0: what the scan found ───────────────────────────────────────── */
 
@@ -416,6 +407,7 @@ export function BrainSurvey({
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<SurveySummary | null>(null);
   const [pending, startTransition] = useTransition();
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
 
   const applySurvey = (result: BrainResult<SurveyState>) => {
     if (!result.ok) {
@@ -525,6 +517,7 @@ export function BrainSurvey({
   const at = Math.max(0, Math.min(last, step));
 
   const finish = async () => {
+    await saveQueue.current;
     const [done] = await Promise.all([completeBrainSurvey(), loadFacts()]);
     if (done.ok) {
       setSummary({ coverage: done.data.coverage, missing: done.data.missing });
@@ -605,6 +598,25 @@ export function BrainSurvey({
     );
   }
 
+  if (at === last && reviewLast) {
+    const shownSummary = summary ?? { coverage: survey.coverage, missing: survey.missing };
+    return (
+      <div key="done" className="animate-om-pop text-center">
+        <span className="mx-auto inline-flex h-16 w-16 animate-om-check items-center justify-center bg-green text-white rounded-pill">
+          <Check size={30} strokeWidth={3} />
+        </span>
+        <h1 className="mb-0 mt-6 text-[30px] font-bold leading-[1.15] tracking-[-0.8px] text-ink sm:text-[36px]">
+          You&apos;re all set
+        </h1>
+        <p className="mx-auto mb-0 mt-2.5 max-w-[440px] text-[16px] font-semibold leading-[1.55] text-slate-400">
+          Noni knows what you sell and who your videos are for. Your first briefs are built from this.
+        </p>
+        {error ? <p className="mb-0 mt-3 text-[13px] font-semibold text-danger">{error}</p> : null}
+        <div className="mt-8 text-left">{renderDone(shownSummary)}</div>
+      </div>
+    );
+  }
+
   if (at === last) {
     const shownSummary = summary ?? { coverage: survey.coverage, missing: survey.missing };
     return (
@@ -619,41 +631,42 @@ export function BrainSurvey({
   const question = questions[at - 1];
   const text = drafts[question.key] ?? question.answer?.answer ?? question.suggestion?.text ?? "";
 
+  /* Saving never holds the person up: the answer is marked done and the next
+     question shows at once, while saves go out one after another behind it.
+     A save that fails brings them back to that question with their words. */
   const save = () => {
-    if (pending || !text.trim()) return;
+    if (!text.trim()) return;
+    const key = question.key;
+    const answer = text.trim();
+    const here = at;
     setError(null);
-    startTransition(async () => {
-      const result = await answerBrainSurvey({ key: question.key, answer: text, step: at + 1 });
+    setSurvey((s) =>
+      s
+        ? {
+            ...s,
+            questions: s.questions.map((q) =>
+              q.key === key ? { ...q, answer: { answer, fact_ids: q.answer?.fact_ids ?? [] } } : q,
+            ),
+          }
+        : s,
+    );
+    saveQueue.current = saveQueue.current.then(async () => {
+      const result = await answerBrainSurvey({ key, answer, step: here + 1 });
       if (!result.ok) {
-        setError(result.error);
+        setDrafts((d) => ({ ...d, [key]: answer }));
+        setReviewingAtEnd(false);
+        setStep(here);
+        setError(`That answer did not save: ${result.error}`);
         return;
       }
-      const saved = result.data;
-      setSurvey((s) =>
-        s
-          ? {
-              ...s,
-              coverage: saved.coverage,
-              missing: saved.missing,
-              questions: s.questions.map((q) =>
-                q.key === question.key
-                  ? {
-                      ...q,
-                      answer: {
-                        answer: text.trim(),
-                        fact_ids: saved.answer?.fact_ids ?? saved.facts.map((f) => f.id),
-                      },
-                    }
-                  : q,
-              ),
-            }
-          : s,
-      );
-      setNote(savedLine(saved));
-      if (at + 1 >= last) {
-        if (!toEnd()) await finish();
-      } else setStep(at + 1);
+      setSurvey((s) => (s ? { ...s, coverage: result.data.coverage, missing: result.data.missing } : s));
     });
+    if (here + 1 >= last) {
+      if (!toEnd()) startTransition(async () => {
+        await saveQueue.current;
+        await finish();
+      });
+    } else setStep(here + 1);
   };
 
   return (

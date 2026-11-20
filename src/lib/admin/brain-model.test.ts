@@ -188,8 +188,8 @@ describe("scan progress", () => {
   it("writes one line with the phase and what has been found", () => {
     expect(scanLine(null)).toBe("Scan not started");
     expect(scanLine(ingest())).toBe("Reading your pages · 4 pages");
-    expect(scanLine(ingest({ phase: "extract" }, 12))).toBe("Pulling out facts · 12 facts");
-    expect(scanLine(ingest({ status: "done", phase: "done" }, 1))).toBe("Scan finished · 1 fact");
+    expect(scanLine(ingest({ phase: "extract" }, 12))).toBe("Understanding your product · 4 pages");
+    expect(scanLine(ingest({ status: "done", phase: "done" }, 1))).toBe("Scan finished · 4 pages");
     expect(scanLine(ingest({ status: "failed" }))).toBe("Scan stopped");
   });
 

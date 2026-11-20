@@ -126,13 +126,8 @@ function ScanCard({
   const failed = run.status === "failed";
   const steps = scanSteps(run);
   const active = steps.find((x) => x.state === "active")?.label ?? "Getting started";
-  const { sources, facts } = scan!.summary;
-  const counts = [
-    sources > 0 ? `${sources} ${sources === 1 ? "page" : "pages"} read` : null,
-    facts > 0 ? `${facts} ${facts === 1 ? "fact" : "facts"} found` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const { sources } = scan!.summary;
+  const counts = sources > 0 ? `${sources} ${sources === 1 ? "page" : "pages"} read` : "";
   return (
     <div
       role="status"
@@ -159,7 +154,7 @@ function ScanCard({
           {failed
             ? "Your answers still count. You can try the scan again."
             : done
-              ? `${counts || "Done"}. Drafts are in your answers.`
+              ? "Drafts are in your answers."
               : `${active}${counts ? ` · ${counts}` : ""}`}
         </span>
         {!done && !failed ? (
@@ -828,11 +823,7 @@ export function OnboardingFlow({
             </p>
           ) : (
             <>
-              {scan && scan.summary.sources > 0 ? (
-                <p className="mb-0 mt-[9px] text-[14.5px] font-semibold text-slate-400">
-                  {`${scan.summary.sources} ${scan.summary.sources === 1 ? "source" : "sources"} · ${scan.summary.facts} ${scan.summary.facts === 1 ? "fact" : "facts"}`}
-                </p>
-              ) : null}
+
               <ul className="m-0 mt-[26px] flex list-none flex-col gap-3 p-0">
                 {scanSteps(scan?.ingest ?? null).map((s) => (
                   <li key={s.label} className="flex items-center gap-3">

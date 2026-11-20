@@ -700,8 +700,8 @@ export function coveragePercent(coverage: number): number {
 
 const PHASES: Array<{ phase: IngestPhase; label: string }> = [
   { phase: "crawl", label: "Reading your pages" },
-  { phase: "extract", label: "Pulling out facts" },
-  { phase: "embed", label: "Filing them" },
+  { phase: "extract", label: "Understanding your product" },
+  { phase: "embed", label: "Organizing it" },
   { phase: "suggest", label: "Drafting your answers" },
 ];
 
@@ -728,13 +728,8 @@ export function scanLine(state: IngestState | null): string {
   const run = state?.ingest ?? null;
   if (!run || run.status === "idle") return "Scan not started";
   if (run.status === "failed") return "Scan stopped";
-  const { sources, facts } = state!.summary;
-  const counts =
-    facts > 0
-      ? `${facts} ${facts === 1 ? "fact" : "facts"}`
-      : sources > 0
-        ? `${sources} ${sources === 1 ? "page" : "pages"}`
-        : "";
+  const { sources } = state!.summary;
+  const counts = sources > 0 ? `${sources} ${sources === 1 ? "page" : "pages"}` : "";
   if (run.status === "done") return counts ? `Scan finished · ${counts}` : "Scan finished";
   const label = PHASES.find((p) => p.phase === run.phase)?.label ?? "Scanning";
   return counts ? `${label} · ${counts}` : label;
