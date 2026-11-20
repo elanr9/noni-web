@@ -58,8 +58,8 @@ export function UserProfile({
   const earned = posts.reduce((n, q) => n + q.earned, 0);
   const stats: Array<[string, ReactNode]> = [
     ["Posts this month", p.posts],
-    ["Views this month", p.viewsN ? fmtK(p.viewsN) : "—"],
-    ["Earned", earned ? money(earned) : "—"],
+    ["Views this month", p.viewsN ? fmtK(p.viewsN) : "None yet"],
+    ["Earned", earned ? money(earned) : "$0"],
   ];
   return (
     <div className="animate-om-rise">
@@ -119,7 +119,7 @@ export function UserProfile({
                           m.removed ? "text-slate-400" : "text-ink"
                         }`}
                       >
-                        {companyNames[m.company] ?? "—"}
+                        {companyNames[m.company] ?? "No company"}
                       </span>
                       <span className="mt-0.5 block text-[12px] font-semibold text-slate-400">
                         {m.role}
@@ -163,7 +163,7 @@ export function UserProfile({
           ) : (
             <Card pad={22}>
               <p className="m-0 text-[14px] font-semibold leading-[1.6] text-slate-500">
-                {`Owns ${companyName}'s program on the web dashboard — brand brain, features, billing and the campaign team.`}
+                {`Owns ${companyName}'s program on the web dashboard: brand brain, features, billing and the campaign team.`}
               </p>
             </Card>
           )}

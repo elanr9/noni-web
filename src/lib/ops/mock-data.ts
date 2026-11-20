@@ -70,7 +70,7 @@ export const SEED_COMPANIES: Company[] = [
     managers: 0,
     campaigns: 0,
     posts: 0,
-    views: "—",
+    views: "None yet",
     status: "Invite pending",
     joined: "Aug 9, 2026",
     series: [],
@@ -93,7 +93,7 @@ export const SEED_PEOPLE: Person[] = [
   { id: "p11", company: "c2", role: "Creator", name: "Sam Whitaker", email: "samwhit@gmail.com", phone: "+1 (929) 415-8830", status: "Onboarded", joined: "Jul 22, 2026", posts: 33, viewsN: 188000 },
   { id: "p12", company: "c2", role: "Creator", name: "Priya Nair", email: "priya.nair@gmail.com", phone: "+1 (201) 668-3172", status: "Onboarded", joined: "Jul 25, 2026", posts: 29, viewsN: 162000 },
   { id: "p13", company: "c2", role: "Creator", name: "Chris Boone", email: "chrisboone@gmail.com", phone: "+1 (551) 380-9906", status: "Pending", joined: "Aug 10, 2026", posts: 0, viewsN: 0 },
-  { id: "p14", company: "c3", role: "Company admin", name: "Marcus Oduya", email: "marcus@peakformlabs.com", phone: "—", status: "Invite pending", joined: "Aug 9, 2026" },
+  { id: "p14", company: "c3", role: "Company admin", name: "Marcus Oduya", email: "marcus@peakformlabs.com", phone: "No phone", status: "Invite pending", joined: "Aug 9, 2026" },
 ];
 
 export const SEED_POSTS: Post[] = [

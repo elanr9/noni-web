@@ -21,7 +21,7 @@ export default async function OpsUserProfilePage({
   return (
     <UserProfile
       person={person}
-      companyName={companyNames[person.company] ?? "—"}
+      companyName={companyNames[person.company] ?? "No company"}
       memberships={data.memberships[person.id] ?? []}
       companyNames={companyNames}
       posts={data.posts}

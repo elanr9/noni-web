@@ -76,7 +76,7 @@ export function CompanyTeam({
                 </span>
                 {p.role === "Creator" ? (
                   <span className="whitespace-nowrap text-[13px] font-semibold text-slate-400">
-                    {p.posts} posts · {p.viewsN ? fmtK(p.viewsN) + " views" : "—"}
+                    {p.posts} posts · {p.viewsN ? fmtK(p.viewsN) + " views" : "no views yet"}
                   </span>
                 ) : null}
                 <Chip tone={statusTone(p.status)}>{p.status}</Chip>

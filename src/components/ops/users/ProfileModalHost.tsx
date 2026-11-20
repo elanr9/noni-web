@@ -59,7 +59,7 @@ export function ProfileModalHost({
       <div>
         <Row label="Email" value={p.email} />
         <Row label="Phone" value={p.phone} />
-        <Row label="Company" value={companyNames[p.company] ?? "—"} />
+        <Row label="Company" value={companyNames[p.company] ?? "No company"} />
         {p.role === "Creator" ? (
           <Row
             label="This month"

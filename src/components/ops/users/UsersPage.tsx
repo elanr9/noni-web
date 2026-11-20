@@ -68,7 +68,7 @@ export function UsersPage({
     <div>
       <PageHead
         title="Users"
-        sub="Everyone on Noni — company admins, campaign managers and creators."
+        sub="Everyone on Noni: company admins, campaign managers and creators."
       />
       <Tabs
         tabs={TABS}
@@ -100,7 +100,7 @@ export function UsersPage({
             </span>
             {r.role === "Creator" ? (
               <span className="w-40 whitespace-nowrap text-right text-[13px] font-semibold text-slate-400">
-                {r.posts} posts · {r.viewsN ? fmtK(r.viewsN) + " views" : "—"}
+                {r.posts} posts · {r.viewsN ? fmtK(r.viewsN) + " views" : "no views yet"}
               </span>
             ) : (
               <span className="text-[13px] font-semibold text-slate-400">{r.email}</span>

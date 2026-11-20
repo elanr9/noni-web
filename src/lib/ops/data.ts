@@ -578,11 +578,11 @@ async function fetchOpsData(): Promise<OpsDataset> {
     const admin = adminProfile
       ? {
           name: profileNames.get(adminProfile.id) ?? "Admin",
-          email: emailById.get(adminProfile.id) ?? "—",
+          email: emailById.get(adminProfile.id) ?? "No email",
         }
       : pendingInvite
         ? { name: nameFromEmail(pendingInvite.email), email: pendingInvite.email }
-        : { name: "—", email: "—" };
+        : { name: "No admin yet", email: "No email" };
 
     const activeCampaigns = campaignRows.filter(
       (cp) =>
@@ -636,7 +636,7 @@ async function fetchOpsData(): Promise<OpsDataset> {
       managers: members.filter((m) => m.member_role === "campaign_manager").length,
       campaigns: activeCampaigns,
       posts: monthGroups.length,
-      views: pending ? "—" : fmtViews(monthViews),
+      views: pending ? "None yet" : fmtViews(monthViews),
       status: pending ? "Invite pending" : "Active",
       joined: fmtLongDate(c.created_at),
       series,
@@ -677,8 +677,8 @@ async function fetchOpsData(): Promise<OpsDataset> {
         company: m.company_id,
         role,
         name: profileNames.get(p.id) ?? "User",
-        email: emailById.get(p.id) ?? "—",
-        phone: p.phone ?? "—",
+        email: emailById.get(p.id) ?? "No email",
+        phone: p.phone ?? "No phone",
         status:
           role === "Creator" ? (p.onboarded ? "Onboarded" : "Pending") : "Active",
         joined: fmtLongDate(p.created_at),
@@ -704,7 +704,7 @@ async function fetchOpsData(): Promise<OpsDataset> {
       role: "Company admin",
       name: nameFromEmail(iv.email),
       email: iv.email,
-      phone: "—",
+      phone: "No phone",
       status: "Invite pending",
       joined: fmtLongDate(iv.created_at),
     });
@@ -736,7 +736,7 @@ async function fetchOpsData(): Promise<OpsDataset> {
     name:
       emailToProfileName.get(iv.email.toLowerCase()) ?? nameFromEmail(iv.email),
     email: iv.email,
-    company: companyNameOf.get(iv.company_id) ?? "—",
+    company: companyNameOf.get(iv.company_id) ?? "No company",
     sent: fmtRelative(iv.created_at),
     status: iv.accepted_at
       ? "Accepted"
@@ -804,7 +804,7 @@ async function fetchOpsData(): Promise<OpsDataset> {
       name: meta.name,
       sub: meta.sub,
       words: content.trim() ? content.trim().split(/\s+/).length : 0,
-      updated: row.updated_at ? fmtShortDate(row.updated_at) : "—",
+      updated: row.updated_at ? fmtShortDate(row.updated_at) : "Never",
       owner: row.human_edited ? "human" : "ai",
       preview: content,
     });

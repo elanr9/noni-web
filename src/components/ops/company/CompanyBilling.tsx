@@ -29,7 +29,7 @@ function RemoveCompanyModal({
     <Modal title={`Remove ${company.name}`} onClose={onClose}>
       <div className="flex flex-col gap-3.5">
         <p className="m-0 text-[14px] font-semibold leading-[1.55] text-slate-500">
-          This permanently removes {company.name} — its admin, campaign managers
+          This permanently removes {company.name}. Its admin, campaign managers
           and creators lose access. There&apos;s no undo.
         </p>
         <label className="flex flex-col gap-[7px]">
@@ -121,7 +121,7 @@ export function CompanyBilling({
         >
           <CircleAlert size={19} className="shrink-0 text-amber" />
           <span className="flex-1 text-[13.5px] font-semibold text-ink">
-            Running low — {money(remaining)} left of this month&apos;s budget.
+            Running low. {money(remaining)} left of this month&apos;s budget.
           </span>
           <Pill size="sm" onClick={ping}>
             {pinged ? `Pinged ${b.pingTo} ✓` : `Ping ${b.pingTo} to top up`}
