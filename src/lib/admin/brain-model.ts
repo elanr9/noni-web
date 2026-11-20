@@ -150,6 +150,25 @@ export interface SurveyQuestion {
   answer: { answer: string; answered_at?: string; fact_ids: string[] } | null;
 }
 
+/** The short summary the founder confirms at the end of onboarding
+    (brain-survey "snapshot"; app migration 147). */
+export interface SnapshotItem {
+  title: string;
+  text: string;
+  fact_ids: string[];
+  status: "open" | "confirmed" | "dismissed";
+}
+
+export interface CompanySnapshot {
+  generated_at: string;
+  sells: SnapshotItem | null;
+  audience: SnapshotItem | null;
+  features: SnapshotItem[];
+  viral: SnapshotItem | null;
+}
+
+export type SnapshotPart = "sells" | "audience" | "features" | "viral";
+
 export interface SurveyState {
   survey: { step: number; updated_at: string | null; completed_at: string | null };
   questions: SurveyQuestion[];

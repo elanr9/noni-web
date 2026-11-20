@@ -8,12 +8,15 @@ import type {
   BrainContext,
   BrainFact,
   BrainQuestion,
+  CompanySnapshot,
   EntityType,
   FactGroup,
   FactsList,
   FactView,
   IngestPhase,
   IngestState,
+  SnapshotItem,
+  SnapshotPart,
   SourceDetail,
   SurveyAnswerResult,
   SurveyQuestion,
@@ -536,4 +539,51 @@ export function mockContext(topic: string): BrainContext {
     ),
     ...coverage(),
   };
+}
+
+/* ── Company snapshot (mock) ── */
+
+let mockSnap: CompanySnapshot | null = null;
+
+function freshSnapshot(): CompanySnapshot {
+  const item = (title: string, text: string): SnapshotItem => ({ title, text, fact_ids: [], status: "open" });
+  return {
+    generated_at: new Date().toISOString(),
+    sells: item("FieldVision", "An app that turns a full game into a highlight video and sends it to college coaches."),
+    audience: item(
+      "Recruits and transfers",
+      "High school soccer players, and college players looking to transfer, who want to get recruited by college coaches.",
+    ),
+    features: [
+      item("AI highlight videos", "Upload a full game and get your best plays cut into a highlight video."),
+      item("Coach database", "10,000+ verified college coaches you can search by school, division or region."),
+      item("Coach emails", "Send your highlight video to hundreds of coaches at once."),
+      item("Profile page", "One link with your video, stats and grades for coaches to open."),
+    ],
+    viral: item("Hundreds of coaches in seconds", "Make a highlight video and email it to hundreds of college coaches in seconds."),
+  };
+}
+
+export function mockSnapshot(): CompanySnapshot {
+  mockSnap = mockSnap ?? freshSnapshot();
+  return mockSnap;
+}
+
+export function mockSettleSnapshot(input: {
+  part: SnapshotPart;
+  index?: number;
+  decision: "confirm" | "dismiss";
+  title?: string;
+  text?: string;
+}): CompanySnapshot {
+  const snap = mockSnapshot();
+  const settle = (it: SnapshotItem): SnapshotItem =>
+    input.decision === "dismiss"
+      ? { ...it, status: "dismissed" }
+      : { ...it, title: input.title?.trim() || it.title, text: input.text?.trim() || it.text, status: "confirmed" };
+  mockSnap =
+    input.part === "features"
+      ? { ...snap, features: snap.features.map((f, i) => (i === input.index ? settle(f) : f)) }
+      : { ...snap, [input.part]: snap[input.part] ? settle(snap[input.part] as SnapshotItem) : null };
+  return mockSnap;
 }

@@ -17,6 +17,8 @@ import {
   mockReject,
   mockResolve,
   mockSaveStep,
+  mockSettleSnapshot,
+  mockSnapshot,
   mockStartIngest,
   mockSurvey,
 } from "@/lib/admin/brain-mock";
@@ -25,9 +27,11 @@ import {
   ENTITY_SPECS,
   type BrainContext,
   type BrainFact,
+  type CompanySnapshot,
   type EntityType,
   type FactsList,
   type IngestState,
+  type SnapshotPart,
   type SurveyAnswerResult,
   type SurveyState,
 } from "@/lib/admin/brain-model";
@@ -206,6 +210,30 @@ export async function getBrainSurvey(): Promise<BrainResult<SurveyState>> {
   if (!gate.ok) return gate;
   if (gate.mock) return { ok: true, data: mockSurvey() };
   return call<SurveyState>("brain-survey", { action: "get" });
+}
+
+/** The short company summary (what it sells, who it is for, core features,
+    the viral one). Built on first ask when the scan has records. */
+export async function getBrainSnapshot(): Promise<BrainResult<CompanySnapshot | null>> {
+  const gate = await requireBrainAccess();
+  if (!gate.ok) return gate;
+  if (gate.mock) return { ok: true, data: mockSnapshot() };
+  const out = await call<{ snapshot: CompanySnapshot | null }>("brain-survey", { action: "snapshot" });
+  return out.ok ? { ok: true, data: out.data.snapshot } : out;
+}
+
+export async function settleBrainSnapshot(input: {
+  part: SnapshotPart;
+  index?: number;
+  decision: "confirm" | "dismiss";
+  title?: string;
+  text?: string;
+}): Promise<BrainResult<CompanySnapshot>> {
+  const gate = await requireBrainAccess();
+  if (!gate.ok) return gate;
+  if (gate.mock) return { ok: true, data: mockSettleSnapshot(input) };
+  const out = await call<{ snapshot: CompanySnapshot }>("brain-survey", { action: "snapshot_settle", ...input });
+  return out.ok ? { ok: true, data: out.data.snapshot } : out;
 }
 
 export async function answerBrainSurvey(input: {

@@ -13,6 +13,7 @@ import {
   type BrainResult,
 } from "@/app/admin/brain/knowledge-actions";
 import { ConflictCard, FactRow, SourceExcerpts } from "@/components/admin/brain/FactParts";
+import { SnapshotReview } from "@/components/admin/brain/SnapshotReview";
 import { useVoiceRecorder } from "@/components/admin/brain/useVoiceRecorder";
 import { Card, Chip, Label, Pill, ProgressBar, TextArea } from "@/components/kit";
 import {
@@ -536,10 +537,9 @@ export function BrainSurvey({
     setStep(last);
   };
 
-  const factsToCheck = facts ? facts.conflicts.length + reviewQueue(facts).length : 0;
   /* Onboarding: after the last question, check the scan's findings first. */
   const toEnd = () => {
-    if (reviewLast && !reviewingAtEnd && (factsToCheck > 0 || scanning)) {
+    if (reviewLast && !reviewingAtEnd) {
       setReviewingAtEnd(true);
       setStep(0);
       return true;
@@ -570,6 +570,19 @@ export function BrainSurvey({
       ))}
     </div>
   );
+
+  if (at === 0 && reviewingAtEnd) {
+    return (
+      <div key="snapshot">
+        <SnapshotReview
+          refreshKey={refreshKey}
+          scanning={scanning}
+          pending={pending}
+          onDone={() => startTransition(finish)}
+        />
+      </div>
+    );
+  }
 
   if (at === 0) {
     return (

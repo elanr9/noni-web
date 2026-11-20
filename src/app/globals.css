@@ -132,6 +132,8 @@ body {
   --animate-om-fade: om-fade 180ms var(--ease-om) both;
   --animate-om-pop: om-pop 240ms var(--ease-om) both;
   --animate-om-rise: om-rise 260ms var(--ease-om) both;
+  --animate-om-bounce: om-bounce 520ms var(--ease-om-spring) both;
+  --animate-om-check: om-check 420ms var(--ease-om-spring) both;
 
   /* fonts.css + brand brief — Poppins everywhere in /ops */
   --font-ops: var(--font-poppins), "Poppins", -apple-system, BlinkMacSystemFont,
@@ -157,6 +159,53 @@ body {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* A confirmed card: a quick squash and spring back. */
+@keyframes om-bounce {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(0.97);
+  }
+  55% {
+    transform: scale(1.025);
+  }
+  80% {
+    transform: scale(0.995);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* The check that replaces Confirm: pops in past full size. */
+@keyframes om-check {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-25deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.25) rotate(6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Confetti dot flying out from a confirm; --dx / --dy set per dot. */
+@keyframes om-spark {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.4);
   }
 }
 
