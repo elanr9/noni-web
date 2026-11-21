@@ -208,7 +208,7 @@ describe("overviewStats", () => {
 
   it("omits deltas for a company that has none", () => {
     const stats = overviewStats(SEED_COMPANIES, SEED_PEOPLE, "c3");
-    expect(stats.views).toBe("—");
+    expect(stats.views).toBe("None yet");
     expect(stats.dViews).toBeUndefined();
   });
 });

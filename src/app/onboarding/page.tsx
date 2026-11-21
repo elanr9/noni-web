@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { peekBrainIngest } from "@/app/admin/brain/knowledge-actions";
 import { OnboardingFlow } from "@/components/admin/onboarding/OnboardingFlow";
+import type { OnboardingIntake } from "@/app/onboarding/actions";
 import { ONBOARDING_STEP_COOKIE, ONBOARDING_STEPS, resumeStep } from "@/lib/admin/onboarding-steps";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -89,6 +90,7 @@ export default async function OnboardingPage() {
         creatorCount: count(company?.creator_count),
         managerCount,
         selfIsManager: past("selfManager") ? company?.self_is_manager === true : null,
+        intake: (company?.intake as OnboardingIntake | null) ?? {},
       }}
       initialScan={scan?.ok ? scan.data : null}
     />

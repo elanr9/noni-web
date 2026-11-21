@@ -8,6 +8,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { getBrainIngestStatus } from "@/app/admin/brain/knowledge-actions";
 import {
   completeOnboarding,
+  type OnboardingIntake,
   saveOnboardingProgress,
   startOnboardingScan,
 } from "@/app/onboarding/actions";
@@ -49,12 +50,53 @@ const DASH_INDEX: Record<AccountStep, number> = {
   name: 0,
   role: 1,
   website: 2,
-  ugc: 3,
-  creators: 4,
-  managers: 5,
-  selfManager: 6,
-  download: 6,
+  goal: 3,
+  platforms: 4,
+  creatorsWanted: 5,
+  budget: 6,
+  launch: 7,
+  ugc: 8,
+  creators: 9,
+  managers: 10,
+  selfManager: 11,
+  download: 11,
 };
+
+/* The questions a UGC agency asks a new client, answered while the site is
+   read. Stored on companies.intake (app migration 149). */
+const GOALS = [
+  { value: "signups", title: "Downloads and sign ups", hint: "Get people to try the product." },
+  { value: "sales", title: "Sales", hint: "Turn viewers into paying customers." },
+  { value: "audience", title: "A bigger audience", hint: "Grow followers and reach." },
+  { value: "trust", title: "Trust in the brand", hint: "Real people vouching for it." },
+] as const;
+
+const PLATFORMS = [
+  { value: "tiktok", title: "TikTok" },
+  { value: "instagram", title: "Instagram Reels" },
+  { value: "youtube", title: "YouTube Shorts" },
+] as const;
+
+const CREATORS_WANTED = [
+  { value: "1-5", title: "1 to 5" },
+  { value: "5-10", title: "5 to 10" },
+  { value: "10-25", title: "10 to 25" },
+  { value: "25+", title: "25 or more" },
+] as const;
+
+const BUDGETS = [
+  { value: "under_1k", title: "Under $1,000" },
+  { value: "1k-3k", title: "$1,000 to $3,000" },
+  { value: "3k-10k", title: "$3,000 to $10,000" },
+  { value: "10k+", title: "$10,000 or more" },
+  { value: "unsure", title: "Not sure yet" },
+] as const;
+
+const LAUNCH = [
+  { value: "this_week", title: "This week", hint: "We're ready to go." },
+  { value: "this_month", title: "Within a month", hint: "Getting things lined up." },
+  { value: "exploring", title: "Just exploring", hint: "Seeing if it fits." },
+] as const;
 
 const ADMIN_ROLES = [
   "Founder",
@@ -398,6 +440,7 @@ export interface OnboardingFlowProps {
     creatorCount: number;
     managerCount: number;
     selfIsManager: boolean | null;
+    intake?: OnboardingIntake;
   };
   /** The scan as it stands, when one was started on an earlier visit. */
   initialScan?: IngestState | null;
@@ -424,6 +467,7 @@ export function OnboardingFlow({
   const [selfIsManager, setSelfIsManager] = useState<boolean | null>(
     resume?.selfIsManager ?? null,
   );
+  const [intake, setIntake] = useState<OnboardingIntake>(resume?.intake ?? {});
   const [scan, setScan] = useState<IngestState | null>(initialScan);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanStarting, setScanStarting] = useState(false);
@@ -432,7 +476,13 @@ export function OnboardingFlow({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = doesUgc ? (managerCount > 0 ? 7 : 6) : 4;
+  const total = doesUgc ? (managerCount > 0 ? 12 : 11) : 9;
+
+  function answer(patch: OnboardingIntake, next?: StepId) {
+    setIntake((cur) => ({ ...cur, ...patch }));
+    void saveOnboardingProgress(companyId, { intake: patch });
+    if (next) advanceAfterPick(next);
+  }
   const scanStatus = scan?.ingest?.status ?? null;
   const scanRuns = scanStatus === "running";
 
@@ -507,6 +557,7 @@ export function OnboardingFlow({
       creatorCount: doesUgc ? creatorCount : 0,
       managerCount: doesUgc ? managerCount : 0,
       selfIsManager: doesUgc && managerCount > 0 ? selfIsManager === true : false,
+      intake,
     });
     if (!result.ok) {
       setBusy(false);
@@ -624,7 +675,7 @@ export function OnboardingFlow({
         primaryDisabled={!website.trim()}
         onPrimary={() => {
           if (!scanned) startScan();
-          go("ugc");
+          go("goal");
         }}
         onBack={() => go("role")}
         topRight={strip}
@@ -649,13 +700,149 @@ export function OnboardingFlow({
     );
   }
 
+  if (view === "goal") {
+    return (
+      <OnbStep
+        stepKey="goal"
+        total={total}
+        title="What should the videos do first?"
+        subtitle="We write every brief toward this."
+        onBack={() => go("website")}
+        topRight={strip}
+      >
+        <div className="flex flex-col gap-2.5">
+          {GOALS.map((g) => (
+            <ChoiceCard
+              key={g.value}
+              title={g.title}
+              hint={g.hint}
+              selected={intake.goal === g.value}
+              onClick={() => answer({ goal: g.value }, "platforms")}
+            />
+          ))}
+        </div>
+      </OnbStep>
+    );
+  }
+
+  if (view === "platforms") {
+    const picked = intake.platforms ?? [];
+    return (
+      <OnbStep
+        stepKey="platforms"
+        total={total}
+        title="Where should the videos go?"
+        subtitle="Pick all that apply."
+        primary="Next"
+        primaryDisabled={picked.length === 0}
+        onPrimary={() => {
+          answer({ platforms: picked });
+          go("creatorsWanted");
+        }}
+        onBack={() => go("goal")}
+        topRight={strip}
+      >
+        <div className="flex flex-col gap-2.5">
+          {PLATFORMS.map((p) => {
+            const on = picked.includes(p.value);
+            return (
+              <ChoiceCard
+                key={p.value}
+                title={p.title}
+                selected={on}
+                onClick={() =>
+                  setIntake((cur) => {
+                    const list = cur.platforms ?? [];
+                    return { ...cur, platforms: on ? list.filter((x) => x !== p.value) : [...list, p.value] };
+                  })
+                }
+              />
+            );
+          })}
+        </div>
+      </OnbStep>
+    );
+  }
+
+  if (view === "creatorsWanted") {
+    return (
+      <OnbStep
+        stepKey="creatorsWanted"
+        total={total}
+        title="How many creators do you want posting?"
+        subtitle="We find and manage them for you."
+        onBack={() => go("platforms")}
+        topRight={strip}
+      >
+        <div className="grid grid-cols-2 gap-2.5">
+          {CREATORS_WANTED.map((c) => (
+            <ChoiceCard
+              key={c.value}
+              title={c.title}
+              selected={intake.creators_wanted === c.value}
+              onClick={() => answer({ creators_wanted: c.value }, "budget")}
+            />
+          ))}
+        </div>
+      </OnbStep>
+    );
+  }
+
+  if (view === "budget") {
+    return (
+      <OnbStep
+        stepKey="budget"
+        total={total}
+        title="What's your monthly UGC budget?"
+        subtitle="Creators earn $10 per video and $5 per static post, plus $1 for every 1,000 views."
+        onBack={() => go("creatorsWanted")}
+        topRight={strip}
+      >
+        <div className="flex flex-col gap-2.5">
+          {BUDGETS.map((b) => (
+            <ChoiceCard
+              key={b.value}
+              title={b.title}
+              selected={intake.monthly_budget === b.value}
+              onClick={() => answer({ monthly_budget: b.value }, "launch")}
+            />
+          ))}
+        </div>
+      </OnbStep>
+    );
+  }
+
+  if (view === "launch") {
+    return (
+      <OnbStep
+        stepKey="launch"
+        total={total}
+        title="When do you want the first videos live?"
+        onBack={() => go("budget")}
+        topRight={strip}
+      >
+        <div className="flex flex-col gap-2.5">
+          {LAUNCH.map((l) => (
+            <ChoiceCard
+              key={l.value}
+              title={l.title}
+              hint={l.hint}
+              selected={intake.launch === l.value}
+              onClick={() => answer({ launch: l.value }, "ugc")}
+            />
+          ))}
+        </div>
+      </OnbStep>
+    );
+  }
+
   if (view === "ugc") {
     return (
       <OnbStep
         stepKey="ugc"
         total={total}
         title="Do you already do UGC marketing?"
-        onBack={() => go("website")}
+        onBack={() => go("launch")}
         topRight={strip}
       >
         <div className="flex flex-col gap-2.5">

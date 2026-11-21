@@ -9,6 +9,15 @@ import { callEdgeFunction } from "@/lib/edge";
 import { isStaleCompany, STALE_COMPANY_ERROR } from "@/lib/stale-company";
 import { createClient } from "@/lib/supabase/server";
 
+/** Campaign intake (companies.intake, app migration 149). */
+export interface OnboardingIntake {
+  goal?: "signups" | "sales" | "audience" | "trust";
+  platforms?: Array<"tiktok" | "instagram" | "youtube">;
+  creators_wanted?: "1-5" | "5-10" | "10-25" | "25+";
+  monthly_budget?: "under_1k" | "1k-3k" | "3k-10k" | "10k+" | "unsure";
+  launch?: "this_week" | "this_month" | "exploring";
+}
+
 export interface OnboardingSubmission {
   fullName: string;
   /** "Founder" | "Marketing" | "Content" | "Growth" | "Operations" | "Something else". */
@@ -18,6 +27,7 @@ export interface OnboardingSubmission {
   creatorCount: number;
   managerCount: number;
   selfIsManager: boolean;
+  intake?: OnboardingIntake;
 }
 
 export type OnboardingResult = { ok: true } | { ok: false; error: string };
@@ -83,6 +93,15 @@ async function writeAnswers(
   if (input.creatorCount !== undefined) answers.creator_count = toCount(input.creatorCount);
   if (input.managerCount !== undefined) answers.manager_count = toCount(input.managerCount);
   if (input.selfIsManager !== undefined) answers.self_is_manager = input.selfIsManager === true;
+  if (input.intake && Object.keys(input.intake).length > 0) {
+    /* Merged into what is there, one answer at a time. */
+    const { data: row } = await supabase.from("companies").select("intake").eq("id", gate.companyId).maybeSingle();
+    const current = (row?.intake as Record<string, unknown> | null) ?? {};
+    await supabase
+      .from("companies")
+      .update({ intake: { ...current, ...input.intake } })
+      .eq("id", gate.companyId);
+  }
   if (Object.keys(answers).length > 0) {
     /* The answer columns may not be migrated yet; src/lib/admin/data.ts reads
        them defensively, so a failure here must not block onboarding. */
@@ -172,6 +191,7 @@ export async function completeOnboarding(
        exists from the invite (role company_admin), and company admins hold
        every permission implicitly. */
     selfIsManager: managerCount > 0 && input.selfIsManager === true,
+    intake: input.intake,
   });
   if (!saved.ok) return saved;
 
