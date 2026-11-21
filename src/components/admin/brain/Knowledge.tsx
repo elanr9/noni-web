@@ -1,7 +1,6 @@
 "use client";
 
 import { ClipboardPaste, FileText, Link2, Loader2, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 import {
@@ -68,7 +67,6 @@ function CoverageCard({
   onImportLegacy: () => void;
   onScan: () => void;
 }) {
-  const router = useRouter();
   const pct = coveragePercent(list.coverage);
   const facts = list.groups.flatMap((g) => g.facts);
   const confirmed = facts.filter((f) => f.status === "confirmed").length;
@@ -91,21 +89,20 @@ function CoverageCard({
           </span>
         </div>
         <ProgressBar value={pct} label="Brain coverage" className="mt-3" />
-        <div className="mt-3.5 flex flex-wrap items-center gap-2">
-          <Pill size="sm" onClick={() => router.push("/admin/brain/survey")}>
-            Answer founder questions
-          </Pill>
-          {empty && website.trim() ? (
-            <Pill size="sm" variant="tint" disabled={busy} onClick={onScan}>
-              Scan site
-            </Pill>
-          ) : null}
-          {offerLegacy ? (
-            <Pill size="sm" variant="tint" disabled={busy} onClick={onImportLegacy}>
-              Import earlier brain
-            </Pill>
-          ) : null}
-        </div>
+        {(empty && website.trim()) || offerLegacy ? (
+          <div className="mt-3.5 flex flex-wrap items-center gap-2">
+            {empty && website.trim() ? (
+              <Pill size="sm" variant="tint" disabled={busy} onClick={onScan}>
+                Scan site
+              </Pill>
+            ) : null}
+            {offerLegacy ? (
+              <Pill size="sm" variant="tint" disabled={busy} onClick={onImportLegacy}>
+                Import earlier brain
+              </Pill>
+            ) : null}
+          </div>
+        ) : null}
       </div>
       {list.missing.length > 0 ? (
         <div className="border-t border-line px-5 py-3.5">

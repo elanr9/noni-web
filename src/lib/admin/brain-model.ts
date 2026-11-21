@@ -132,24 +132,6 @@ export interface IngestState {
   started: boolean;
 }
 
-export interface SurveySource {
-  title: string | null;
-  url: string | null;
-  kind: string;
-  excerpt: string;
-}
-
-export interface SurveyQuestion {
-  key: string;
-  question: string;
-  hint: string;
-  why: string;
-  optional: boolean;
-  accepts: string[];
-  suggestion: { text: string; fact_ids: string[]; sources: SurveySource[] } | null;
-  answer: { answer: string; answered_at?: string; fact_ids: string[] } | null;
-}
-
 /** The short summary the founder confirms at the end of onboarding
     (brain-survey "snapshot"; app migration 147). */
 export interface SnapshotItem {
@@ -168,22 +150,6 @@ export interface CompanySnapshot {
 }
 
 export type SnapshotPart = "sells" | "audience" | "features" | "viral";
-
-export interface SurveyState {
-  survey: { step: number; updated_at: string | null; completed_at: string | null };
-  questions: SurveyQuestion[];
-  coverage: number;
-  missing: string[];
-}
-
-export interface SurveyAnswerResult {
-  answer: { answer: string; fact_ids: string[] } | null;
-  facts: BrainFact[];
-  conflicts: number;
-  extract_error: string | null;
-  coverage: number;
-  missing: string[];
-}
 
 export interface BrainContext {
   productName: string;
@@ -773,13 +739,6 @@ export function conflictTitle(conflict: Pick<BrainConflict, "entity_type" | "fie
   const field = spec?.fields.find((f) => f.key === conflict.field);
   const what = field?.label ?? humanize(conflict.field);
   return spec ? `${spec.one}: ${what.toLowerCase()}` : what;
-}
-
-/* Survey position. Step 0 is the review of what the scan found, step n is
-   question n (1-based), and one past the last question is the summary. */
-export function surveyResumeStep(state: SurveyState): number {
-  const last = state.questions.length + 1;
-  return Math.max(0, Math.min(last, Math.round(state.survey.step || 0)));
 }
 
 /** Extensions brain-ingest can read today; the picker offers nothing else. */

@@ -68,50 +68,23 @@ const pastDue = {
 };
 
 describe("deriveSetupStatus", () => {
-  it("orders the steps brain, billing, managers, creators", () => {
+  it("orders the steps billing, managers, creators", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
     expect(status.steps.map((s) => s.key)).toEqual([
-      "brain",
       "billing",
       "managers",
       "creators",
     ]);
   });
 
-  it("counts the mock dataset as 2 of 4 done (invites in, brain and billing pending)", () => {
+  it("counts the mock dataset as 2 of 3 done (invites in, billing pending)", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
     expect(status.doneCount).toBe(2);
-    expect(status.remaining).toBe(2);
+    expect(status.remaining).toBe(1);
     expect(status.complete).toBe(false);
-    expect(status.steps.find((s) => s.key === "brain")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "billing")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(true);
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(true);
-  });
-
-  it("marks brain done once the founder survey is finished, docs or not", () => {
-    const brain = (d: AdminDataset) =>
-      deriveSetupStatus(d).steps.find((s) => s.key === "brain");
-    expect(brain(dataset({ brainSurveyDone: true }))?.done).toBe(true);
-    expect(brain(dataset({ brainSurveyDone: false }))?.done).toBe(false);
-    expect(brain(dataset())?.href).toBe("/admin/brain/survey");
-  });
-
-  it("marks brain done only when Product AND Audience have content", () => {
-    const productOnly = dataset({
-      brainDocs: [
-        { kind: "product", title: "Product", body: "Filled.", updated: "Aug 1" },
-        { kind: "audience", title: "Audience", body: "   ", updated: "" },
-      ],
-    });
-    expect(
-      deriveSetupStatus(productOnly).steps.find((s) => s.key === "brain")?.done,
-    ).toBe(false);
-    expect(
-      deriveSetupStatus(dataset({ brainDocs: filledDocs })).steps.find(
-        (s) => s.key === "brain",
-      )?.done,
-    ).toBe(true);
   });
 
   it("requires a running subscription AND a creator budget for billing", () => {
@@ -157,7 +130,6 @@ describe("deriveSetupStatus", () => {
       withAnswers(MOCK_DATASET, { managerCount: 0 }),
     );
     expect(status.steps.map((s) => s.key)).toEqual([
-      "brain",
       "billing",
       "creators",
     ]);
@@ -203,7 +175,7 @@ describe("deriveSetupStatus", () => {
         creatorCount: 0,
       }),
     );
-    expect(status.steps).toHaveLength(4);
+    expect(status.steps).toHaveLength(3);
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(false);
   });
@@ -212,7 +184,7 @@ describe("deriveSetupStatus", () => {
     const status = deriveSetupStatus(
       dataset({ brainDocs: filledDocs, billing: completeBilling }),
     );
-    expect(status.doneCount).toBe(4);
+    expect(status.doneCount).toBe(3);
     expect(status.remaining).toBe(0);
     expect(status.complete).toBe(true);
   });

@@ -57,8 +57,6 @@ function writeFired(key: string, fired: Set<string>): void {
 
 function toastTitle(step: AchievementStep): string {
   switch (step.key) {
-    case "brain":
-      return "Company brain filled in";
     case "billing":
       return "Budget and subscription set";
     case "managers":

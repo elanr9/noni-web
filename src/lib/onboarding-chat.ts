@@ -26,8 +26,14 @@ export type ChatProgress = { at: number; total: number };
 
 export type ChatAnswer = { slot: string; value: string | string[]; text: string };
 
-export async function loadChat(): Promise<ChatState> {
-  const res = await fetch("/onboarding/chat", { method: "POST", body: JSON.stringify({ action: "state" }) });
+/** Where a conversation is served from. The apply chat (/apply/chat) speaks
+    the same format and also needs to know which application it is. */
+export type ChatSource = { endpoint: string; body?: Record<string, unknown> };
+
+const ONBOARDING: ChatSource = { endpoint: "/onboarding/chat" };
+
+export async function loadChat(source: ChatSource = ONBOARDING): Promise<ChatState> {
+  const res = await fetch(source.endpoint, { method: "POST", body: JSON.stringify({ ...source.body, action: "state" }) });
   const json = (await res.json().catch(() => null)) as (ChatState & { error?: string }) | null;
   if (!res.ok || !json) throw new Error(json?.error ?? "The conversation could not be loaded.");
   return json;
@@ -38,10 +44,11 @@ export async function sendTurn(
   answer: ChatAnswer | null,
   onDelta: (text: string) => void,
   onProgress?: (p: ChatProgress) => void,
+  source: ChatSource = ONBOARDING,
 ): Promise<SlotSpec | null> {
-  const res = await fetch("/onboarding/chat", {
+  const res = await fetch(source.endpoint, {
     method: "POST",
-    body: JSON.stringify({ action: "turn", ...(answer ? { answer } : {}) }),
+    body: JSON.stringify({ ...source.body, action: "turn", ...(answer ? { answer } : {}) }),
   });
   if (!res.ok || !res.body) {
     const json = (await res.json().catch(() => null)) as { error?: string } | null;

@@ -18,9 +18,6 @@ import type {
   SnapshotItem,
   SnapshotPart,
   SourceDetail,
-  SurveyAnswerResult,
-  SurveyQuestion,
-  SurveyState,
 } from "./brain-model";
 import { ENTITY_SPECS } from "./brain-model";
 
@@ -212,90 +209,12 @@ const QUESTIONS: BrainQuestion[] = [
   },
 ];
 
-const SURVEY: SurveyQuestion[] = [
-  {
-    key: "aha_moment",
-    question: "What is the moment a new user gets it?",
-    hint: "Tell us what is on screen, what they tap and what appears.",
-    why: "",
-    optional: false,
-    accepts: ["text", "voice", "screen_recording"],
-    suggestion: {
-      text: "After the game the coach opens the game, taps a tagged play and sends the clip to the squad. It lands in the team chat with the play name on it.",
-      fact_ids: [],
-      sources: [
-        {
-          title: "fieldvision.ai",
-          url: `${SITE}/`,
-          kind: "website_page",
-          excerpt: "Tag every play and send clips to the squad the same night.",
-        },
-      ],
-    },
-    answer: null,
-  },
-  {
-    key: "best_customers",
-    question: "Think of three customers who love it. What was going on the day they signed up?",
-    hint: "Describe the situation, not the demographics.",
-    why: "",
-    optional: false,
-    accepts: ["text", "voice"],
-    suggestion: {
-      text: "A coach at a small school who films alone and was losing every Sunday to cutting film.",
-      fact_ids: [],
-      sources: [
-        {
-          title: "App Store reviews: FieldVision",
-          url: "https://apps.apple.com/us/app/id1",
-          kind: "review",
-          excerpt: "I coach alone at a small school. Film used to eat my whole Sunday.",
-        },
-      ],
-    },
-    answer: null,
-  },
-  {
-    key: "alternative",
-    question: "If you disappeared tomorrow, what would customers go back to, and what would they miss?",
-    hint: "A competitor, a spreadsheet, a notes app or doing nothing all count.",
-    why: "",
-    optional: false,
-    accepts: ["text", "voice"],
-    suggestion: null,
-    answer: null,
-  },
-  {
-    key: "never_say",
-    question: "What must a creator never claim or show?",
-    hint: "Promises you cannot keep, screens with private data, competitor names.",
-    why: "",
-    optional: false,
-    accepts: ["text"],
-    suggestion: null,
-    answer: null,
-  },
-  {
-    key: "payer_user",
-    question: "Who pays for it and who uses it day to day?",
-    hint: "Only needed when they are different people.",
-    why: "",
-    optional: true,
-    accepts: ["text"],
-    suggestion: null,
-    answer: null,
-  },
-];
-
 const PHASE_ORDER: IngestPhase[] = ["crawl", "extract", "embed", "suggest", "done"];
 
 interface MockBrain {
   facts: FactView[];
   conflicts: BrainConflict[];
   questions: BrainQuestion[];
-  survey: SurveyQuestion[];
-  step: number;
-  completedAt: string | null;
   /** -1 before any scan; otherwise an index into PHASE_ORDER that each status poll advances. */
   phase: number;
   legacyImported: boolean;
@@ -305,9 +224,6 @@ export const MOCK_BRAIN: MockBrain = {
   facts: FACTS,
   conflicts: CONFLICTS,
   questions: QUESTIONS,
-  survey: SURVEY,
-  step: 0,
-  completedAt: null,
   phase: PHASE_ORDER.length - 1,
   legacyImported: false,
 };
@@ -466,42 +382,6 @@ export function mockAdd(input: {
 
 export function mockCloseQuestion(id: string): void {
   MOCK_BRAIN.questions = MOCK_BRAIN.questions.filter((q) => q.id !== id);
-}
-
-export function mockSurvey(): SurveyState {
-  return {
-    survey: { step: MOCK_BRAIN.step, updated_at: null, completed_at: MOCK_BRAIN.completedAt },
-    questions: MOCK_BRAIN.survey,
-    ...coverage(),
-  };
-}
-
-export function mockAnswer(key: string, answer: string, step?: number): SurveyAnswerResult | null {
-  const question = MOCK_BRAIN.survey.find((q) => q.key === key);
-  if (!question) return null;
-  const added = mockAdd({
-    entity_type: key === "never_say" ? "compliance" : key === "alternative" ? "alternative" : "persona",
-    title: answer.split(/[.\n]/)[0].slice(0, 60),
-    data: { rule: answer, statement: answer, situation: answer, falls_short: answer },
-  });
-  question.answer = { answer, fact_ids: [added.id] };
-  if (typeof step === "number") MOCK_BRAIN.step = step;
-  return {
-    answer: question.answer,
-    facts: [added],
-    conflicts: 0,
-    extract_error: null,
-    ...coverage(),
-  };
-}
-
-export function mockSaveStep(step: number): void {
-  MOCK_BRAIN.step = step;
-}
-
-export function mockComplete(): { completed_at: string; coverage: number; missing: string[] } {
-  MOCK_BRAIN.completedAt = new Date().toISOString();
-  return { completed_at: MOCK_BRAIN.completedAt, ...coverage() };
 }
 
 export function mockContext(topic: string): BrainContext {

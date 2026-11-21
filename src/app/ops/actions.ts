@@ -142,3 +142,24 @@ export async function resendInvite(input: {
   revalidatePath("/ops/invites");
   return { ok: true };
 }
+
+/* Approves or turns down an application from /apply. Approving a company
+   creates it with the applicant as its admin; approving a creator opens
+   their creator account. The applicant is emailed either way. */
+export async function decideApplication(input: {
+  id: string;
+  decision: "approve" | "reject";
+  note?: string;
+}): Promise<OpsActionResult> {
+  const denied = await requirePlatformAdmin();
+  if (denied) return { ok: false, error: denied };
+  const result = await callEdgeFunction<unknown>("apply-chat", {
+    action: "decide",
+    id: input.id,
+    decision: input.decision,
+    ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+  });
+  if (result.error !== null) return { ok: false, error: result.error };
+  revalidatePath("/ops", "layout");
+  return { ok: true };
+}

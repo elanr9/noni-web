@@ -2,12 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { transcribeBrainAudio } from "@/lib/admin/brain-cleanup";
 import {
   mockAdd,
-  mockAnswer,
   mockCloseQuestion,
-  mockComplete,
   mockConfirm,
   mockContext,
   mockEdit,
@@ -16,11 +13,9 @@ import {
   mockPollIngest,
   mockReject,
   mockResolve,
-  mockSaveStep,
   mockSettleSnapshot,
   mockSnapshot,
   mockStartIngest,
-  mockSurvey,
 } from "@/lib/admin/brain-mock";
 import {
   brainUploadProblem,
@@ -32,8 +27,6 @@ import {
   type FactsList,
   type IngestState,
   type SnapshotPart,
-  type SurveyAnswerResult,
-  type SurveyState,
 } from "@/lib/admin/brain-model";
 import {
   canManageCampaigns,
@@ -203,14 +196,7 @@ export async function uploadBrainDocument(formData: FormData): Promise<BrainResu
   return result;
 }
 
-/* ── Founder questions ─────────────────────────────────────────────────── */
-
-export async function getBrainSurvey(): Promise<BrainResult<SurveyState>> {
-  const gate = await requireBrainAccess();
-  if (!gate.ok) return gate;
-  if (gate.mock) return { ok: true, data: mockSurvey() };
-  return call<SurveyState>("brain-survey", { action: "get" });
-}
+/* ── Company summary ───────────────────────────────────────────────────── */
 
 /** The short company summary (what it sells, who it is for, core features,
     the viral one). Built on first ask when the scan has records. */
@@ -234,70 +220,6 @@ export async function settleBrainSnapshot(input: {
   if (gate.mock) return { ok: true, data: mockSettleSnapshot(input) };
   const out = await call<{ snapshot: CompanySnapshot }>("brain-survey", { action: "snapshot_settle", ...input });
   return out.ok ? { ok: true, data: out.data.snapshot } : out;
-}
-
-export async function answerBrainSurvey(input: {
-  key: string;
-  answer: string;
-  step: number;
-}): Promise<BrainResult<SurveyAnswerResult>> {
-  const gate = await requireBrainAccess();
-  if (!gate.ok) return gate;
-  const answer = input.answer.trim();
-  if (!answer) return { ok: false, error: "Write an answer first." };
-  if (gate.mock) {
-    const out = mockAnswer(input.key, answer, input.step);
-    return out ? { ok: true, data: out } : { ok: false, error: "Unknown question." };
-  }
-  return call<SurveyAnswerResult>("brain-survey", {
-    action: "answer",
-    key: input.key,
-    answer,
-    step: input.step,
-  });
-}
-
-export async function saveBrainSurveyStep(step: number): Promise<BrainResult<{ ok: true }>> {
-  const gate = await requireBrainAccess();
-  if (!gate.ok) return gate;
-  if (!Number.isFinite(step) || step < 0) return { ok: false, error: "Unknown step." };
-  if (gate.mock) {
-    mockSaveStep(step);
-    return { ok: true, data: { ok: true } };
-  }
-  return call<{ ok: true }>("brain-survey", { action: "save_step", step: Math.round(step) });
-}
-
-export async function completeBrainSurvey(): Promise<
-  BrainResult<{ completed_at: string; coverage: number; missing: string[] }>
-> {
-  const gate = await requireBrainAccess();
-  if (!gate.ok) return gate;
-  if (gate.mock) return { ok: true, data: mockComplete() };
-  const result = await call<{ completed_at: string; coverage: number; missing: string[] }>(
-    "brain-survey",
-    { action: "complete" },
-  );
-  /* The setup to-do counts a finished survey as the brain step. */
-  if (result.ok) revalidatePath("/admin", "layout");
-  return result;
-}
-
-/* Speech to text for a spoken answer: the same transcription the doc
-   editor's Speak button uses, without the rewrite, so the words stay the
-   founder's own. */
-export async function transcribeBrainAnswer(input: {
-  audio: File;
-}): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
-  const gate = await requireBrainAccess();
-  if (!gate.ok) return gate;
-  if (!input.audio || input.audio.size < 200) {
-    return { ok: false, error: "Nothing was heard. Speak again." };
-  }
-  if (gate.mock) {
-    return { ok: true, text: "Coaches go back to filming from the press box and cutting clips by hand." };
-  }
-  return transcribeBrainAudio(input.audio);
 }
 
 /* ── Records ───────────────────────────────────────────────────────────── */

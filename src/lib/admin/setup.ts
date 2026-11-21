@@ -1,21 +1,20 @@
 /* The gamified setup to-do, derived from the dataset exactly per the
    handoff README:
-   1. Brain: the founder survey finished, or (the earlier rule, still true
-      for companies that wrote them) Product AND Audience docs non-empty.
-   2. Billing: a running subscription (active or trialing) AND a creator
+   1. Billing: a running subscription (active or trialing) AND a creator
       budget (monthly budget set, or credit already on the balance). Stripe
       Connect is optional sales analytics for companies that sell on
       Stripe, so it never gates the step.
-   3. Managers: done once at least one campaign manager is on the team
+   2. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
-   4. Creators: done once at least one creator is on the team.
+   3. Creators: done once at least one creator is on the team.
+   The company brain is not a step: Noni fills it in for the company.
    When every step is done the Onboarding tab retires: nav item, badge and
    search entry disappear and /admin redirects to /admin/analytics. */
 
 import type { AdminDataset } from "./types";
 
-export type SetupStepKey = "brain" | "billing" | "managers" | "creators";
+export type SetupStepKey = "billing" | "managers" | "creators";
 
 export interface SetupStep {
   key: SetupStepKey;
@@ -40,12 +39,6 @@ export interface SetupStatus {
 export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
   const { onboarding } = dataset.company;
 
-  const product = dataset.brainDocs.find((d) => d.kind === "product");
-  const audience = dataset.brainDocs.find((d) => d.kind === "audience");
-  const brainDone =
-    dataset.brainSurveyDone === true ||
-    Boolean(product?.body.trim() && audience?.body.trim());
-
   const { subscription, monthlySpendLimit, creditBalance } = dataset.billing;
   const billingDone =
     (subscription.status === "active" || subscription.status === "trialing") &&
@@ -58,14 +51,6 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
   const creatorsDone = dataset.creators.length >= 1;
 
   const steps: SetupStep[] = [
-    {
-      key: "brain",
-      done: brainDone,
-      title: "Fill in your company brain",
-      sub: "Help us learn more about your company.",
-      action: "Answer the questions",
-      href: "/admin/brain/survey",
-    },
     {
       key: "billing",
       done: billingDone,

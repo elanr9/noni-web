@@ -124,13 +124,12 @@ export async function saveOnboardingProgress(
 
 /* The website step: saves the address and starts reading the company.
    Two jobs start here, both answering at once and working in the background:
-   - brain-ingest builds the fact brain the review and the founder questions
-     are filled from. Its state comes back so the flow can show progress.
+   - brain-ingest builds the fact brain the review is filled from. Its state comes back so the flow can show progress.
    - research-company writes the industry playbook (brand_docs kind
      industry_research). The brief writer the web calls today (ingest-brief)
      still takes its facts, dates and insider details from that document, and
      brain-ingest does no web research, so it keeps running. It used to start
-     on the last click; starting it here gives it the length of the survey. */
+     on the last click; starting it here gives it the length of the chat. */
 export async function startOnboardingScan(
   renderedFor: string,
   input: {

@@ -17,6 +17,7 @@ import {
   type ChatAnswer,
   type ChatMessage,
   type ChatProgress,
+  type ChatSource,
   type SlotSpec,
 } from "@/lib/onboarding-chat";
 
@@ -177,12 +178,18 @@ export function ChatOnboarding({
   email,
   initialScan,
   canRestart = false,
+  source,
+  done,
 }: {
+  /** Another conversation in the same format (the apply chat). With one,
+      there is no company yet: no site scan, and `done` is what the end shows. */
+  source?: ChatSource;
+  done?: React.ReactNode;
   /** Testing accounts get a restart button in the header. */
   canRestart?: boolean;
-  companyId: string;
+  companyId?: string;
   email: string;
-  initialScan: IngestState | null;
+  initialScan?: IngestState | null;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -192,7 +199,7 @@ export function ChatOnboarding({
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
-  const [scan, setScan] = useState<IngestState | null>(initialScan);
+  const [scan, setScan] = useState<IngestState | null>(initialScan ?? null);
   const [site, setSite] = useState("");
   const [name, setName] = useState("");
   const [finishing, setFinishing] = useState(false);
@@ -259,6 +266,7 @@ export function ChatOnboarding({
           setStreaming(text);
         },
         setProgress,
+        source,
       );
       setMessages((m) => [...m, { role: "assistant", text: text.trim(), slot: next?.key ?? "end" }]);
       setPending(next);
@@ -272,12 +280,13 @@ export function ChatOnboarding({
       setStreaming(null);
       setBusy(false);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source?.endpoint]);
 
   /* Open: pick the conversation up where it was, or start it. */
   useEffect(() => {
     let live = true;
-    void loadChat()
+    void loadChat(source)
       .then((state) => {
         if (!live) return;
         setName(state.first_name);
@@ -296,13 +305,14 @@ export function ChatOnboarding({
     return () => {
       live = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turn]);
 
   const answer = (value: string | string[], text: string) => {
     if (!pending || busy) return;
     const a: ChatAnswer = { slot: pending.key, value, text };
     setMessages((m) => [...m, { role: "user", text, slot: pending.key }]);
-    if (pending.key === "website") {
+    if (pending.key === "website" && companyId) {
       const url = text.trim();
       setSite(url);
       /* Show the read starting at once; the server's state replaces this. */
@@ -329,6 +339,7 @@ export function ChatOnboarding({
   };
 
   const finish = async () => {
+    if (!companyId) return;
     setFinishing(true);
     const r = await finishChatOnboarding(companyId);
     if (!r.ok) {
@@ -390,7 +401,11 @@ export function ChatOnboarding({
           </div>
         ) : null}
 
-        {pending?.kind === "done" && !busy ? (
+        {pending?.kind === "done" && !busy && done ? (
+          <div className="pl-[46px] animate-om-rise">{done}</div>
+        ) : null}
+
+        {pending?.kind === "done" && !busy && !done ? (
           <div className="flex flex-col gap-4 pl-[46px] animate-om-rise">
             <button
               type="button"
@@ -532,7 +547,7 @@ export function ChatOnboarding({
                       ? pending.key === "website"
                         ? "yourcompany.com"
                         : pending.placeholder || "Type your answer here"
-                      : "Or type it in your own words"
+                      : pending.placeholder || "Or type it in your own words"
                 }
                 rows={pending.kind === "text" && pending.key !== "website" ? 2 : 1}
                 className="max-h-[220px] min-h-[28px] flex-1 resize-none self-center border-none bg-transparent py-1.5 text-[16.5px] font-medium leading-[1.5] text-ink caret-blue-500 outline-none placeholder:text-slate-500"

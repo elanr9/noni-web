@@ -217,14 +217,13 @@ export function LandingPage() {
               </Reveal>
               <ShotRow shots={MANAGER_SHOTS} dark />
               <div className="mt-14 flex flex-col justify-center gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={bookCall}
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-accent px-7 py-4 text-[15.5px] font-bold text-white transition hover:bg-accent-deep"
+                <Link
+                  href="/apply?as=company"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-accent-deep"
                 >
-                  Book a call
+                  Apply as a brand
                   <ArrowRight className="h-4 w-4" />
-                </button>
+                </Link>
                 <Link
                   href="#pricing"
                   className="inline-flex items-center justify-center rounded-full border border-white/20 px-7 py-4 text-[15.5px] font-bold text-white transition hover:bg-white/10"
@@ -257,14 +256,13 @@ export function LandingPage() {
               </Reveal>
               <ShotRow shots={CREATOR_SHOTS} />
               <div className="mt-14 flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setForm("creator")}
-                  className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-ink px-7 py-4 text-[15.5px] font-bold text-white transition hover:bg-ink-soft sm:w-auto"
+                <Link
+                  href="/apply?as=creator"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-ink-soft sm:w-auto"
                 >
-                  Get started as a creator
+                  Apply as a creator
                   <ArrowRight className="h-4 w-4" />
-                </button>
+                </Link>
               </div>
             </div>
           </section>
@@ -363,22 +361,20 @@ export function LandingPage() {
                 Ready when you are
               </h2>
               <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-                <button
-                  type="button"
-                  onClick={bookCall}
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-ink px-7 py-4 text-[15.5px] font-bold text-white transition hover:bg-ink-soft"
+                <Link
+                  href="/apply?as=company"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-ink-soft"
                 >
-                  Book a call
+                  Apply as a brand
                   <ArrowRight className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm("creator")}
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-accent px-7 py-4 text-[15.5px] font-bold text-white transition hover:bg-accent-deep"
+                </Link>
+                <Link
+                  href="/apply?as=creator"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-accent-deep"
                 >
-                  Get started as a creator
+                  Apply as a creator
                   <ArrowRight className="h-4 w-4" />
-                </button>
+                </Link>
               </div>
             </Reveal>
           </div>

@@ -74,7 +74,7 @@ function LoginForm() {
           Welcome back
         </h1>
         <p className="mt-1.5 text-center text-[14px] leading-relaxed text-muted">
-          Sign in with the email address your Noni invite was sent to.
+          Sign in to your Noni account.
         </p>
 
         <button
@@ -106,8 +106,8 @@ function LoginForm() {
 
       <p className="mt-5 text-center text-[13px] text-muted">
         New to Noni?{" "}
-        <Link href="/" className="font-semibold text-accent hover:text-accent-deep">
-          Join the waitlist
+        <Link href="/apply" className="font-semibold text-accent hover:text-accent-deep">
+          Apply to join
         </Link>
       </p>
     </div>

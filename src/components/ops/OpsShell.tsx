@@ -1,6 +1,6 @@
 "use client";
 
-import {
+import { Inbox,
   CircleUserRound,
   Gauge,
   LayoutGrid,
@@ -28,6 +28,7 @@ const NAV = [
   { href: "/ops", label: "Overview", icon: Gauge },
   { href: "/ops/companies", label: "Companies", icon: LayoutGrid },
   { href: "/ops/users", label: "Users", icon: Users },
+  { href: "/ops/applications", label: "Applications", icon: Inbox },
   { href: "/ops/invites", label: "Invites", icon: Send },
 ] as const;
 

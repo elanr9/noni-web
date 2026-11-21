@@ -298,8 +298,6 @@ export interface AdminDataset {
   dayActivity: DayActivityMap;
   billing: AdminBilling;
   brainDocs: BrainDoc[];
-  /** True once the founder survey on the fact brain has been finished. */
-  brainSurveyDone?: boolean;
   inspirationAccounts: InspirationAccount[];
   features: ProductFeature[];
   briefTemplates: BriefTemplate[];

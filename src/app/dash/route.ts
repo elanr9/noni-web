@@ -16,6 +16,8 @@ export async function GET() {
   await supabase.rpc("claim_pending_invite");
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login");
+  /* Signed in with no Noni account yet: they are applying. */
+  if (!profile?.role) redirect("/apply");
   if (isPlatformAdmin(profile)) redirect("/ops");
   if (isCampaignManager(profile)) redirect("/manager");
   redirect("/admin");

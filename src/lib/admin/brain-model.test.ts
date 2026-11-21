@@ -14,14 +14,11 @@ import {
   scanSteps,
   sectionFacts,
   sourceLabel,
-  surveyResumeStep,
   BRAIN_SECTIONS,
   ENTITY_SPECS,
   type FactView,
   type IngestState,
-  type SurveyState,
 } from "./brain-model";
-import { resumeStep } from "./onboarding-steps";
 
 function fact(overrides: Partial<FactView> = {}): FactView {
   return {
@@ -206,47 +203,6 @@ describe("scan progress", () => {
     expect(coveragePercent(0.624)).toBe(62);
     expect(coveragePercent(1.4)).toBe(100);
     expect(coveragePercent(Number.NaN)).toBe(0);
-  });
-});
-
-describe("resuming", () => {
-  const survey = (step: number): SurveyState => ({
-    survey: { step, updated_at: null, completed_at: null },
-    questions: [1, 2, 3].map((n) => ({
-      key: `q${n}`,
-      question: "",
-      hint: "",
-      why: "",
-      optional: false,
-      accepts: ["text"],
-      suggestion: null,
-      answer: null,
-    })),
-    coverage: 0,
-    missing: [],
-  });
-
-  it("returns to the saved survey step, clamped to the review and the summary", () => {
-    expect(surveyResumeStep(survey(0))).toBe(0);
-    expect(surveyResumeStep(survey(2))).toBe(2);
-    expect(surveyResumeStep(survey(99))).toBe(4);
-    expect(surveyResumeStep(survey(-3))).toBe(0);
-  });
-
-  const saved = { name: "Riley", website: "acme.com", role: "Founder", doesUgc: true, managerCount: 1 };
-
-  it("reopens onboarding on the remembered step when its answers were saved", () => {
-    expect(resumeStep("survey", saved)).toBe("survey");
-    expect(resumeStep("managers", saved)).toBe("managers");
-    expect(resumeStep(undefined, saved)).toBe("welcome");
-    expect(resumeStep("not-a-step", saved)).toBe("welcome");
-  });
-
-  it("falls back to the first screen whose answer is missing", () => {
-    expect(resumeStep("survey", { ...saved, website: "" })).toBe("website");
-    expect(resumeStep("ugc", { ...saved, name: " " })).toBe("name");
-    expect(resumeStep("creators", { ...saved, doesUgc: false })).toBe("ugc");
-    expect(resumeStep("download", { ...saved, managerCount: 0 })).toBe("ugc");
   });
 });
 
