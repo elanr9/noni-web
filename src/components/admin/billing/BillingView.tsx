@@ -298,9 +298,10 @@ export function BillingView({
                   subscription={subscription}
                   simulated={simulated}
                   onChoose={purchase}
+                  compact
                 />
                 {active ? (
-                  <div className="flex items-center justify-center gap-5 pb-2">
+                  <div className="flex items-center justify-center gap-5 pt-4">
                     <button
                       type="button"
                       onClick={() => setChangingPlan(false)}
