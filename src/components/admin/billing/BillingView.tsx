@@ -87,6 +87,7 @@ export function BillingView({
   tourStep,
   known = null,
   budgetInvoice = null,
+  initialSection = null,
 }: {
   /** The company this page was rendered for; the actions refuse when the
       account has since switched to another one. */
@@ -98,6 +99,8 @@ export function BillingView({
   notice: string | null;
   /** The signed-in admin, so call requests do not ask who they are. */
   known?: KnownContact | null;
+  /** The section to open on, e.g. Sales data from the onboarding step. */
+  initialSection?: "plan" | "budget" | "stripe" | null;
   /** A creator budget invoice Noni has sent that is still unpaid. */
   budgetInvoice?: OpenBudgetInvoice | null;
   /** Active ?tour= step, if the product tour is running. */
@@ -109,7 +112,7 @@ export function BillingView({
   const [changingPlan, setChangingPlan] = useState(false);
   const [error, setError] = useState<string | null>(notice);
   const [connecting, setConnecting] = useState(false);
-  const [section, setSection] = useState<Section | null>(null);
+  const [section, setSection] = useState<Section | null>(initialSection);
 
   const tourTarget = tourStep !== null ? tourStepTarget(tourStep) : null;
 
@@ -470,25 +473,21 @@ export function BillingView({
                         : budgetDone
                           ? "Set by Noni"
                           : budgetInvoice
-                            ? "Your budget invoice is ready"
-                            : "Noni is setting up your budget"}
+                            ? "Your budget invoice"
+                            : "Your invoice is on its way"}
                       {limit > 0 ? (
                         <span className="text-[15px] font-bold text-slate-400">
                           /mo
                         </span>
                       ) : null}
                     </span>
-                    <span className="mt-1 block max-w-[560px] text-[13.5px] font-semibold leading-[1.5] text-slate-500">
-                      {budgetInvoice
-                        ? `${money(budgetInvoice.amount)}${
-                            budgetInvoice.due
-                              ? `, due ${budgetInvoice.due}`
-                              : ""
-                          }. It lands in your balance as soon as it is paid, and Noni pays your creators from it.`
-                        : budgetDone
-                          ? "Set with the Noni team and invoiced to you. Noni pays your creators from it."
-                          : "This is the money that pays your creators. We agreed the amount with you during onboarding, so there is nothing to do here. Your invoice comes by email and shows up on this page. Nothing is charged to your card."}
-                    </span>
+                    {/* Only facts go under the title: what is owed and when. */}
+                    {budgetInvoice ? (
+                      <span className="mt-1 block text-[14px] font-bold text-slate-500">
+                        {money(budgetInvoice.amount)}
+                        {budgetInvoice.due ? ` · due ${budgetInvoice.due}` : ""}
+                      </span>
+                    ) : null}
                   </span>
                   {budgetInvoice ? (
                     <Pill
@@ -578,43 +577,36 @@ export function BillingView({
           </>
         ) : null}
 
+        {/* Sales data: two connections, each a logo, a name and one button. */}
         {shown === "stripe" ? (
-          <Card pad={22}>
-            <div className="flex items-center gap-2.5">
-              <Label className="flex-1">Stripe sales analytics</Label>
+          <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+            <Card pad={22} className="flex items-center gap-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/stripe.svg" alt="" className="h-10 w-10 shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[18px] font-bold tracking-[-0.3px] text-ink">
+                  Stripe
+                </span>
+                <span className="block text-[13px] font-semibold text-slate-400">Sales</span>
+              </span>
               {billing.stripeConnected ? (
                 <Chip tone="green">
                   <Check size={12} /> Connected
                 </Chip>
               ) : (
-                <Chip tone="slate">Optional</Chip>
+                <Pill
+                  size="sm"
+                  icon={connecting ? Clock : Link2}
+                  onClick={() => void connect()}
+                >
+                  {connecting ? "Opening…" : "Connect"}
+                </Pill>
               )}
-            </div>
-            {billing.stripeConnected ? null : (
-              <>
-                <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
-                  Optional. If you sell on Stripe, connecting it lets Analytics
-                  show real sales and sign-ups next to every post. Stripe will
-                  ask you to approve access to your account; Noni only reads
-                  sales and sign-ups and never moves money or changes anything.
-                  Not on Stripe? Skip this; your plan and creator budget work
-                  without it.
-                </p>
-                <div className="mt-3.5">
-                  <Pill
-                    size="sm"
-                    icon={connecting ? Clock : Link2}
-                    onClick={() => void connect()}
-                  >
-                    {connecting ? "Opening Stripe…" : "Connect with Stripe"}
-                  </Pill>
-                </div>
-              </>
-            )}
-          </Card>
+            </Card>
+            <SignupTrackingCard />
+          </div>
         ) : null}
 
-        {shown === "stripe" ? <SignupTrackingCard /> : null}
       </div>
     </div>
   );

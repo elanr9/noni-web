@@ -35,7 +35,7 @@ import { themeTextColor } from "@/lib/media-library-shared";
 const NONI_BLUE = "#1BA6EE";
 
 /** Dots thrown outward from the middle of whatever it sits in. Remount (new key) to throw again. */
-function Burst({ colors, count = 12, reach = 46 }: { colors: string[]; count?: number; reach?: number }) {
+export function Burst({ colors, count = 12, reach = 46 }: { colors: string[]; count?: number; reach?: number }) {
   return (
     <span aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-0 w-0">
       {Array.from({ length: count }, (_, i) => {

@@ -55,6 +55,7 @@ export default async function AdminBillingPage({
             }
           : null
       }
+      initialSection={sp.step === "sales" ? "stripe" : null}
       tourStep={typeof sp.tour === "string" ? Number(sp.tour) : null}
     />
   );

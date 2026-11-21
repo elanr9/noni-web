@@ -8,7 +8,7 @@ import {
   getSignupStatus,
   startSupabaseConnect,
 } from "@/app/admin/billing/signup-actions";
-import { Card, Chip, Label, Pill } from "@/components/kit";
+import { Card, Chip, Pill } from "@/components/kit";
 
 interface Project {
   ref: string;
@@ -78,74 +78,53 @@ export function SignupTrackingCard() {
 
   return (
     <Card pad={22}>
-      <div className="flex items-center gap-2.5">
-        <Label className="flex-1">Sign-ups from your app</Label>
-        {connected ? (
+      <div className="flex items-center gap-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/supabase.svg" alt="" className="h-10 w-10 shrink-0" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[18px] font-bold tracking-[-0.3px] text-ink">Supabase</span>
+          <span className="block truncate text-[13px] font-semibold text-slate-400">
+            {connected && projectName ? projectName : "Sign-ups"}
+          </span>
+        </span>
+        {projects ? null : connected ? (
           <Chip tone="green">
             <Check size={12} /> Connected
           </Chip>
         ) : (
-          <Chip tone="slate">Optional</Chip>
+          <Pill
+            size="sm"
+            icon={busy === "connect" ? Clock : Database}
+            onClick={() => void connect()}
+          >
+            {busy === "connect" ? "Opening…" : "Connect"}
+          </Pill>
         )}
       </div>
 
       {projects ? (
-        <>
-          <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
-            Which project does your app run on?
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {projects.map((p) => (
-              <Pill
-                key={p.ref}
-                size="sm"
-                variant="tint"
-                icon={busy === p.ref ? Clock : Database}
-                onClick={() => void choose(p.ref)}
-              >
-                {busy === p.ref ? "Connecting…" : p.name}
-              </Pill>
-            ))}
-          </div>
-        </>
+        <div className="mt-3.5 flex flex-wrap gap-2">
+          {projects.map((p) => (
+            <Pill
+              key={p.ref}
+              size="sm"
+              variant="tint"
+              icon={busy === p.ref ? Clock : Database}
+              onClick={() => void choose(p.ref)}
+            >
+              {busy === p.ref ? "Connecting…" : p.name}
+            </Pill>
+          ))}
+        </div>
       ) : connected ? (
-        <>
-          <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
-            {receiving
-              ? `Analytics counts every sign-up${projectName ? ` from ${projectName}` : ""}, next to the posts that brought it in.`
-              : `Connected${projectName ? ` to ${projectName}` : ""}. Your sign-up history is on its way and shows up in Analytics within a minute.`}
-          </p>
-          <div className="mt-3.5">
-            <Pill
-              size="sm"
-              variant="quiet"
-              icon={busy === "connect" ? Clock : Database}
-              onClick={() => void connect()}
-            >
-              {busy === "connect"
-                ? "Opening Supabase…"
-                : "Connect a different project"}
-            </Pill>
-          </div>
-        </>
-      ) : (
-        <>
-          <p className="mb-0 mt-2.5 text-[13.5px] font-semibold leading-[1.55] text-slate-500">
-            Optional. If your app runs on Supabase, connect it and Analytics
-            counts every sign-up, including your history. Access is read-only,
-            and Noni only keeps a number per day: no names, emails or user ids.
-          </p>
-          <div className="mt-3.5">
-            <Pill
-              size="sm"
-              icon={busy === "connect" ? Clock : Database}
-              onClick={() => void connect()}
-            >
-              {busy === "connect" ? "Opening Supabase…" : "Connect Supabase"}
-            </Pill>
-          </div>
-        </>
-      )}
+        <button
+          type="button"
+          onClick={() => void connect()}
+          className="mt-3 cursor-pointer border-none bg-transparent p-0 text-[12.5px] font-bold text-slate-400 hover:text-blue-700"
+        >
+          {busy === "connect" ? "Opening…" : "Change project"}
+        </button>
+      ) : null}
 
       {error ? (
         <p className="mb-0 mt-3 text-[13px] font-semibold text-ink">{error}</p>

@@ -14,6 +14,8 @@
    4. Screenshots: done once the media library holds at least one
       screenshot or recording of the product. It comes last: the team is
       in before anyone is asked to gather files.
+   5. Sales: done once Stripe is connected, so every post shows the sales
+      it brought in. It is required, not optional.
    Anything else a company has to do itself belongs here as a step, never
    as a card on some other page waiting to be found.
    The steps run in order: each one stays locked until the one before it
@@ -23,7 +25,7 @@
 
 import type { AdminDataset } from "./types";
 
-export type SetupStepKey = "billing" | "brain" | "media" | "managers" | "creators";
+export type SetupStepKey = "billing" | "brain" | "media" | "managers" | "creators" | "sales";
 
 export interface SetupStep {
   key: SetupStepKey;
@@ -107,6 +109,14 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       short: "Screenshots",
       action: "Add screenshots",
       href: "/admin/media",
+    },
+    {
+      key: "sales",
+      done: dataset.billing.stripeConnected,
+      title: "Connect your sales",
+      short: "Sales",
+      action: "Connect Stripe",
+      href: "/admin/billing?step=sales",
     },
   ];
 
