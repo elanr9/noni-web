@@ -1,6 +1,6 @@
 "use server";
 
-/* Sign-ups from the company's own app (Billing > Sales data). One click:
+/* Sign-ups from the company's own app (Billing > Connections). One click:
    the admin approves read-only access on Supabase's consent screen and
    Noni counts sign-ups from their project every hour. See
    src/lib/admin/supabase-connect.ts. */

@@ -58,8 +58,8 @@ type Section = "plan" | "budget" | "stripe";
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: "plan", label: "Plan" },
+  { id: "stripe", label: "Connections" },
   { id: "budget", label: "Budget" },
-  { id: "stripe", label: "Sales data" },
 ];
 
 /* The product tour spotlights targets that live on specific sections;
@@ -99,7 +99,7 @@ export function BillingView({
   notice: string | null;
   /** The signed-in admin, so call requests do not ask who they are. */
   known?: KnownContact | null;
-  /** The section to open on, e.g. Sales data from the onboarding step. */
+  /** The section to open on, e.g. Connections from the onboarding step. */
   initialSection?: "plan" | "budget" | "stripe" | null;
   /** A creator budget invoice Noni has sent that is still unpaid. */
   budgetInvoice?: OpenBudgetInvoice | null;
@@ -126,17 +126,17 @@ export function BillingView({
   const annual = active && subscription.cadence === "annual";
   const limit = billing.monthlySpendLimit ?? 0;
   const pctUsed = limit > 0 ? Math.min(1, billing.spentThisMonth / limit) : 0;
-  /* No plan yet: Budget and Sales data are locked. Pilots ops runs by hand
+  /* No plan yet: Connections and Budget are locked. Pilots ops runs by hand
      (simulated billing) have no plan to buy, so nothing locks for them. */
   const locked = !active && !simulated;
-  /* Budget and Sales data unlock once there is a plan. The budget is never
+  /* Connections and Budget unlock once there is a plan. The budget is never
      the company's to set: Noni agrees it during onboarding and invoices it,
      so it never holds up the next step. */
   const budgetDone = limit > 0 || billing.creditBalance > 0;
   const lockedStep = (id: Section): boolean =>
     simulated ? false : id !== "plan" && !active;
   /* Open on the step that is up next, until the admin picks one. */
-  const upNext: Section = !active ? "plan" : !budgetDone ? "budget" : "plan";
+  const upNext: Section = !active ? "plan" : !billing.stripeConnected ? "stripe" : !budgetDone ? "budget" : "plan";
   const wanted: Section =
     (tourTarget && TOUR_SECTION[tourTarget]) || section || upNext;
   const shown: Section = lockedStep(wanted) ? upNext : wanted;
@@ -193,7 +193,7 @@ export function BillingView({
   return (
     <div>
       {/* The three sections are steps in order: a plan first, then the
-          creator budget, then sales data. The later two stay locked until
+          connections (Stripe and Supabase), then the creator budget. The later two stay locked until
           the company has a plan. */}
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="inline-flex max-w-full flex-wrap border border-line bg-white p-1 shadow-[0_1px_2px_rgba(15,23,32,0.04)] rounded-pill">
@@ -245,7 +245,7 @@ export function BillingView({
         </div>
         {locked ? (
           <span className="text-[12.5px] font-semibold text-slate-400">
-            Step 1 of 3. Pick a plan to unlock your budget and sales data.
+            Pick a plan first.
           </span>
         ) : null}
       </div>
@@ -405,9 +405,9 @@ export function BillingView({
                   <Pill
                     size="sm"
                     icon={ArrowRight}
-                    onClick={() => setSection("budget")}
+                    onClick={() => setSection("stripe")}
                   >
-                    Next: creator budget
+                    Next: connections
                   </Pill>
                 </div>
               </Card>
@@ -533,18 +533,6 @@ export function BillingView({
               </Card>
             </div>
 
-            {active || simulated ? (
-              <div className="flex justify-end">
-                <Pill
-                  size="sm"
-                  variant={budgetInvoice ? "quiet" : "primary"}
-                  icon={ArrowRight}
-                  onClick={() => setSection("stripe")}
-                >
-                  Next: sales data
-                </Pill>
-              </div>
-            ) : null}
 
             {billing.topUpHistory.length > 0 ? (
               <Card pad={0}>
@@ -577,7 +565,7 @@ export function BillingView({
           </>
         ) : null}
 
-        {/* Sales data: two connections, each a logo, a name and one button. */}
+        {/* Connections: two of them, each a logo, a name and one button. */}
         {shown === "stripe" ? (
           <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
             <Card pad={22} className="flex items-center gap-4">
@@ -604,6 +592,11 @@ export function BillingView({
               )}
             </Card>
             <SignupTrackingCard />
+            <div className="flex justify-end md:col-span-2">
+              <Pill size="sm" variant="quiet" icon={ArrowRight} onClick={() => setSection("budget")}>
+                Next: budget
+              </Pill>
+            </div>
           </div>
         ) : null}
 

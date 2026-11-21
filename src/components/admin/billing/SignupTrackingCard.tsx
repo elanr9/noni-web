@@ -15,7 +15,7 @@ interface Project {
   name: string;
 }
 
-/* Billing > Sales data: connect the company's own Supabase project so
+/* Billing > Connections: connect the company's own Supabase project so
    Analytics counts real sign-ups. One click, then Supabase's consent screen. */
 export function SignupTrackingCard() {
   const [connected, setConnected] = useState(false);
