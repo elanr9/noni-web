@@ -194,6 +194,18 @@ export async function speakBrainDoc(input: {
   return rewritten.ok ? rewritten : { ok: true, text: draft };
 }
 
+/** A spoken note turned into text for the "Tell Noni" box. */
+export async function transcribeBrainNote(
+  audio: File,
+): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  const gate = await requireCompanyAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+  if (!audio || audio.size < 200) {
+    return { ok: false, error: "Didn't catch that. Try speaking again." };
+  }
+  return transcribeBrainAudio(audio);
+}
+
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 function extFor(type: string): string {

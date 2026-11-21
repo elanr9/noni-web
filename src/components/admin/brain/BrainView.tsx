@@ -92,7 +92,7 @@ function scoreChip(score: number | null): { tone: "green" | "blue" | "slate"; la
   return { tone: "slate", label: "Skip" };
 }
 
-function FeatureModal({ onClose }: { onClose: () => void }) {
+export function FeatureModal({ onClose }: { onClose: () => void }) {
   const [sentence, setSentence] = useState("");
   const [picks, setPicks] = useState<Array<{ file: File; preview: string }>>([]);
   const [saving, setSaving] = useState(false);
@@ -142,11 +142,9 @@ function FeatureModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Add a feature" onClose={onClose}>
+    <Modal title="Add screenshots" onClose={onClose}>
       <p className="mx-0 mb-3 mt-0 text-[13px] font-semibold leading-normal text-slate-400">
-        Screenshot the feature, up to six shots, and one sentence on what it
-        does. We rank what will travel, stamp this week&apos;s briefs, and Noni
-        can remake the shots video-ready in the library below.
+        Up to six screenshots and one sentence on what it does.
       </p>
       <input
         ref={inputRef}
@@ -219,7 +217,7 @@ function FeatureModal({ onClose }: { onClose: () => void }) {
           disabled={picks.length === 0 || !sentence.trim() || saving}
           icon={Sparkles}
         >
-          {saving ? "Ranking…" : "Add feature"}
+          {saving ? "Adding…" : "Add"}
         </Pill>
       </div>
     </Modal>

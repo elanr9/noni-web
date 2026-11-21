@@ -1,22 +1,19 @@
-import { listBrainFacts, peekBrainIngest } from "@/app/admin/brain/knowledge-actions";
+import { peekBrainIngest, peekBrainSnapshot } from "@/app/admin/brain/knowledge-actions";
 import { AdminShell } from "@/components/admin/AdminShell";
-import { BrainView } from "@/components/admin/brain/BrainView";
+import { BrainHome } from "@/components/admin/brain/BrainHome";
 import { MOCK_DATASET } from "@/lib/admin/mock-data";
 
 /* Dev preview of the Company Brain page on the mock brain (run with
    ADMIN_QA_MOCK=1). 404 in production through the /internal layout.
-   ?down=1 shows the page as it is when the brain functions do not answer. */
+   ?empty=1 shows it before Noni has read anything. The full brain the Noni
+   team uses previews at /internal/brain/full. */
 export default async function BrainPreviewPage({
   searchParams,
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const down = (await searchParams).down === "1";
-  const unavailable = { ok: false as const, error: "The brain is not available yet." };
-  const [knowledge, ingest] = down
-    ? [unavailable, unavailable]
-    : await Promise.all([listBrainFacts(), peekBrainIngest()]);
-
+  const empty = (await searchParams).empty === "1";
+  const [snapshot, ingest] = await Promise.all([peekBrainSnapshot(), peekBrainIngest()]);
   return (
     <AdminShell
       companyName={MOCK_DATASET.company.name}
@@ -25,17 +22,15 @@ export default async function BrainPreviewPage({
       setupRemaining={2}
       setupComplete={false}
     >
-      <BrainView
-        docs={MOCK_DATASET.brainDocs}
-        accounts={MOCK_DATASET.inspirationAccounts}
-        features={MOCK_DATASET.features}
-        templates={MOCK_DATASET.briefTemplates}
+      <BrainHome
+        companyName={MOCK_DATASET.company.name}
         logoPath={MOCK_DATASET.company.logoPath}
         website="fieldvision.ai"
-        research={null}
-        learning={null}
-        knowledge={knowledge}
-        ingest={ingest}
+        snapshot={empty ? null : snapshot}
+        ingest={empty ? { ok: false, error: "" } : ingest}
+        features={empty ? [] : MOCK_DATASET.features}
+        accounts={empty ? [] : MOCK_DATASET.inspirationAccounts}
+        staff
       />
     </AdminShell>
   );

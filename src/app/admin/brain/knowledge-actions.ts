@@ -208,6 +208,20 @@ export async function getBrainSnapshot(): Promise<BrainResult<CompanySnapshot | 
   return out.ok ? { ok: true, data: out.data.snapshot } : out;
 }
 
+/** The stored summary, read straight from the table so the page paints at
+    once. Null when none has been written yet; it is never built here. */
+export async function peekBrainSnapshot(): Promise<CompanySnapshot | null> {
+  const gate = await requireBrainAccess();
+  if (!gate.ok) return null;
+  if (gate.mock) return mockSnapshot();
+  const { data } = await createServiceClient()
+    .from("brain_survey")
+    .select("snapshot")
+    .eq("company_id", gate.companyId)
+    .maybeSingle();
+  return ((data as { snapshot?: CompanySnapshot | null } | null)?.snapshot ?? null) || null;
+}
+
 export async function settleBrainSnapshot(input: {
   part: SnapshotPart;
   index?: number;

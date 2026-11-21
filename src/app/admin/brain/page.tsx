@@ -1,31 +1,26 @@
-import { listBrainFacts, peekBrainIngest } from "@/app/admin/brain/knowledge-actions";
-import { getCompanyResearch, getReferenceLearning } from "@/app/admin/brain/research-actions";
-import { BrainView } from "@/components/admin/brain/BrainView";
+import { peekBrainIngest, peekBrainSnapshot } from "@/app/admin/brain/knowledge-actions";
+import { BrainHome } from "@/components/admin/brain/BrainHome";
 import { getAdminData } from "@/lib/admin/data";
-import { getSessionProfile } from "@/lib/auth";
+import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
 
 export default async function AdminBrainPage() {
   const { profile } = await getSessionProfile();
-  const [data, research, learning, knowledge, ingest] = await Promise.all([
+  const [data, snapshot, ingest] = await Promise.all([
     getAdminData(profile?.active_company_id ?? ""),
-    getCompanyResearch(),
-    getReferenceLearning(),
-    listBrainFacts(),
+    peekBrainSnapshot(),
     peekBrainIngest(),
   ]);
 
   return (
-    <BrainView
-      docs={data.brainDocs}
-      accounts={data.inspirationAccounts}
-      features={data.features}
-      templates={data.briefTemplates}
+    <BrainHome
+      companyName={data.company.name}
       logoPath={data.company.logoPath}
       website={data.company.website}
-      research={research.ok ? research.research : null}
-      learning={learning.ok ? learning.learning : null}
-      knowledge={knowledge}
+      snapshot={snapshot}
       ingest={ingest}
+      features={data.features}
+      accounts={data.inspirationAccounts}
+      staff={isPlatformAdmin(profile)}
     />
   );
 }
