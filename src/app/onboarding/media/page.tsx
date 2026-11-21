@@ -11,7 +11,11 @@ export const metadata = { title: "Your product · Noni" };
 /* The "Add screenshots" onboarding step as a guided flow: one thing per
    screen (screenshots, a recording, the color), in the chat's full screen
    look, instead of the Media library's tabs. */
-export default async function MediaSetupPage() {
+export default async function MediaSetupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login?next=/onboarding/media");
   const companyId = profile?.active_company_id;
@@ -24,6 +28,7 @@ export default async function MediaSetupPage() {
   ]);
   return (
     <MediaSetup
+      start={(await searchParams).step === "color" ? "color" : "shots"}
       companyId={companyId}
       name={snapshot?.sells?.title?.trim() || data.company.name}
       themeColor={themeColor}

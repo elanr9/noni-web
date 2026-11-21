@@ -14,7 +14,9 @@
    4. Screenshots: done once the media library holds at least one
       screenshot or recording of the product. It comes last: the team is
       in before anyone is asked to gather files.
-   5. Sales: done once Stripe is connected, so every post shows the sales
+   5. Color: done once a person has picked or confirmed the color of the
+      text on their posts (a color the site scan filled in still needs a yes).
+   6. Sales: done once Stripe is connected, so every post shows the sales
       it brought in. It is required, not optional.
    Anything else a company has to do itself belongs here as a step, never
    as a card on some other page waiting to be found.
@@ -25,7 +27,14 @@
 
 import type { AdminDataset } from "./types";
 
-export type SetupStepKey = "billing" | "brain" | "media" | "managers" | "creators" | "sales";
+export type SetupStepKey =
+  | "billing"
+  | "brain"
+  | "media"
+  | "color"
+  | "managers"
+  | "creators"
+  | "sales";
 
 export interface SetupStep {
   key: SetupStepKey;
@@ -109,6 +118,14 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       short: "Screenshots",
       action: "Add screenshots",
       href: "/onboarding/media",
+    },
+    {
+      key: "color",
+      done: dataset.company.themeConfirmed,
+      title: "Pick your color",
+      short: "Color",
+      action: "Pick",
+      href: "/onboarding/media?step=color",
     },
     {
       key: "sales",

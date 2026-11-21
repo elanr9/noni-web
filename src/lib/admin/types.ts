@@ -89,6 +89,8 @@ export interface AdminCompany {
   managerAccess: ManagerAccess;
   /** Screenshots and recordings in the media library. */
   mediaCount: number;
+  /** A person has picked or confirmed the post text color (not just the site scan). */
+  themeConfirmed: boolean;
   /** The company has confirmed what Noni knows about it (the brain summary). */
   brainConfirmed: boolean;
 }

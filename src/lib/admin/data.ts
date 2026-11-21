@@ -383,6 +383,7 @@ function emptyDataset(companyId: string): AdminDataset {
       managerAccess: parseManagerAccess(null),
       mediaCount: 0,
       brainConfirmed: false,
+      themeConfirmed: false,
     },
     managers: [],
     creators: [],
@@ -642,6 +643,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     onboarding,
     managerAccess: parseManagerAccess(companyRow?.settings),
     mediaCount: mediaCountRes.count ?? 0,
+    themeConfirmed: themeConfirmed(companyRow?.settings),
     brainConfirmed: snapshotConfirmed(
       ((brainSurveyRes.data as { snapshot?: CompanySnapshot | null } | null)?.snapshot ?? null) || null,
     ),
@@ -1038,6 +1040,16 @@ async function qaMockData(): Promise<AdminDataset> {
 
 /** One fetch per request, shared by the layout (shell + ⌘K index + setup
     badge) and every page. */
+/** True when companies.settings.overlay_theme holds a color a person chose:
+    one the site scan filled in (source "site") still needs a yes. */
+function themeConfirmed(settings: unknown): boolean {
+  if (typeof settings !== "object" || settings === null) return false;
+  const theme = (settings as Record<string, unknown>).overlay_theme;
+  if (typeof theme !== "object" || theme === null) return false;
+  const { color, source } = theme as Record<string, unknown>;
+  return typeof color === "string" && source !== "site";
+}
+
 export const getAdminData = cache(
   async (companyId: string): Promise<AdminDataset> => {
     if (

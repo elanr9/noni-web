@@ -76,13 +76,14 @@ describe("deriveSetupStatus", () => {
       "managers",
       "creators",
       "media",
+      "color",
       "sales",
     ]);
   });
 
-  it("counts the mock dataset as 4 of 6 done (billing and sales pending)", () => {
+  it("counts the mock dataset as 5 of 7 done (billing and sales pending)", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
-    expect(status.doneCount).toBe(4);
+    expect(status.doneCount).toBe(5);
     expect(status.remaining).toBe(2);
     expect(status.complete).toBe(false);
     expect(status.steps.find((s) => s.key === "billing")?.done).toBe(false);
@@ -142,6 +143,7 @@ describe("deriveSetupStatus", () => {
       "brain",
       "creators",
       "media",
+      "color",
       "sales",
     ]);
   });
@@ -183,7 +185,7 @@ describe("deriveSetupStatus", () => {
         creatorCount: 0,
       }),
     );
-    expect(status.steps).toHaveLength(6);
+    expect(status.steps).toHaveLength(7);
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(false);
   });
@@ -192,7 +194,7 @@ describe("deriveSetupStatus", () => {
     const status = deriveSetupStatus(
       dataset({ brainDocs: filledDocs, billing: completeBilling }),
     );
-    expect(status.doneCount).toBe(6);
+    expect(status.doneCount).toBe(7);
     expect(status.remaining).toBe(0);
     expect(status.complete).toBe(true);
   });

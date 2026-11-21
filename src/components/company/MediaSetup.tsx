@@ -17,8 +17,9 @@ import {
 import { prepareMedia, uploadToLibrary } from "@/lib/media-library-upload";
 
 /* Getting a company's product into Noni, one thing per screen so there is
-   never a choice of where to go: three screenshots, one screen recording,
-   then the color of the text on its posts. Each screen is a title, the
+   never a choice of where to go. Two onboarding steps open it: "Add
+   screenshots" runs three screenshots then one screen recording, and "Pick
+   your color" opens on the color of the text on its posts. Each screen is a title, the
    slots to fill and one button. Files upload as they are dropped, with no
    naming step; they can be named later in the Media library. */
 
@@ -40,6 +41,7 @@ export function MediaSetup({
   themeColor,
   shots: initialShots,
   recordings: initialRecordings,
+  start = "shots",
 }: {
   companyId: string;
   /** What people call the product, e.g. "Inkbound". */
@@ -48,9 +50,11 @@ export function MediaSetup({
   /** Preview URLs of what is already in the library. */
   shots: string[];
   recordings: string[];
+  /** Open on the color screen, for the "Pick your color" step on its own. */
+  start?: "shots" | "color";
 }) {
   const { go, pending: leaving } = useNavigate();
-  const [step, setStep] = useState<Step>("shots");
+  const [step, setStep] = useState<Step>(start);
   const [shots, setShots] = useState<Slot[]>(initialShots.map((url) => ({ url, busy: false })));
   const [recs, setRecs] = useState<Slot[]>(initialRecordings.map((url) => ({ url, busy: false })));
   const [color, setColor] = useState(themeColor ?? NONI_BLUE);
@@ -197,9 +201,10 @@ export function MediaSetup({
         <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
         <span className="flex-1" />
-        <span className="flex items-center gap-1.5" aria-label={`Step ${Math.min(at + 1, 3)} of 3`}>
-          {STEPS.slice(0, 3).map((key, i) =>
-            i < at ? (
+        <span className="flex items-center gap-1.5" aria-hidden>
+          {(start === "color" ? [] : STEPS.slice(0, 2)).map((key, i) =>
+            /* Done is past every dot. */
+            i < at || step === "done" ? (
               <span
                 key={`${key}-done`}
                 className="inline-flex h-6 w-6 items-center justify-center rounded-full animate-om-check"
@@ -266,7 +271,7 @@ export function MediaSetup({
             <button
               type="button"
               disabled={recs.length === 0 || uploading}
-              onClick={() => setStep("color")}
+              onClick={() => setStep("done")}
               className={primary}
               style={primaryStyle}
             >
@@ -329,7 +334,13 @@ export function MediaSetup({
               <Check size={40} strokeWidth={3.5} />
             </span>
             <h1 className="display m-0 text-[44px] font-bold leading-[1.05] tracking-[-1.4px] text-ink">
-              <span style={{ color: accent }}>{name}</span> is in.
+              {start === "color" ? (
+                "Color set."
+              ) : (
+                <>
+                  <span style={{ color: accent }}>{name}</span> is in.
+                </>
+              )}
             </h1>
             <button type="button" disabled={leaving} onClick={() => go("/admin")} className={primary} style={primaryStyle}>
               Done
