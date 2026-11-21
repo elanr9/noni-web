@@ -176,13 +176,22 @@ export function ChatOnboarding({
     return () => ro.disconnect();
   });
 
+  /* A new question puts the cursor in the box, so it reads as a place to
+     type. Phones only for written questions, so the keyboard does not cover
+     the buttons. */
+  useEffect(() => {
+    if (!pending || busy || pending.kind === "summary" || pending.kind === "done") return;
+    const fine = window.matchMedia("(pointer: fine)").matches;
+    if (fine || pending.kind === "text") box.current?.focus({ preventScroll: true });
+  }, [pending, busy]);
+
   /* The composer grows with what is typed. */
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    el.style.height = "0px";
+    el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, [draft]);
+  }, [draft, pending]);
 
   useEffect(() => {
     if (!scanRuns) return;
@@ -432,13 +441,15 @@ export function ChatOnboarding({
                 ) : null}
               </div>
             ) : null}
-            <div className="flex items-end gap-2 rounded-[28px] border border-line bg-white py-2 pl-5 pr-2 shadow-[0_8px_30px_rgba(15,23,42,0.08)] focus-within:border-slate-300">
+            <div
+              onClick={() => box.current?.focus()}
+              className="flex cursor-text items-end gap-2 rounded-[28px] border-[1.5px] border-slate-300 bg-white py-2.5 pl-5 pr-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.10)] transition-[border-color,box-shadow] duration-150 hover:border-slate-400 focus-within:border-blue-500 focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.15),0_8px_30px_rgba(15,23,42,0.10)]"
+            >
               {pending.key === "website" ? (
                 <span className="-mr-2 select-none self-center py-2 text-[16px] font-medium text-slate-400">www.</span>
               ) : null}
               <textarea
                 ref={box}
-                rows={1}
                 value={draft}
                 disabled={busy}
                 onChange={(e) =>
@@ -460,10 +471,11 @@ export function ChatOnboarding({
                     : pending.kind === "text"
                       ? pending.key === "website"
                         ? "yourcompany.com"
-                        : "Type your answer"
-                      : "Or type your own answer"
+                        : pending.placeholder || "Type your answer here"
+                      : "Or type it in your own words"
                 }
-                className="max-h-[220px] min-h-[28px] flex-1 resize-none self-center border-none bg-transparent py-2 text-[16px] font-medium leading-[1.5] text-ink outline-none placeholder:text-slate-400"
+                rows={pending.kind === "text" && pending.key !== "website" ? 2 : 1}
+                className="max-h-[220px] min-h-[28px] flex-1 resize-none self-center border-none bg-transparent py-1.5 text-[16.5px] font-medium leading-[1.5] text-ink caret-blue-500 outline-none placeholder:text-slate-500"
               />
               <button
                 type="button"
