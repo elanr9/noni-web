@@ -274,7 +274,10 @@ export function SnapshotReview({
   scanning,
   pending,
   onDone,
+  compact = false,
 }: {
+  /** In the onboarding chat: no heading, the message above says it. */
+  compact?: boolean;
   refreshKey?: string;
   scanning: boolean;
   /** The finish is saving. */
@@ -336,7 +339,7 @@ export function SnapshotReview({
     if (ok) onDone();
   };
 
-  const heading = (
+  const heading = compact ? null : (
     <>
       <h1 className="m-0 text-[30px] font-bold leading-[1.15] tracking-[-0.8px] text-ink sm:text-[36px]">
         Here&apos;s what we understood
@@ -462,7 +465,7 @@ export function SnapshotReview({
         className="mt-7 w-full"
         style={{ padding: "17px 22px", fontSize: 16 }}
       >
-        {pending || finishing ? "Saving…" : left > 0 ? "All good, confirm the rest" : "Finish"}
+        {pending || finishing ? "Saving…" : left > 0 ? "All good, confirm the rest" : compact ? "Looks right" : "Finish"}
       </Pill>
     </div>
   );

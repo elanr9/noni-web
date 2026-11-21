@@ -213,3 +213,22 @@ export async function completeOnboarding(
   revalidatePath("/admin");
   return { ok: true };
 }
+
+/* The end of the onboarding conversation: the answers were saved as they
+   were given (edge function onboarding-chat), so this only marks the person
+   and the company as set up. */
+export async function finishChatOnboarding(renderedFor: string): Promise<OnboardingResult> {
+  if (mockMode()) return { ok: true };
+  const gate = await requireOnboardingAdmin(renderedFor);
+  if (!gate.ok) return gate;
+  const supabase = await createClient();
+  const { error: profileError } = await supabase.from("profiles").update({ onboarded: true }).eq("id", gate.userId);
+  if (profileError) return { ok: false, error: profileError.message };
+  const { error: companyError } = await supabase
+    .from("companies")
+    .update({ onboarded_at: new Date().toISOString() })
+    .eq("id", gate.companyId);
+  if (companyError) return { ok: false, error: companyError.message };
+  revalidatePath("/admin");
+  return { ok: true };
+}

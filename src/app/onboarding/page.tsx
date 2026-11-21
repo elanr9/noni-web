@@ -1,16 +1,16 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { peekBrainIngest } from "@/app/admin/brain/knowledge-actions";
-import { OnboardingFlow } from "@/components/admin/onboarding/OnboardingFlow";
-import type { OnboardingIntake } from "@/app/onboarding/actions";
-import { ONBOARDING_STEP_COOKIE, ONBOARDING_STEPS, resumeStep } from "@/lib/admin/onboarding-steps";
+import { ChatOnboarding } from "@/components/admin/onboarding/ChatOnboarding";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export const metadata = { title: "Set up your company · Noni" };
 
+/* Onboarding is a conversation (ChatOnboarding, edge function
+   onboarding-chat). The chat keeps its own place, so this page only makes
+   sure Noni knows the person's name before it says hello. */
 export default async function OnboardingPage() {
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login?next=/onboarding");
@@ -18,81 +18,35 @@ export default async function OnboardingPage() {
   if (profile?.onboarded) redirect("/admin");
 
   const supabase = await createClient();
-  const [companyRes, userRes, cookieStore] = await Promise.all([
-    /* select("*") so the answer columns that may not be migrated yet do not
-       error the query; they default when absent. */
-    supabase
-      .from("companies")
-      .select("*")
-      .eq("id", profile!.active_company_id!)
-      .maybeSingle(),
-    supabase.auth.getUser(),
-    cookies(),
-  ]);
-  const company = companyRes.data as
-    | ({ name: string; website: string | null } & Record<string, unknown>)
-    | null;
+  const { data: userRes } = await supabase.auth.getUser();
+  const email = userRes.user?.email?.toLowerCase() ?? "";
 
-  /* Prefill the name from the invite ops sent, then Google, when the
-     profile has none yet. */
-  const email = userRes.data.user?.email?.toLowerCase() ?? "";
-  const { data: invite } = await createServiceClient()
-    .from("company_invites")
-    .select("invited_name")
-    .eq("company_id", profile!.active_company_id!)
-    .eq("email", email)
-    .not("invited_name", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const invitedName =
-    typeof invite?.invited_name === "string" ? invite.invited_name.trim() : "";
+  if (!profile?.full_name?.trim()) {
+    /* The name ops typed on the invite, then the Google account's. */
+    const service = createServiceClient();
+    const { data: invite } = await service
+      .from("company_invites")
+      .select("invited_name")
+      .eq("company_id", profile!.active_company_id!)
+      .eq("email", email)
+      .not("invited_name", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const meta = (userRes.user?.user_metadata ?? {}) as Record<string, unknown>;
+    const name =
+      (typeof invite?.invited_name === "string" ? invite.invited_name.trim() : "") ||
+      (typeof meta.full_name === "string" ? meta.full_name : typeof meta.name === "string" ? meta.name : "");
+    if (name) await supabase.from("profiles").update({ full_name: name }).eq("id", userId);
+  }
 
-  const meta = (userRes.data.user?.user_metadata ?? {}) as Record<string, unknown>;
-  const googleName =
-    typeof meta.full_name === "string"
-      ? meta.full_name
-      : typeof meta.name === "string"
-        ? meta.name
-        : "";
-  const defaultName = profile?.full_name?.trim() || invitedName || googleName;
-
-  /* Answers saved on an earlier visit, and the step that visit stopped on. */
-  const role = typeof company?.admin_role === "string" ? company.admin_role : "";
-  const doesUgc = company?.does_ugc === true;
-  const count = (value: unknown) => (typeof value === "number" && value > 0 ? value : 0);
-  const managerCount = count(company?.manager_count);
-  const step = resumeStep(cookieStore.get(ONBOARDING_STEP_COOKIE)?.value, {
-    name: profile?.full_name ?? "",
-    website: company?.website ?? "",
-    role,
-    doesUgc,
-    managerCount,
-  });
-  /* A choice is only shown as made once its screen has been passed. */
-  const past = (other: "ugc" | "selfManager") =>
-    ONBOARDING_STEPS.indexOf(step) > ONBOARDING_STEPS.indexOf(other);
-
-  /* Only a returning admin can have a scan under way. */
-  const scan = step === "welcome" ? null : await peekBrainIngest();
+  const scan = await peekBrainIngest();
 
   return (
-    <OnboardingFlow
+    <ChatOnboarding
       companyId={profile!.active_company_id!}
-      companyName={company?.name ?? "your company"}
-      defaultName={defaultName}
-      defaultWebsite={company?.website ?? ""}
       email={email}
-      resume={{
-        step,
-        role,
-        doesUgc: past("ugc") ? doesUgc : null,
-        creatorCount: count(company?.creator_count),
-        managerCount,
-        selfIsManager: past("selfManager") ? company?.self_is_manager === true : null,
-        intake: (company?.intake as OnboardingIntake | null) ?? {},
-      }}
-      initialScan={scan?.ok ? scan.data : null}
+      initialScan={scan.ok ? scan.data : null}
     />
   );
 }
