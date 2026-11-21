@@ -28,6 +28,13 @@ import {
 
 const POLL_MS = 3000;
 
+/** A site as people say it: www.inkbound.ai. */
+function wwwHost(url: string): string {
+  const host = url.trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "").toLowerCase();
+  if (!host) return "";
+  return host.startsWith("www.") ? host : `www.${host}`;
+}
+
 function Avatar() {
   return (
     <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.12)]">
@@ -82,7 +89,7 @@ function UserMessage({ text }: { text: string }) {
 function ScanLine({ scan, site }: { scan: IngestState | null; site: string }) {
   const run = scan?.ingest;
   if (!run) return null;
-  const host = site.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const host = wwwHost(site);
   const done = run.status === "done";
   const failed = run.status === "failed";
   const pages = scan.summary.sources;
@@ -262,8 +269,10 @@ export function ChatOnboarding({
   };
 
   const send = () => {
-    const text = draft.trim();
+    let text = draft.trim();
     if (!text || !pending) return;
+    /* The box shows "www." in front; whatever they typed becomes www.domain. */
+    if (pending.key === "website") text = wwwHost(text);
     if (pending.kind === "multi") return answer(picked.length ? picked : [text], text);
     answer(text, text);
   };
@@ -402,11 +411,15 @@ export function ChatOnboarding({
               <div className="flex flex-wrap gap-2 animate-om-rise">
                 <button
                   type="button"
-                  onClick={() => answer(pending.draft!, pending.draft!)}
+                  onClick={() =>
+                    pending.key === "website"
+                      ? answer(wwwHost(pending.draft!), wwwHost(pending.draft!))
+                      : answer(pending.draft!, pending.draft!)
+                  }
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border-none bg-blue-500 px-4 py-2.5 text-[15px] font-bold text-white active:scale-[0.97]"
                 >
                   <Check size={16} strokeWidth={3} />
-                  {pending.key === "website" ? `Yes, ${pending.draft.replace(/^https?:\/\//, "").replace(/\/$/, "")}` : "That's right"}
+                  {pending.key === "website" ? `Yes, ${wwwHost(pending.draft)}` : "That's right"}
                 </button>
                 {pending.key !== "website" ? (
                   <Chip
@@ -420,12 +433,21 @@ export function ChatOnboarding({
               </div>
             ) : null}
             <div className="flex items-end gap-2 rounded-[28px] border border-line bg-white py-2 pl-5 pr-2 shadow-[0_8px_30px_rgba(15,23,42,0.08)] focus-within:border-slate-300">
+              {pending.key === "website" ? (
+                <span className="-mr-2 select-none self-center py-2 text-[16px] font-medium text-slate-400">www.</span>
+              ) : null}
               <textarea
                 ref={box}
                 rows={1}
                 value={draft}
                 disabled={busy}
-                onChange={(e) => setDraft(e.target.value)}
+                onChange={(e) =>
+                  setDraft(
+                    pending.key === "website"
+                      ? e.target.value.replace(/^\s*(https?:\/\/)?(www\.)?/i, "")
+                      : e.target.value,
+                  )
+                }
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
