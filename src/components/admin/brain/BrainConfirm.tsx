@@ -31,7 +31,7 @@ type Ask =
 const LEADS: Record<Exclude<SnapshotPart, "features">, string> = {
   sells: "You sell",
   audience: "It is for",
-  viral: "The moment that sells it on video",
+  viral: "The hook",
 };
 
 /** The questions still open, in order. Lines already confirmed are not asked again. */
@@ -45,7 +45,7 @@ function asksOf(snapshot: CompanySnapshot): Ask[] {
     .map((item, index) => ({ item, index }))
     .filter((f) => f.item.status !== "dismissed");
   if (features.some((f) => f.item.status === "open")) {
-    out.push({ kind: "features", lead: "And this is what it does", items: features });
+    out.push({ kind: "features", lead: "It does", items: features });
   }
   return out;
 }
@@ -167,7 +167,7 @@ export function BrainConfirm({
     void confirm(ask).then((problem) => {
       setBusy(false);
       if (problem) setError(problem);
-      else next("Yes, that's right");
+      else next("Yes");
     });
   };
 
@@ -205,7 +205,7 @@ export function BrainConfirm({
     <div className="mx-auto flex max-w-[680px] flex-col">
       <div className="mb-5 flex items-center gap-3">
         <h1 className="display m-0 flex-1 text-[22px] font-bold tracking-[-0.5px] text-ink">
-          What Noni knows about {companyName}
+          {companyName}
         </h1>
         {total > 0 ? (
           <span className="flex items-center gap-2.5">
@@ -225,14 +225,13 @@ export function BrainConfirm({
       <div className="flex flex-col gap-5">
         {snapshot === null ? (
           <NoniSays>
-            I have not read your website yet, so there is nothing to check. Open Company Brain and
-            give me your site first.
+            I have not read your site yet.
           </NoniSays>
         ) : (
           <NoniSays>
             {total > 0
-              ? `I read your website. Here is what I picked up, ${total === 1 ? "one thing" : `${total} quick things`}. Tell me if I got each one right.`
-              : "You have already checked everything I know. Nothing left to confirm."}
+              ? "I read your site. Did I get this right?"
+              : "All confirmed."}
           </NoniSays>
         )}
 
@@ -272,7 +271,7 @@ export function BrainConfirm({
                   disabled={busy}
                   onChange={(e) => setDraft(e.target.value)}
                   placeholder={
-                    ask.kind === "line" ? "Say it the way you would" : "What did I get wrong or miss?"
+                    "What is it really?"
                   }
                   className="min-w-0 flex-1 self-center border-none bg-transparent py-1 text-[15.5px] font-medium text-ink outline-none placeholder:text-slate-400"
                 />
@@ -294,7 +293,7 @@ export function BrainConfirm({
                   className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-blue-500 px-5 py-2.5 text-[15px] font-bold text-white rounded-pill active:scale-[0.97] disabled:opacity-60"
                 >
                   {busy ? <span className="om-spinner" /> : <Check size={15} strokeWidth={3} />}
-                  Yes, that&apos;s right
+                  Yes
                 </button>
                 <button
                   type="button"
@@ -311,8 +310,7 @@ export function BrainConfirm({
 
         {done && total > 0 ? (
           <NoniSays>
-            That is everything. Every brief your creators get is written from this, and you can
-            change any of it later in Company Brain.
+            Got it. That is everything.
           </NoniSays>
         ) : null}
 
@@ -328,7 +326,7 @@ export function BrainConfirm({
               onClick={() => go(snapshot === null ? "/admin/brain" : "/admin")}
               className="inline-flex cursor-pointer items-center gap-2 border-none bg-ink px-6 py-3 text-[15px] font-bold text-white rounded-pill active:scale-[0.98] disabled:opacity-60"
             >
-              {snapshot === null ? "Open Company Brain" : "Back to setup"}
+              {snapshot === null ? "Open Company Brain" : "Done"}
               <ArrowRight size={16} />
             </button>
           </div>

@@ -151,10 +151,10 @@ describe("deriveSetupStatus", () => {
       }),
     );
     expect(status.steps.find((s) => s.key === "managers")?.title).toBe(
-      "Invite your first campaign manager",
+      "Invite a manager",
     );
     expect(status.steps.find((s) => s.key === "creators")?.title).toBe(
-      "Invite your first creator",
+      "Invite a creator",
     );
   });
 
@@ -170,9 +170,6 @@ describe("deriveSetupStatus", () => {
     );
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(true);
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(true);
-    expect(status.steps.find((s) => s.key === "creators")?.sub).not.toContain(
-      "invited so far",
-    );
   });
 
   it("defaults both invite requirements to 1 when the company is new to UGC", () => {

@@ -57,7 +57,7 @@ import { COMPANY_LOGO_ACCEPT, validateCompanyLogo } from "@/lib/company-logo";
    Nothing to review, score or check off: Noni keeps the detail on its side,
    on the full brain page the Noni team uses. */
 
-const TABS = ["Your company", "Accounts you like"] as const;
+const TABS = ["Company", "Accounts"] as const;
 type BrainTab = (typeof TABS)[number];
 
 const POLL_MS = 4000;
@@ -244,16 +244,16 @@ function Summary({
   return (
     <Card pad={0} className="overflow-hidden">
       <div className="divide-y divide-line">
-        {shown(snapshot.sells) ? row("You sell", bullet({ part: "sells" }, snapshot.sells)) : null}
+        {shown(snapshot.sells) ? row("Sells", bullet({ part: "sells" }, snapshot.sells)) : null}
         {shown(snapshot.audience)
-          ? row("It is for", bullet({ part: "audience" }, snapshot.audience))
+          ? row("For", bullet({ part: "audience" }, snapshot.audience))
           : null}
         {shown(snapshot.viral)
-          ? row("The hook", bullet({ part: "viral" }, snapshot.viral), true)
+          ? row("Hook", bullet({ part: "viral" }, snapshot.viral), true)
           : null}
         {features.length > 0
           ? row(
-              "It does",
+              "Does",
               features.map(({ item, index }) => bullet({ part: "features", index }, item)),
             )
           : null}
@@ -468,7 +468,7 @@ function TellNoni({
             }
           }}
           placeholder={
-            status ?? "Tell Noni something new: a feature, a price change, a link…"
+            status ?? "Tell Noni something new"
           }
           className="box-border block max-h-[84px] min-w-0 flex-1 resize-none self-center border-none bg-transparent px-2 py-1 text-[15px] font-semibold leading-[1.45] text-ink outline-none [field-sizing:content] placeholder:text-slate-300"
         />
@@ -502,12 +502,11 @@ function TellNoni({
 
 /* ── Shared heading ────────────────────────────────────────────────────── */
 
-function SectionHead({ title, sub, right }: { title: string; sub: string; right: ReactNode }) {
+function SectionHead({ title, right }: { title: string; right: ReactNode }) {
   return (
     <div className="mb-2.5 flex items-end gap-3">
       <div className="min-w-0 flex-1">
         <h2 className="m-0 text-[17px] font-bold tracking-[-0.2px] text-ink">{title}</h2>
-        <p className="mb-0 mt-0.5 text-[13.5px] font-semibold text-slate-400">{sub}</p>
       </div>
       {right}
     </div>
@@ -548,7 +547,6 @@ function Accounts({
     <div>
       <SectionHead
         title="Accounts you like"
-        sub="Noni studies their best posts so your briefs copy what works."
         right={
           adding ? null : (
             <Pill size="sm" variant="tint" icon={Plus} onClick={() => setAdding(true)}>
@@ -642,7 +640,7 @@ export function BrainHome({
   );
   const [writing, setWriting] = useState(false);
   const [note, setNote] = useState<NoteState>("idle");
-  const [tab, setTab] = useState<BrainTab>("Your company");
+  const [tab, setTab] = useState<BrainTab>("Company");
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [, startTransition] = useTransition();
@@ -791,10 +789,6 @@ export function BrainHome({
           <h1 className="display m-0 text-[24px] font-bold leading-[1.1] tracking-[-0.6px] text-ink">
             {companyName}
           </h1>
-          <p className="mb-0 mt-1 text-[13.5px] font-semibold text-slate-400">
-            This is what Noni tells your creators. Nothing to do here: if a line is wrong,
-            click it and fix it.
-          </p>
         </div>
       </div>
 
@@ -816,7 +810,7 @@ export function BrainHome({
       />
 
       <div key={tab} className="animate-om-rise">
-        {tab === "Accounts you like" ? (
+        {tab === "Accounts" ? (
           <Card pad={22}>
             <Accounts accounts={accounts} run={run} />
           </Card>

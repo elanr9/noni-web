@@ -19,15 +19,8 @@ export default async function AdminOnboardingPage() {
 
   return (
     <div>
-      <PageHead
-        title={
-          setup.remaining === 1
-            ? `One step left, ${firstName}.`
-            : `${setup.remaining} steps to your first posts, ${firstName}.`
-        }
-        sub={`Finish these and ${data.company.name} has creators posting for it every week.`}
-      />
-      <SetupChecklist steps={setup.steps} doneCount={setup.doneCount} />
+      <PageHead title={`Hey ${firstName}.`} />
+      <SetupChecklist steps={setup.steps} />
     </div>
   );
 }

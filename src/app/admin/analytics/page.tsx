@@ -1,18 +1,12 @@
 import { AnalyticsView } from "@/components/admin/analytics/AnalyticsView";
 import { getAdminData } from "@/lib/admin/data";
+import { getInsights } from "@/lib/admin/insights-data";
 import { getSessionProfile } from "@/lib/auth";
 
 export default async function AdminAnalyticsPage() {
   const { profile } = await getSessionProfile();
-  const data = await getAdminData(profile?.active_company_id ?? "");
+  const companyId = profile?.active_company_id ?? "";
+  const [data, insights] = await Promise.all([getAdminData(companyId), getInsights(companyId)]);
 
-  return (
-    <AnalyticsView
-      statStrip={data.statStrip}
-      posts={data.posts}
-      creators={data.creators}
-      dayActivity={data.dayActivity}
-      weeklyViews={data.weeklyViews}
-    />
-  );
+  return <AnalyticsView insights={insights} posts={data.posts} dayActivity={data.dayActivity} />;
 }

@@ -225,7 +225,6 @@ export function TeamView({
     <div>
       <PageHead
         title="Team"
-        sub={`Everyone on ${companyName}.`}
       />
       <Tabs tabs={TEAM_TABS} active={tab} onSelect={setTab} />
       <div key={tab} className="animate-om-rise">

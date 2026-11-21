@@ -220,8 +220,8 @@ function ThemeColorCard({ initial, fromSite }: { initial: string | null; fromSit
           <h2 className="m-0 text-[17px] font-bold tracking-[-0.3px] text-ink">Theme color</h2>
           <p className="mb-0 mt-1 text-[13.5px] font-semibold leading-normal text-slate-400">
             {fromSite && color === initial
-              ? "Noni picked this up from your website. It colors the on screen text in your posts. Change it any time."
-              : "The color of the on screen text in your posts."}
+              ? "From your website. Colors the text on your posts."
+              : "Colors the text on your posts."}
           </p>
 
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
@@ -753,7 +753,6 @@ export function MediaLibraryView({
     <div>
       <PageHead
         title="Media library"
-        sub="Screenshots and recordings of your product. Managers drop them into posts."
         right={
           <>
             <KindToggle

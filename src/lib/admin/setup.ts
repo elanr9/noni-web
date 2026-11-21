@@ -31,9 +31,6 @@ export interface SetupStep {
   title: string;
   /** One or two words for the step strip, e.g. "Plan". */
   short: string;
-  sub: string;
-  /** What finishing the step gets the company, in one line. */
-  payoff: string;
   /** Action pill label, e.g. "Open Billing". */
   action: string;
   /** Where the action pill navigates. */
@@ -66,21 +63,17 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
     {
       key: "billing",
       done: billingDone,
-      title: "Pick your plan",
+      title: "Pick a plan",
       short: "Plan",
-      payoff: "This unlocks your creator seats.",
-      sub: "Choose how many creators you want to run. It takes a minute.",
       action: "Pick a plan",
       href: "/admin/billing",
     },
     {
       key: "brain",
       done: dataset.company.brainConfirmed,
-      title: "Check what Noni knows about you",
+      title: "Confirm your company",
       short: "Your company",
-      payoff: "So every script sounds like you, not like an ad.",
-      sub: "Noni read your website. Four quick taps to confirm it got you right.",
-      action: "Take a look",
+      action: "Start",
       href: "/admin/brain/confirm",
     },
     ...(showManagers
@@ -88,10 +81,8 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
           {
             key: "managers" as const,
             done: managersDone,
-            title: "Invite your first campaign manager",
+            title: "Invite a manager",
             short: "Manager",
-            payoff: "They send the briefs every week so you do not have to.",
-            sub: "The person who sends briefs and reviews posts. It can be you.",
             action: "Invite a manager",
             href: "/admin/team",
           },
@@ -102,10 +93,8 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
           {
             key: "creators" as const,
             done: creatorsDone,
-            title: "Invite your first creator",
+            title: "Invite a creator",
             short: "Creator",
-            payoff: "Creators are who get you the views and the sales.",
-            sub: "The people who post for you. You and your managers can be creators too.",
             action: "Invite a creator",
             href: "/admin/team",
           },
@@ -114,10 +103,8 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
     {
       key: "media",
       done: dataset.company.mediaCount >= 1,
-      title: "Add screenshots of your product",
+      title: "Add screenshots",
       short: "Screenshots",
-      payoff: "Your real product shows up in every video.",
-      sub: "A few screenshots or screen recordings. Your posts are built from them.",
       action: "Add screenshots",
       href: "/admin/media",
     },

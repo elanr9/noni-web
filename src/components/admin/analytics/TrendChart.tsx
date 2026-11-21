@@ -28,8 +28,8 @@ const VIEWS_COLOR = "#0f8fd1";
 const COMPARE_COLOR = "#7c3aed";
 
 const PAD = { l: 46, r: 8 };
-const VIEWS_H = 132;
-const COMPARE_H = 96;
+const VIEWS_H = 146;
+const COMPARE_H = 104;
 const HEAD_H = 24;
 const AXIS_H = 22;
 
@@ -136,7 +136,8 @@ export function TrendChart({
   const viewsBottom = viewsTop + VIEWS_H;
   const compareTop = viewsBottom + (showCompare ? 18 + HEAD_H : 0);
   const compareBottom = compareTop + (showCompare ? COMPARE_H : 0);
-  const height = compareBottom + AXIS_H;
+  /* With one panel the post dots sit above the date labels. */
+  const height = compareBottom + AXIS_H + (showCompare ? 0 : 10);
 
   const viewsMax = niceMax(Math.max(...buckets.map((b) => b.views)));
   const values = buckets.map((b) => compareValue(b, compare));
@@ -189,6 +190,10 @@ export function TrendChart({
 
         <text x={0} y={12} className="fill-ink text-[12.5px] font-bold">
           Views
+        </text>
+        <circle cx={width - PAD.r - 92} cy={8} r={2.5} className="fill-slate-300" />
+        <text x={width - PAD.r} y={12} textAnchor="end" className="fill-slate-400 text-[11px] font-semibold">
+          a post went live
         </text>
         <Panel top={viewsTop} height={VIEWS_H} width={width} max={viewsMax} fmt={fmtCount} />
         {buckets.map((b, i) =>
