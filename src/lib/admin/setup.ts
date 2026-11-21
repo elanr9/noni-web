@@ -108,7 +108,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       title: "Add screenshots of your product",
       short: "Screenshots",
       action: "Add screenshots",
-      href: "/admin/media",
+      href: "/onboarding/media",
     },
     {
       key: "sales",

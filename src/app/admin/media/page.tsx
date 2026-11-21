@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { MediaLibraryView } from "@/components/company/MediaLibraryView";
 import { getSessionProfile } from "@/lib/auth";
 import { getMediaLibrary, getThemeColor, getThemeFromSite } from "@/lib/media-library";
@@ -10,6 +12,9 @@ export default async function AdminMediaPage() {
     getThemeColor(companyId),
     getThemeFromSite(companyId),
   ]);
+
+  /* Nothing added yet: the guided flow, not an empty library. */
+  if (items.length === 0) redirect("/onboarding/media");
 
   return <MediaLibraryView companyId={companyId} items={items} themeColor={themeColor} themeFromSite={themeFromSite} />;
 }

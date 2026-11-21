@@ -39,11 +39,6 @@ import {
 } from "@/lib/media-library-shared";
 import { prepareMedia, uploadToLibrary } from "@/lib/media-library-upload";
 
-const KIND_TABS: ReadonlyArray<{ kind: MediaKind; label: string }> = [
-  { kind: "screenshot", label: "Screenshots" },
-  { kind: "recording", label: "Recordings" },
-];
-
 const NOUN: Record<MediaKind, { one: string; many: string; add: string }> = {
   screenshot: { one: "screenshot", many: "screenshots", add: "Add screenshot" },
   recording: { one: "recording", many: "recordings", add: "Add recording" },
@@ -125,43 +120,6 @@ function usePageSize(): [(node: HTMLDivElement | null) => void, number] {
     measure();
   }, []);
   return [ref, size];
-}
-
-function KindToggle({
-  active,
-  onSelect,
-  counts,
-}: {
-  active: Tab;
-  onSelect: (tab: Tab) => void;
-  counts: Record<MediaKind, number>;
-}) {
-  return (
-    <div className="inline-flex items-center gap-0.5 bg-fill-quiet p-[3px] rounded-pill">
-      {KIND_TABS.map((tab) => (
-        <button
-          key={tab.kind}
-          type="button"
-          onClick={() => onSelect(tab.kind)}
-          className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-none px-3.5 py-[6px] text-[13px] font-bold transition-colors duration-[160ms] ease-om rounded-pill ${
-            active === tab.kind ? "bg-white text-ink shadow-card" : "bg-transparent text-slate-400"
-          }`}
-        >
-          {tab.label}
-          <span className="text-[11px] font-bold text-slate-400">{counts[tab.kind]}</span>
-        </button>
-      ))}
-      <button
-        type="button"
-        onClick={() => onSelect("theme")}
-        className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-none px-3.5 py-[6px] text-[13px] font-bold transition-colors duration-[160ms] ease-om rounded-pill ${
-          active === "theme" ? "bg-white text-ink shadow-card" : "bg-transparent text-slate-400"
-        }`}
-      >
-        Theme color
-      </button>
-    </div>
-  );
 }
 
 function ThemeColorCard({ initial, fromSite }: { initial: string | null; fromSite: boolean }) {
@@ -716,8 +674,9 @@ export function MediaLibraryView({
     const edited = renamed.get(item.id);
     return edited === undefined ? item : { ...item, ...edited };
   });
-  const visibleItems = withTitles.filter((item) => item.kind === kind && !removing.has(item.id));
-  const visibleJobs = jobs.filter((job) => job.kind === kind);
+  /* Screenshots and recordings share one grid; a recording carries a play mark. */
+  const visibleItems = withTitles.filter((item) => !removing.has(item.id));
+  const visibleJobs = jobs;
   const empty = visibleItems.length === 0 && visibleJobs.length === 0;
   /* Uploads in flight take the first slots of page one. */
   const tiles = [
@@ -727,7 +686,6 @@ export function MediaLibraryView({
   const pages = Math.max(1, Math.ceil(tiles.length / pageSize));
   const at = Math.min(page, pages - 1);
   const shown = tiles.slice(at * pageSize, (at + 1) * pageSize);
-  const noun = NOUN[kind];
   const counts = {
     screenshot: withTitles.filter((i) => i.kind === "screenshot" && !removing.has(i.id)).length,
     recording: withTitles.filter((i) => i.kind === "recording" && !removing.has(i.id)).length,
@@ -742,19 +700,23 @@ export function MediaLibraryView({
   return (
     <div>
       <PageHead
-        title="Media library"
+        title="Media"
         right={
           <>
-            <KindToggle
-              active={tab}
-              onSelect={(next) => (next === "theme" ? setTab("theme") : setKind(next))}
-              counts={counts}
-            />
-            {tab === "theme" ? null : (
-              <Pill icon={Plus} onClick={() => inputRef.current?.click()}>
-                {noun.add}
-              </Pill>
-            )}
+            <button
+              type="button"
+              onClick={() => setTab("theme")}
+              className="inline-flex cursor-pointer items-center gap-2 border border-line bg-white px-3.5 py-2 text-[13px] font-bold text-ink shadow-card rounded-pill active:scale-[0.97]"
+            >
+              <span
+                className="h-4 w-4 border border-line rounded-pill"
+                style={{ backgroundColor: themeColor ?? "transparent" }}
+              />
+              Color
+            </button>
+            <Pill icon={Plus} onClick={() => inputRef.current?.click()}>
+              Add
+            </Pill>
           </>
         }
       />
@@ -770,10 +732,13 @@ export function MediaLibraryView({
         }}
       />
 
-      {tab === "theme" ? <ThemeColorCard initial={themeColor} fromSite={themeFromSite} /> : null}
+      {tab === "theme" ? (
+        <Modal title="Color" onClose={() => setTab(kind)} width={620}>
+          <ThemeColorCard initial={themeColor} fromSite={themeFromSite} />
+        </Modal>
+      ) : null}
 
       <div
-        className={tab === "theme" ? "hidden" : undefined}
         onDragOver={(e) => {
           e.preventDefault();
           if (!dragging) setDragging(true);
@@ -799,7 +764,7 @@ export function MediaLibraryView({
             <>
               <div className="mb-3 flex items-center gap-2">
                 <p className="m-0 flex-1 text-[12.5px] font-semibold text-slate-500">
-                  {`${visibleItems.length} ${visibleItems.length === 1 ? noun.one : noun.many}`}
+                  {counts.screenshot} screenshots · {counts.recording} recordings
                 </p>
                 {pages > 1 ? (
                   <>
