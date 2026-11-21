@@ -105,7 +105,7 @@ export function PlanPicker({
 
   /* Done for you is scoped on a call, then ops puts the company on it. */
   const managedCurrent = currentTier === "managed";
-  const managedCta = managedCurrent ? "Current plan" : "Book a call";
+  const managedCta = managedCurrent ? "Current plan" : "Let's talk";
 
   const busyLabel = active
     ? "Switching plan…"
@@ -336,7 +336,7 @@ export function PlanPicker({
               onClick={bookCall}
               className={`w-full cursor-pointer border border-white/35 bg-transparent text-center text-[14px] font-bold text-white transition-colors duration-150 rounded-pill hover:bg-white/10 ${ctaCls}`}
             >
-              Book a call
+              Let&apos;s talk
             </button>
           )}
           {compact ? null : enterpriseFeats}
@@ -363,29 +363,6 @@ export function PlanPicker({
           >
             {MANAGED_PLAN.blurb}
           </p>
-        </div>
-        <div className="flex shrink-0 flex-col">
-          <span className="flex items-baseline gap-2">
-            <span
-              key={cadence}
-              className={`animate-om-rise font-bold text-ink ${
-                compact ? "text-[26px] tracking-[-0.8px]" : "text-[32px] tracking-[-1px]"
-              }`}
-            >
-              ${(annual ? MANAGED_PLAN.annual : MANAGED_PLAN.monthly).toLocaleString("en-US")}
-            </span>
-            <span className="text-[14px] font-semibold text-slate-400">/mo</span>
-            {annual ? (
-              <span className="text-[15px] font-semibold text-slate-300 line-through">
-                ${MANAGED_PLAN.monthly.toLocaleString("en-US")}
-              </span>
-            ) : null}
-          </span>
-          <span className="text-[12.5px] font-semibold text-slate-400">
-            {annual
-              ? `$${MANAGED_PLAN.yearly.toLocaleString("en-US")} billed annually`
-              : "billed monthly"}
-          </span>
         </div>
         <button
           type="button"
