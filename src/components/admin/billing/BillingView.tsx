@@ -27,6 +27,7 @@ import { Card, Chip, Label, Pill } from "@/components/kit";
 import type { AdminBilling, SubscriptionPlan } from "@/lib/admin/types";
 
 import { yearlyDollars } from "@/lib/plans";
+import { WaitlistModal } from "@/components/WaitlistModal";
 import { BOOKING_URL } from "@/lib/site-config";
 
 import { money } from "./AmountModal";
@@ -94,7 +95,8 @@ export function BillingView({
   const [changingPlan, setChangingPlan] = useState(false);
   const [error, setError] = useState<string | null>(notice);
   const [connecting, setConnecting] = useState(false);
-  const [section, setSection] = useState<Section>("plan");
+  const [section, setSection] = useState<Section | null>(null);
+  const [callOpen, setCallOpen] = useState(false);
 
   const tourTarget = tourStep !== null ? tourStepTarget(tourStep) : null;
 
@@ -111,9 +113,23 @@ export function BillingView({
   /* No plan yet: Budget and Sales data are locked. Pilots ops runs by hand
      (simulated billing) have no plan to buy, so nothing locks for them. */
   const locked = !active && !simulated;
-  const shown: Section = locked
-    ? "plan"
-    : (tourTarget && TOUR_SECTION[tourTarget]) || section;
+  /* The steps unlock one at a time: Budget once there is a plan, Sales
+     data once the budget is set (or there is already credit to spend). */
+  const budgetDone = limit > 0 || billing.creditBalance > 0;
+  const lockedStep = (id: Section): boolean =>
+    simulated
+      ? false
+      : id === "budget"
+        ? !active
+        : id === "stripe"
+          ? !active || !budgetDone
+          : false;
+  /* Open on the step that is up next, until the admin picks one. */
+  const upNext: Section = !active ? "plan" : !budgetDone ? "budget" : "plan";
+  const wanted: Section =
+    (tourTarget && TOUR_SECTION[tourTarget]) || section || upNext;
+  const shown: Section = lockedStep(wanted) ? upNext : wanted;
+  const stepNo = SECTIONS.findIndex((x) => x.id === upNext) + 1;
   const cardOnFile =
     active && subscription.cardLast4
       ? `${subscription.cardBrand} ···· ${subscription.cardLast4}`
@@ -172,20 +188,26 @@ export function BillingView({
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="inline-flex max-w-full flex-wrap border border-line bg-white p-1 shadow-[0_1px_2px_rgba(15,23,32,0.04)] rounded-pill">
           {SECTIONS.map((s, i) => {
-            const isLocked = locked && s.id !== "plan";
+            const isLocked = lockedStep(s.id);
             const on = shown === s.id;
             const done =
               s.id === "plan"
                 ? active
                 : s.id === "budget"
-                  ? limit > 0
+                  ? budgetDone
                   : billing.stripeConnected;
             return (
               <button
                 key={s.id}
                 type="button"
                 disabled={isLocked}
-                title={isLocked ? "Pick a plan first" : undefined}
+                title={
+                  isLocked
+                    ? active
+                      ? "Unlocks once your creator budget is set"
+                      : "Pick a plan first"
+                    : undefined
+                }
                 onClick={() => setSection(s.id)}
                 className={`inline-flex items-center gap-2 border-none px-[16px] py-2 text-[13px] font-bold transition-all duration-150 rounded-pill ${
                   on
@@ -220,6 +242,10 @@ export function BillingView({
         {locked ? (
           <span className="text-[12.5px] font-semibold text-slate-400">
             Step 1 of 3. Pick a plan to unlock your budget and sales data.
+          </span>
+        ) : active && !budgetDone && !simulated ? (
+          <span className="text-[12.5px] font-semibold text-slate-400">
+            Step {stepNo} of 3. Set your creator budget to unlock sales data.
           </span>
         ) : null}
       </div>
@@ -304,26 +330,6 @@ export function BillingView({
           </Card>
         ) : null}
 
-        {active &&
-        !paymentFailed &&
-        limit === 0 &&
-        billing.creditBalance === 0 ? (
-          <Card
-            pad={16}
-            className="flex items-center gap-[13px]"
-            style={{
-              background: "var(--color-amber-soft)",
-              borderColor: "transparent",
-            }}
-          >
-            <CircleAlert size={19} className="shrink-0 text-amber" />
-            <span className="flex-1 text-[13.5px] font-semibold text-ink">
-              No creator budget yet. The Noni team sets it with you on a call
-              and sends you the invoice.
-            </span>
-          </Card>
-        ) : null}
-
         {shown === "plan" ? (
           <div data-tour="billing-subscription">
             {active && !changingPlan ? (
@@ -347,9 +353,13 @@ export function BillingView({
                 </div>
                 <div className="mt-3 flex items-baseline gap-2.5">
                   <span className="display text-[30px] font-bold tracking-[-0.8px] text-ink">
-                    {subscription.price > 0 ? money(subscription.price) : "Custom"}
+                    {subscription.price > 0
+                      ? money(subscription.price)
+                      : "Custom"}
                     {subscription.price > 0 ? (
-                      <span className="text-[15px] font-bold text-slate-400">/mo</span>
+                      <span className="text-[15px] font-bold text-slate-400">
+                        /mo
+                      </span>
                     ) : null}
                   </span>
                   <span className="text-[13.5px] font-semibold text-slate-400">
@@ -358,7 +368,9 @@ export function BillingView({
                       annual && subscription.price > 0
                         ? `billed ${money(yearlyDollars(subscription.tier, subscription.price))}/yr`
                         : null,
-                      subscription.renewsAt ? `renews ${subscription.renewsAt}` : "invoiced by Noni",
+                      subscription.renewsAt
+                        ? `renews ${subscription.renewsAt}`
+                        : "invoiced by Noni",
                       cardOnFile,
                     ]
                       .filter(Boolean)
@@ -446,34 +458,49 @@ export function BillingView({
             ) : null}
             <div data-tour="billing-budget">
               <Card pad={0}>
-                <div className="flex flex-wrap items-center gap-3 px-[22px] pb-4 pt-[18px]">
-                  <span className="min-w-0 flex-1">
+                <div
+                  className={`flex flex-wrap items-center gap-x-6 gap-y-4 px-[22px] pb-5 pt-[18px] ${
+                    budgetDone ? "" : "rounded-t-[inherit] bg-blue-100/40"
+                  }`}
+                >
+                  <span className="min-w-[240px] flex-1">
                     <Label className="mb-2.5 block">Creator budget</Label>
                     <span className="display block text-[30px] font-bold tracking-[-0.8px] text-ink">
-                      {limit > 0 ? money(limit) : "Not set yet"}
+                      {limit > 0
+                        ? money(limit)
+                        : budgetDone
+                          ? "Set by Noni"
+                          : "Set your creator budget"}
                       {limit > 0 ? (
                         <span className="text-[15px] font-bold text-slate-400">
                           /mo
                         </span>
                       ) : null}
                     </span>
-                    <span className="mt-1 block text-[13px] font-semibold text-slate-400">
-                      Set with the Noni team on a call and invoiced to you. Noni
-                      pays your creators from it.
+                    <span className="mt-1 block max-w-[560px] text-[13.5px] font-semibold leading-[1.5] text-slate-500">
+                      {budgetDone
+                        ? "Set with the Noni team and invoiced to you. Noni pays your creators from it."
+                        : "This is the money that pays your creators. We set the amount with you on a quick call, then send you an invoice. Nothing is charged to your card."}
                     </span>
                   </span>
-                  {BOOKING_URL ? (
-                    <a
-                      href={BOOKING_URL}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="no-underline"
-                    >
-                      <Pill size="sm" variant="quiet">
-                        {limit > 0 ? "Change it on a call" : "Book a call"}
-                      </Pill>
-                    </a>
-                  ) : null}
+                  <Pill
+                    size={budgetDone ? "sm" : "md"}
+                    variant={budgetDone ? "quiet" : "primary"}
+                    icon={budgetDone ? undefined : ArrowRight}
+                    onClick={() => {
+                      if (BOOKING_URL)
+                        window.open(
+                          BOOKING_URL,
+                          "_blank",
+                          "noopener,noreferrer",
+                        );
+                      else setCallOpen(true);
+                    }}
+                  >
+                    {budgetDone
+                      ? "Change it on a call"
+                      : "Book your budget call"}
+                  </Pill>
                 </div>
                 <div className="flex flex-wrap items-center gap-4 border-t border-line px-[22px] py-4">
                   <span className="min-w-0">
@@ -503,15 +530,22 @@ export function BillingView({
               </Card>
             </div>
 
-            <div className="flex justify-end">
-              <Pill
-                size="sm"
-                icon={ArrowRight}
-                onClick={() => setSection("stripe")}
-              >
-                Next: sales data
-              </Pill>
-            </div>
+            {budgetDone ? (
+              <div className="flex justify-end">
+                <Pill
+                  size="sm"
+                  icon={ArrowRight}
+                  onClick={() => setSection("stripe")}
+                >
+                  Next: sales data
+                </Pill>
+              </div>
+            ) : (
+              <p className="m-0 flex items-center justify-end gap-1.5 text-[12.5px] font-bold text-slate-400">
+                <Lock size={13} />
+                Sales data unlocks once your budget is set
+              </p>
+            )}
 
             {billing.topUpHistory.length > 0 ? (
               <Card pad={0}>
@@ -582,6 +616,12 @@ export function BillingView({
 
         {shown === "stripe" ? <SignupTrackingCard /> : null}
       </div>
+      <WaitlistModal
+        open={callOpen}
+        onClose={() => setCallOpen(false)}
+        kind="call"
+        source="billing-budget"
+      />
     </div>
   );
 }
