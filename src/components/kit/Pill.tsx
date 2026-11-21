@@ -47,7 +47,7 @@ export function Pill({
       type={type}
       onClick={onClick}
       aria-busy={loading || undefined}
-      className={`group/pill inline-flex cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap border-none font-bold rounded-pill ${
+      className={`group/pill inline-flex cursor-pointer items-center justify-center gap-[7px] whitespace-nowrap border-none font-bold transition-transform duration-[90ms] rounded-pill active:translate-y-0 active:scale-[0.96] ${
         size === "sm" ? "px-3.5 py-2 text-[13px]" : "px-[22px] py-3 text-[14.5px]"
       } ${LOOKS[variant]} ${
         disabled ? "pointer-events-none opacity-35" : ""

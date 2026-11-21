@@ -1,14 +1,15 @@
 "use client";
 
-import { ArrowRight, ArrowUp } from "lucide-react";
+import { ArrowRight, ArrowUp, Check } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import {
   getBrainSnapshot,
   settleBrainSnapshot,
   startBrainIngest,
 } from "@/app/admin/brain/knowledge-actions";
+import { CompanyMark } from "@/components/CompanySwitcher";
 import { useNavigate } from "@/components/motion/NavProgress";
 import {
   bulletOf,
@@ -17,13 +18,47 @@ import {
   type SnapshotItem,
   type SnapshotPart,
 } from "@/lib/admin/brain-model";
+import { themeTextColor } from "@/lib/media-library-shared";
 
 /* The company confirms what Noni understood about it, as a conversation in
    the same full screen chat as the first onboarding (ChatOnboarding): a
    start screen, then Noni says one short thing at a time (what you sell,
    who it is for, the hook, what it does) and the admin taps Yes or types
    what is wrong in the box. A typed answer becomes the company's own words.
-   The lines are fixed here and typed out on screen; no model writes them. */
+   The lines are fixed here and typed out on screen; no model writes them.
+
+   It wears the company's own color (its theme color, read off its site),
+   and every answer pays off: the button bursts, the Yes lands with a
+   popped check, a dot fills in the header, and the last one throws
+   confetti. */
+
+const NONI_BLUE = "#1BA6EE";
+
+/** Dots thrown outward from the middle of whatever it sits in. Remount (new key) to throw again. */
+function Burst({ colors, count = 12, reach = 46 }: { colors: string[]; count?: number; reach?: number }) {
+  return (
+    <span aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-0 w-0">
+      {Array.from({ length: count }, (_, i) => {
+        const angle = (i / count) * Math.PI * 2 + (i % 2 ? 0.35 : 0);
+        const far = reach * (i % 3 === 0 ? 1.35 : i % 3 === 1 ? 1 : 0.7);
+        return (
+          <span
+            key={i}
+            className="absolute -left-1 -top-1 h-2 w-2 rounded-full"
+            style={
+              {
+                backgroundColor: colors[i % colors.length],
+                "--dx": `${Math.cos(angle) * far}px`,
+                "--dy": `${Math.sin(angle) * far}px`,
+                animation: `om-spark ${520 + (i % 4) * 90}ms var(--ease-om) ${(i % 5) * 18}ms both`,
+              } as CSSProperties
+            }
+          />
+        );
+      })}
+    </span>
+  );
+}
 
 type Ask =
   | { kind: "line"; part: Exclude<SnapshotPart, "features">; item: SnapshotItem }
@@ -60,7 +95,7 @@ function sayOf(ask: Ask): string {
   return `The moment that sells it: ${lower(bulletOf(ask.item, "viral"))}. Right?`;
 }
 
-type Turn = { from: "noni" | "me"; text: string };
+type Turn = { from: "noni" | "me"; text: string; yes?: boolean };
 
 function Avatar() {
   return (
@@ -125,11 +160,21 @@ function NoniMessage({ text, live, onDone }: { text: string; live: boolean; onDo
 
 export function BrainConfirm({
   companyName,
+  logoPath,
+  themeColor,
   snapshot: initial,
 }: {
   companyName: string;
+  logoPath: string | null;
+  /** The company's own color; Noni blue when it has none. */
+  themeColor: string | null;
   snapshot: CompanySnapshot | null;
 }) {
+  const accent = themeColor ?? NONI_BLUE;
+  const onAccent = themeTextColor(accent);
+  const sparks = [accent, "#22C55E", "#FBBF24", accent];
+  /* Bumped on every win, so the burst under the answer row throws again. */
+  const [wins, setWins] = useState(0);
   const { go, pending: leaving } = useNavigate();
   const [snapshot, setSnapshot] = useState(initial);
   const [started, setStarted] = useState(false);
@@ -173,7 +218,7 @@ export function BrainConfirm({
     setSettled(false);
     setTurns((prev) => [
       ...prev,
-      ...(mine ? [{ from: "me" as const, text: mine }] : []),
+      ...(mine ? [{ from: "me" as const, text: mine, yes: mine === "Yes" }] : []),
       { from: "noni" as const, text },
     ]);
   };
@@ -189,7 +234,8 @@ export function BrainConfirm({
   const advance = (mine: string, fixed: boolean) => {
     const next = asks[at + 1];
     const lead = fixed ? "Fixed. " : "";
-    say(next ? `${lead}${sayOf(next)}` : `${lead}That is everything. You are set.`, mine);
+    setWins((n) => n + 1);
+    say(next ? `${lead}${sayOf(next)}` : `${lead}${name} is locked in.`, mine);
     setAt((n) => n + 1);
     setDraft("");
   };
@@ -260,32 +306,48 @@ export function BrainConfirm({
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
         <span className="flex-1" />
         {started && total > 0 ? (
-          <span className="flex items-center gap-2.5" aria-label={`${Math.min(at, total)} of ${total} answered`}>
-            <span className="hidden text-[13px] font-semibold text-slate-400 sm:inline">
-              {at >= total ? "Done" : `${total - at} to go`}
-            </span>
-            <span className="h-1.5 w-24 overflow-hidden rounded-full bg-line sm:w-32">
-              <span
-                className="block h-full rounded-full bg-blue-500 transition-[width] duration-500 ease-om-spring"
-                style={{ width: `${Math.round((Math.min(at, total) / total) * 100)}%` }}
-              />
-            </span>
+          <span className="flex items-center gap-1.5" aria-label={`${Math.min(at, total)} of ${total} answered`}>
+            {asks.map((_, i) =>
+              i < at ? (
+                <span
+                  key={`done-${i}`}
+                  className="inline-flex h-6 w-6 items-center justify-center rounded-full animate-om-check"
+                  style={{ backgroundColor: accent, color: onAccent }}
+                >
+                  <Check size={13} strokeWidth={3.5} />
+                </span>
+              ) : (
+                <span
+                  key={i}
+                  className={`h-6 w-6 rounded-full border-2 bg-white ${i === at ? "" : "border-line"}`}
+                  style={i === at ? { borderColor: accent } : undefined}
+                />
+              ),
+            )}
           </span>
         ) : null}
       </header>
 
       {!started ? (
-        <main className="mx-auto flex w-full max-w-[720px] flex-1 flex-col items-center justify-center gap-8 px-5 pb-24 text-center">
-          <h1 className="display m-0 text-[52px] font-bold leading-[1.02] tracking-[-1.8px] text-ink animate-om-rise">
-            Let&apos;s talk {name}!
+        <main className="mx-auto flex w-full max-w-[720px] flex-1 flex-col items-center justify-center gap-7 px-5 pb-24 text-center">
+          <span className="overflow-hidden rounded-[22px] shadow-[0_10px_30px_rgba(15,23,42,0.12)] animate-om-check">
+            <CompanyMark name={companyName} logoPath={logoPath} size={84} />
+          </span>
+          <h1 className="display m-0 text-[56px] font-bold leading-[1.02] tracking-[-2px] text-ink animate-om-rise">
+            Let&apos;s talk <span style={{ color: accent }}>{name}</span>!
           </h1>
           <button
             type="button"
             onClick={start}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-full border-none bg-ink px-8 py-4 text-[17px] font-bold text-white transition-transform duration-150 active:scale-[0.98] animate-om-rise"
+            className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-9 py-[18px] text-[18px] font-bold transition-[transform,box-shadow,filter] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.96] animate-om-rise"
+            style={{
+              backgroundColor: accent,
+              color: onAccent,
+              boxShadow: `0 12px 28px color-mix(in srgb, ${accent} 38%, transparent)`,
+            }}
           >
             Get started
-            <ArrowRight size={18} />
+            <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />
           </button>
         </main>
       ) : (
@@ -296,9 +358,19 @@ export function BrainConfirm({
           {turns.map((turn, i) =>
             turn.from === "me" ? (
               <div key={i} className="flex justify-end animate-om-rise">
-                <p className="m-0 max-w-[80%] whitespace-pre-wrap rounded-[22px] bg-[#eef1f5] px-[18px] py-3 text-[16px] font-medium leading-[1.5] text-ink">
-                  {turn.text}
-                </p>
+                {turn.yes ? (
+                  <p
+                    className="m-0 inline-flex items-center gap-1.5 rounded-[22px] px-[18px] py-3 text-[16px] font-bold leading-[1.5] animate-om-bounce"
+                    style={{ backgroundColor: accent, color: onAccent }}
+                  >
+                    <Check size={16} strokeWidth={3.5} className="animate-om-check" />
+                    Yes
+                  </p>
+                ) : (
+                  <p className="m-0 max-w-[80%] whitespace-pre-wrap rounded-[22px] bg-[#eef1f5] px-[18px] py-3 text-[16px] font-medium leading-[1.5] text-ink animate-om-bounce">
+                    {turn.text}
+                  </p>
+                )}
               </div>
             ) : (
               <NoniMessage
@@ -313,15 +385,25 @@ export function BrainConfirm({
             <p className="m-0 pl-[46px] text-[14px] font-semibold text-danger">{error}</p>
           ) : null}
           {(finished || snapshot === null) && settled ? (
-            <div className="pl-[46px] animate-om-rise">
+            <div className="flex items-center gap-4 pl-[46px] animate-om-rise">
+              {finished && total > 0 ? (
+                <span
+                  className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full animate-om-check"
+                  style={{ backgroundColor: "#22C55E", color: "#FFFFFF" }}
+                >
+                  <Burst colors={sparks} count={26} reach={120} />
+                  <Check size={24} strokeWidth={3.5} />
+                </span>
+              ) : null}
               <button
                 type="button"
                 disabled={leaving}
                 onClick={() => go(snapshot === null ? "/admin/brain" : "/admin")}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full border-none bg-ink px-6 py-4 text-[16px] font-bold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
+                className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-7 py-4 text-[16px] font-bold transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-60"
+                style={{ backgroundColor: accent, color: onAccent }}
               >
                 {snapshot === null ? "Open Company Brain" : "Done"}
-                <ArrowRight size={17} />
+                <ArrowRight size={17} className="transition-transform duration-150 group-hover:translate-x-1" />
               </button>
             </div>
           ) : null}
@@ -338,15 +420,23 @@ export function BrainConfirm({
                   type="button"
                   disabled={busy}
                   onClick={yes}
-                  className="cursor-pointer rounded-full border-[1.5px] border-blue-500 bg-blue-500 px-[22px] py-2.5 text-[15px] font-bold text-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(37,99,235,0.08)] transition-[background,border-color,transform,box-shadow] duration-150 ease-om hover:-translate-y-px hover:border-blue-600 hover:bg-blue-600 active:translate-y-0 active:scale-[0.97] disabled:cursor-default disabled:opacity-50"
+                  className="relative inline-flex cursor-pointer items-center gap-1.5 rounded-full border-none px-7 py-3 text-[16px] font-bold transition-[transform,filter] duration-150 ease-om hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.94] disabled:cursor-default disabled:opacity-60"
+                  style={{
+                    backgroundColor: accent,
+                    color: onAccent,
+                    boxShadow: `0 8px 20px color-mix(in srgb, ${accent} 32%, transparent)`,
+                  }}
                 >
+                  {wins > 0 ? <Burst key={wins} colors={sparks} /> : null}
+                  <Check size={16} strokeWidth={3.5} />
                   Yes
                 </button>
               </div>
             ) : null}
             <div
               onClick={() => box.current?.focus()}
-              className="flex cursor-text items-end gap-2 rounded-[28px] border-[1.5px] border-slate-300 bg-white py-2.5 pl-5 pr-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.10)] transition-[border-color,box-shadow] duration-150 hover:border-slate-400 focus-within:border-blue-500 focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.15),0_8px_30px_rgba(15,23,42,0.10)]"
+              className="flex cursor-text items-end gap-2 rounded-[28px] border-[1.5px] border-slate-300 bg-white py-2.5 pl-5 pr-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.10)] transition-[border-color,box-shadow] duration-150 hover:border-slate-400 focus-within:shadow-[0_0_0_4px_rgba(15,23,42,0.06),0_8px_30px_rgba(15,23,42,0.10)]"
+              style={{ borderColor: draft.trim() ? accent : undefined }}
             >
               <textarea
                 ref={box}
@@ -374,7 +464,8 @@ export function BrainConfirm({
                 aria-label="Send"
                 onClick={send}
                 disabled={busy || !settled || !draft.trim()}
-                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-ink text-white transition-[opacity,transform] duration-150 active:scale-90 disabled:cursor-default disabled:opacity-25"
+                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-none transition-[opacity,transform] duration-150 hover:scale-105 active:scale-90 disabled:cursor-default disabled:opacity-25"
+                style={{ backgroundColor: accent, color: onAccent }}
               >
                 <ArrowUp size={19} strokeWidth={2.5} />
               </button>
