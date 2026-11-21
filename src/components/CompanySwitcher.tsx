@@ -77,7 +77,11 @@ export function CompanyMark({
   const url = companyLogoUrl(logoPath);
   return (
     <span
-      className="inline-flex shrink-0 items-center justify-center overflow-hidden bg-blue-100 font-extrabold tracking-[-0.2px] text-blue-700"
+      /* A logo sits on plain white, as the company drew it; the blue tint is
+         only the backdrop for the first-letter fallback. */
+      className={`inline-flex shrink-0 items-center justify-center overflow-hidden font-extrabold tracking-[-0.2px] text-blue-700 ${
+        url ? "bg-white" : "bg-blue-100"
+      }`}
       style={{
         width: size,
         height: size,
