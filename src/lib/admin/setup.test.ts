@@ -87,12 +87,16 @@ describe("deriveSetupStatus", () => {
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(true);
   });
 
-  it("requires a running subscription AND a creator budget for billing", () => {
+  it("requires a running subscription for the plan step, not a budget", () => {
+    for (const noBudget of [{ monthlySpendLimit: null }, { monthlySpendLimit: 0 }]) {
+      const ok = deriveSetupStatus(
+        dataset({ billing: { ...completeBilling, ...noBudget } }),
+      );
+      expect(ok.steps.find((s) => s.key === "billing")?.done).toBe(true);
+    }
     const cases: Array<Partial<AdminDataset["billing"]>> = [
       { subscription: { status: "none" } },
       { subscription: { ...pastDue } },
-      { monthlySpendLimit: null },
-      { monthlySpendLimit: 0 },
     ];
     for (const broken of cases) {
       const status = deriveSetupStatus(
@@ -143,10 +147,10 @@ describe("deriveSetupStatus", () => {
       }),
     );
     expect(status.steps.find((s) => s.key === "managers")?.title).toBe(
-      "Invite first campaign manager",
+      "Invite your first campaign manager",
     );
     expect(status.steps.find((s) => s.key === "creators")?.title).toBe(
-      "Invite first Creator",
+      "Invite your first creator",
     );
   });
 

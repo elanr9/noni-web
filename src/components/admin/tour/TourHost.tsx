@@ -11,13 +11,12 @@ import { createPortal } from "react-dom";
 
 import { Label, Pill } from "@/components/kit";
 
-/* The spotlight tour from design_handoff_admin_app_web/AdminSetupApp.jsx:
-   a dim overlay with a cutout around each target. It opens with a centered
-   welcome card, walks every tab from the nav item into the features on the
-   page, then ends on the ⌘K search, syncing the active tab as it goes.
-   Activated by the onboarding finish screen's Look around button navigating
-   to /admin?tour=1. Skippable; the last button reads "Start step 1" and
-   lands on the Onboarding to-do. */
+/* The spotlight tour: a short introduction to the dashboard. It opens with
+   a centered card, puts a spotlight on each tab in the nav with one line
+   about what it is for, and closes with a centered send-off. It never
+   leaves the page it started on. Activated by navigating to /admin?tour=1.
+   Skippable; a tab that is not on screen (a retired Onboarding tab, the
+   hidden nav on a phone) is passed over. */
 
 interface TourStep {
   /** data-tour attribute on the target element; null shows a centered
@@ -32,129 +31,57 @@ interface TourStep {
 const TOUR: TourStep[] = [
   {
     target: null,
-    href: "/admin",
-    title: "Welcome to Noni!",
-    body: "Let me show you around.",
+    href: null,
+    title: "This is your dashboard",
+    body: "Everything about your creator program lives here: your results, your team, every post and your plan. Here is what each tab is for.",
   },
   {
     target: "nav-onboarding",
-    href: "/admin",
+    href: null,
     title: "Onboarding",
-    body: "Your setup to-do lives here. A few steps and Noni runs itself. This tab retires once everything is done.",
-  },
-  {
-    target: "onb-progress",
-    href: "/admin",
-    title: "Your progress",
-    body: "This bar tracks your setup. It fills as each step is done.",
-  },
-  {
-    target: "onb-first-step",
-    href: "/admin",
-    title: "First step",
-    body: "Start here. Each row takes you to the right page and checks itself off when finished.",
+    body: "Your setup steps, in order. This tab goes away once they are done.",
   },
   {
     target: "nav-analytics",
-    href: "/admin/analytics",
+    href: null,
     title: "Analytics",
-    body: "Views, sign-ups and earnings by post, creator and day.",
-  },
-  {
-    target: "analytics-stats",
-    href: "/admin/analytics",
-    title: "At a glance",
-    body: "Totals for views, sign ups and earnings across the whole team. These update as posts go live.",
-  },
-  {
-    target: "analytics-explorer",
-    href: "/admin/analytics",
-    title: "Dig deeper",
-    body: "See how views build week by week and which creators drive them.",
-  },
-  {
-    target: "analytics-mode",
-    href: "/admin/analytics",
-    title: "Graph or Calendar",
-    body: "Flip between the trend graph and a day by day calendar.",
+    body: "Views, sign-ups and sales from every post your creators make.",
   },
   {
     target: "nav-team",
-    href: "/admin/team",
+    href: null,
     title: "Team",
-    body: "Campaign managers and creators. Invite them from here. They join by email, already in the right role.",
-  },
-  {
-    target: "team-managers",
-    href: "/admin/team",
-    title: "Campaign managers",
-    body: "They run weekly briefs and keep creators on pace. Invite one from here.",
-  },
-  {
-    target: "team-creators",
-    href: "/admin/team",
-    title: "Creators",
-    body: "Everyone posting for you, with status and earnings on each. Invite creators by email.",
+    body: "Your campaign managers and creators. Invite them here.",
   },
   {
     target: "nav-posts",
-    href: "/admin/posts",
+    href: null,
     title: "Posts",
-    body: "Every post your creators publish, with views and earnings on each.",
-  },
-  {
-    target: "posts-grid",
-    href: "/admin/posts",
-    title: "All posts",
-    body: "Posts land here as they go live. Click any one for its views, earnings and platform detail.",
-  },
-  {
-    target: "posts-view-toggle",
-    href: "/admin/posts",
-    title: "Grid or calendar",
-    body: "Switch between a grid of posts and a calendar of daily activity.",
+    body: "Every post that goes live, with its numbers.",
   },
   {
     target: "nav-brain",
-    href: "/admin/brain",
+    href: null,
     title: "Company Brain",
-    body: "What Noni knows about your product and audience. Every brief is written from this.",
+    body: "What Noni knows about your product. Every brief is written from it.",
   },
   {
-    target: "brain-docs",
-    href: "/admin/brain",
-    title: "What Noni knows",
-    body: "Facts from your site and your answers, each with its source. Confirm, fix or reject them and the briefs follow.",
-  },
-  {
-    target: "brain-inspiration",
-    href: "/admin/brain",
-    title: "Inspiration accounts",
-    body: "The accounts your customers already follow. We watch these to see what works in your niche.",
+    target: "nav-media",
+    href: null,
+    title: "Media",
+    body: "Your logos, clips and screenshots for creators to use.",
   },
   {
     target: "nav-billing",
-    href: "/admin/billing",
-    title: "Billing",
-    body: "Your subscription and the creator budget.",
-  },
-  {
-    target: "billing-subscription",
-    href: "/admin/billing",
-    title: "Your plan",
-    body: "Your Noni subscription and when it renews.",
-  },
-  {
-    target: "billing-budget",
-    href: "/admin/billing",
-    title: "Creator budget",
-    body: "The pool that pays your creators. The Noni team sets it with you on a call and invoices you.",
-  },
-  {
-    target: "search",
     href: null,
-    title: "Jump anywhere",
-    body: "Press ⌘K from any page to search pages, people and posts.",
+    title: "Billing",
+    body: "Your plan and your creator budget.",
+  },
+  {
+    target: null,
+    href: null,
+    title: "That's it. Good luck exploring",
+    body: "Take a look around. You can't break anything.",
   },
 ];
 
@@ -169,6 +96,7 @@ const POPOVER_WIDTH = 320;
 /* Rough popover height used only to pick below vs above placement. */
 const POPOVER_EST_HEIGHT = 210;
 const FIND_RETRY_MS = 120;
+const MAX_FIND_TRIES = 5;
 
 const DIM_SHADOW =
   "0 0 0 9999px color-mix(in srgb, var(--color-ink-900) 50%, transparent)";
@@ -214,11 +142,13 @@ function PopoverBody({
             style={{ width: `${((idx + 1) / TOUR.length) * 100}%` }}
           />
         </span>
-        <Pill size="sm" variant="ghost" onClick={onSkip}>
-          Skip tour
-        </Pill>
+        {last ? null : (
+          <Pill size="sm" variant="ghost" onClick={onSkip}>
+            Skip
+          </Pill>
+        )}
         <Pill size="sm" onClick={onNext}>
-          {last ? "Start step 1" : "Next"}
+          {last ? "Start exploring" : "Next"}
         </Pill>
       </div>
     </>
@@ -246,7 +176,8 @@ function TourOverlay({
     let revealed = false;
     function measure() {
       const el = document.querySelector(`[data-tour="${step.target}"]`);
-      if (!el) {
+      /* A nav that is collapsed on a phone is in the page but has no size. */
+      if (!el || el.getBoundingClientRect().width === 0) {
         setRect(null);
         return false;
       }
@@ -266,9 +197,16 @@ function TourOverlay({
       return true;
     }
     let retry = 0;
+    let tries = 0;
     if (!measure()) {
       retry = window.setInterval(() => {
+        tries += 1;
         if (measure()) window.clearInterval(retry);
+        else if (tries >= MAX_FIND_TRIES) {
+          /* The tab is not on screen: pass over it. */
+          window.clearInterval(retry);
+          onNext();
+        }
       }, FIND_RETRY_MS);
     }
     window.addEventListener("resize", measure);
@@ -278,6 +216,8 @@ function TourOverlay({
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
+    // onNext changes identity each render; the step target is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step.target]);
 
   /* The welcome card: dim the whole app, no cutout, centered pop. */

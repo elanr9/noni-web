@@ -268,7 +268,9 @@ export function AdminShell({
               key={pathname}
               className="mx-auto w-full max-w-[1100px] px-4 pb-[72px] pt-[30px] animate-om-rise md:px-11"
             >
-              {planBanner && !pathname.startsWith("/admin/billing") ? (
+              {planBanner &&
+              !pathname.startsWith("/admin/billing") &&
+              !(planBanner === "paywall" && pathname === "/admin") ? (
                 <PlanBanner kind={planBanner} />
               ) : null}
               {children}

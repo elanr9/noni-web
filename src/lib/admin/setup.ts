@@ -1,13 +1,14 @@
 /* The gamified setup to-do, derived from the dataset exactly per the
    handoff README:
-   1. Billing: a running subscription (active or trialing) AND a creator
-      budget (monthly budget set, or credit already on the balance). Stripe
-      Connect is optional sales analytics for companies that sell on
-      Stripe, so it never gates the step.
+   1. Plan: a running subscription (active or trialing). The creator budget
+      is set by the Noni team on a call and Stripe Connect is optional, so
+      neither gates the step.
    2. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
    3. Creators: done once at least one creator is on the team.
+   The steps run in order: each one stays locked until the one before it
+   is done, so there is always exactly one thing to do next.
    The company brain is not a step: Noni fills it in for the company.
    When every step is done the Onboarding tab retires: nav item, badge and
    search entry disappear and /admin redirects to /admin/analytics. */
@@ -39,10 +40,9 @@ export interface SetupStatus {
 export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
   const { onboarding } = dataset.company;
 
-  const { subscription, monthlySpendLimit, creditBalance } = dataset.billing;
+  const { subscription } = dataset.billing;
   const billingDone =
-    (subscription.status === "active" || subscription.status === "trialing") &&
-    ((monthlySpendLimit !== null && monthlySpendLimit > 0) || creditBalance > 0);
+    subscription.status === "active" || subscription.status === "trialing";
 
   /* A company that does not do UGC yet still starts with one of each. */
   const showManagers = onboarding.doesUgc ? onboarding.managerCount > 0 : true;
@@ -54,9 +54,9 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
     {
       key: "billing",
       done: billingDone,
-      title: "Set your budget and subscription",
-      sub: "Pick your plan and set the monthly budget that pays your creators. Selling on Stripe? Connecting it for sales analytics is optional.",
-      action: "Open Billing",
+      title: "Pick your plan",
+      sub: "Choose how many creators you want to run. It takes a minute.",
+      action: "Pick a plan",
       href: "/admin/billing",
     },
     ...(showManagers
@@ -64,9 +64,9 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
           {
             key: "managers" as const,
             done: managersDone,
-            title: "Invite first campaign manager",
-            sub: "Anyone that's a part of your brief generation and campaign management. You can be one of them.",
-            action: "Invite managers",
+            title: "Invite your first campaign manager",
+            sub: "The person who sends briefs and reviews posts. It can be you.",
+            action: "Invite a manager",
             href: "/admin/team",
           },
         ]
@@ -76,9 +76,9 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
           {
             key: "creators" as const,
             done: creatorsDone,
-            title: "Invite first Creator",
-            sub: "You and your campaign managers can be creators too.",
-            action: "Invite creators",
+            title: "Invite your first creator",
+            sub: "The people who post for you. You and your managers can be creators too.",
+            action: "Invite a creator",
             href: "/admin/team",
           },
         ]
