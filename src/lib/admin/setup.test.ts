@@ -53,6 +53,7 @@ const completeBilling: AdminDataset["billing"] = {
   creditBalance: 0,
   autoTopUp: false,
   stripeConnected: true,
+  supabaseConnected: true,
   stripeAccountId: "····1FVA",
   topUpHistory: [],
 };

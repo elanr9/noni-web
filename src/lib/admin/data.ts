@@ -363,6 +363,7 @@ const EMPTY_BILLING: AdminBilling = {
   creditBalance: 0,
   autoTopUp: false,
   stripeConnected: false,
+  supabaseConnected: false,
   stripeAccountId: null,
   topUpHistory: [],
 };
@@ -440,6 +441,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     sourcePostsRes,
     mediaCountRes,
     brainSurveyRes,
+    signupSourceRes,
   ] = await Promise.all([
     /* select("*") so onboarding-answer columns that have not been migrated
        yet do not error the query; readers default when absent. */
@@ -544,6 +546,11 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId),
     supabase.from("brain_survey").select("snapshot").eq("company_id", companyId).maybeSingle(),
+    supabase
+      .from("company_signup_sources")
+      .select("project_ref")
+      .eq("company_id", companyId)
+      .maybeSingle(),
   ]);
 
   const companyRow = (companyRes.data ?? null) as LooseRow | null;
@@ -843,6 +850,9 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     spentThisMonth: Math.round(spentCents / 100),
     creditBalance: Math.round((readNum(billingRow, "credit_balance_cents") ?? 0) / 100),
     autoTopUp: readBool(billingRow, "auto_top_up") ?? false,
+    supabaseConnected: Boolean(
+      (signupSourceRes.data as { project_ref?: string | null } | null)?.project_ref,
+    ),
     stripeConnected:
       (readBool(billingRow, "stripe_connected") ?? false) ||
       Boolean(rawAccountId),

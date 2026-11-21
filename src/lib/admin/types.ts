@@ -201,6 +201,8 @@ export interface AdminBilling {
   creditBalance: number;
   autoTopUp: boolean;
   stripeConnected: boolean;
+  /** The company's own Supabase project is connected, for sign-up counts. */
+  supabaseConnected: boolean;
   /** Masked connected-account fragment shown on the Stripe card, e.g.
       "····1FVA". Null until Connect completes. */
   stripeAccountId: string | null;

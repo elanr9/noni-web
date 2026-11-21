@@ -64,7 +64,7 @@ function toastTitle(step: AchievementStep): string {
     case "color":
       return "Color picked";
     case "sales":
-      return "Sales connected";
+      return "Stripe and Supabase connected";
     case "media":
       return "Product screenshots added";
     case "managers":

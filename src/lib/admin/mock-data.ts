@@ -228,6 +228,7 @@ export const MOCK_BILLING: AdminBilling = {
   creditBalance: 0,
   autoTopUp: false,
   stripeConnected: false,
+  supabaseConnected: false,
   stripeAccountId: null,
   topUpHistory: [],
 };

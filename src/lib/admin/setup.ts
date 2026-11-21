@@ -10,8 +10,8 @@
       screenshot or recording of the product.
    4. Color: done once a person has picked or confirmed the color of the
       text on their posts (a color the site scan filled in still needs a yes).
-   5. Sales: done once Stripe is connected, so every post shows the sales
-      it brought in. It is required, not optional.
+   5. Connections: done once both Stripe (sales) and Supabase (sign-ups)
+      are connected, so every post shows what it brought in. Required.
    6. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
@@ -101,10 +101,10 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
     },
     {
       key: "sales",
-      done: dataset.billing.stripeConnected,
-      title: "Connect your sales",
-      short: "Sales",
-      action: "Connect Stripe",
+      done: dataset.billing.stripeConnected && dataset.billing.supabaseConnected,
+      title: "Connect Stripe and Supabase",
+      short: "Connections",
+      action: "Connect",
       href: "/admin/billing?step=sales",
     },
     ...(showManagers
