@@ -21,7 +21,9 @@ export default async function AdminBillingPage({
 }) {
   const ctx = await getBillingContext();
   const { profile } = await getSessionProfile();
-  const data = await getAdminData(ctx?.companyId ?? profile?.active_company_id ?? "");
+  const data = await getAdminData(
+    ctx?.companyId ?? profile?.active_company_id ?? "",
+  );
 
   const sp = await searchParams;
   const notice =
@@ -36,6 +38,15 @@ export default async function AdminBillingPage({
       billing={data.billing}
       simulated={ctx?.simulated ?? stripeSimulated()}
       notice={notice}
+      known={
+        profile?.email
+          ? {
+              name: profile.full_name?.trim() || profile.email.split("@")[0],
+              email: profile.email,
+              company: data.company.name,
+            }
+          : null
+      }
       tourStep={typeof sp.tour === "string" ? Number(sp.tour) : null}
     />
   );

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Check, X } from "lucide-react";
 
@@ -15,7 +16,13 @@ export type LeadModalKind = Exclude<LeadKind, "testflight">;
 
 const COPY: Record<
   LeadModalKind,
-  { title: string; sub: string; cta: string; doneTitle: string; doneBody: string }
+  {
+    title: string;
+    sub: string;
+    cta: string;
+    doneTitle: string;
+    doneBody: string;
+  }
 > = {
   waitlist: {
     title: "Join the waitlist",
@@ -37,14 +44,16 @@ const COPY: Record<
     sub: "Tell us where you post. We read every application and email you when a brand on Noni is a fit.",
     cta: "Send application",
     doneTitle: "Application sent",
-    doneBody: "Thanks. We read every application and will email you when a brand on Noni is a fit.",
+    doneBody:
+      "Thanks. We read every application and will email you when a brand on Noni is a fit.",
   },
   call: {
     title: "Book a call",
     sub: "Twenty minutes with a founder. We show you Noni with your brand in it and set up your workspace.",
     cta: "Request a call",
     doneTitle: "Thanks, we'll be in touch",
-    doneBody: "A founder will email you within a business day to lock in a time.",
+    doneBody:
+      "A founder will email you within a business day to lock in a time.",
   },
   enterprise: {
     title: "Talk to us about Enterprise",
@@ -55,13 +64,24 @@ const COPY: Record<
   },
 };
 
+/** Who is asking, when they are already signed in. The form then skips
+    name, email, company and website and only asks what it needs. */
+export type KnownContact = { name: string; email: string; company: string };
+
 type WaitlistModalProps = {
   open: boolean;
   onClose: () => void;
   kind?: LeadModalKind;
   /** Where the form was opened from, stored with the lead. */
   source?: string;
+  known?: KnownContact | null;
+  /** Replace the kind's default words (signed-in call requests). */
+  title?: string;
+  sub?: string;
+  doneBody?: string;
 };
+
+const noopSubscribe = () => () => {};
 
 const inputClass =
   "w-full rounded-xl border border-line bg-white px-4 py-3 text-[15px] text-ink placeholder:text-muted/60 outline-none transition focus:border-accent";
@@ -71,14 +91,30 @@ export function WaitlistModal({
   onClose,
   kind = "waitlist",
   source = "landing",
+  known = null,
+  title,
+  sub,
+  doneBody,
 }: WaitlistModalProps) {
-  const copy = COPY[kind];
+  const copy = {
+    ...COPY[kind],
+    ...(title ? { title } : {}),
+    ...(sub ? { sub } : {}),
+    ...(doneBody ? { doneBody } : {}),
+  };
+  /* The modal is drawn on document.body so no animated or scrolling parent
+     can clip it; false during server render, true in the browser. */
+  const mounted = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
   const isCreator = kind === "creator";
   const isCompany = kind !== "waitlist" && !isCreator;
-  const [name, setName] = useState("");
+  const [name, setName] = useState(known?.name ?? "");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [company, setCompany] = useState("");
+  const [email, setEmail] = useState(known?.email ?? "");
+  const [company, setCompany] = useState(known?.company ?? "");
   const [website, setWebsite] = useState("");
   const [message, setMessage] = useState("");
   const [honeypot, setHoneypot] = useState("");
@@ -128,18 +164,20 @@ export function WaitlistModal({
       return;
     }
     setDone(true);
-    setName("");
+    setName(known?.name ?? "");
     setPhone("");
-    setEmail("");
-    setCompany("");
+    setEmail(known?.email ?? "");
+    setCompany(known?.company ?? "");
     setWebsite("");
     setMessage("");
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <motion.button
             type="button"
             aria-label="Close"
@@ -192,27 +230,43 @@ export function WaitlistModal({
                 </h2>
                 <p className="mt-1 text-[14px] text-muted">{copy.sub}</p>
 
-                <form onSubmit={(e) => void handleSubmit(e)} className="mt-5 space-y-3">
-                  <input
-                    type="text"
-                    required
-                    autoFocus
-                    placeholder="Name"
-                    autoComplete="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className={inputClass}
-                  />
-                  <input
-                    type="email"
-                    required
-                    placeholder={isCompany ? "Work email" : "Email"}
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className={inputClass}
-                  />
-                  {isCompany ? (
+                <form
+                  onSubmit={(e) => void handleSubmit(e)}
+                  className="mt-5 space-y-3"
+                >
+                  {known ? null : (
+                    <>
+                      <input
+                        type="text"
+                        required
+                        autoFocus
+                        placeholder="Name"
+                        autoComplete="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className={inputClass}
+                      />
+                      <input
+                        type="email"
+                        required
+                        placeholder={isCompany ? "Work email" : "Email"}
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={inputClass}
+                      />
+                    </>
+                  )}
+                  {known ? (
+                    <textarea
+                      rows={3}
+                      autoFocus
+                      placeholder="What days and times work for you?"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      className={`${inputClass} resize-none`}
+                    />
+                  ) : isCompany ? (
                     <>
                       <input
                         type="text"
@@ -287,7 +341,10 @@ export function WaitlistModal({
                     className="absolute -left-[9999px] h-0 w-0 opacity-0"
                   />
                   {error ? (
-                    <p role="alert" className="text-[13px] font-semibold text-danger">
+                    <p
+                      role="alert"
+                      className="text-[13px] font-semibold text-danger"
+                    >
                       {error}
                     </p>
                   ) : null}
@@ -305,6 +362,7 @@ export function WaitlistModal({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

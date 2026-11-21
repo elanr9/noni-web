@@ -27,7 +27,7 @@ import { Card, Chip, Label, Pill } from "@/components/kit";
 import type { AdminBilling, SubscriptionPlan } from "@/lib/admin/types";
 
 import { yearlyDollars } from "@/lib/plans";
-import { WaitlistModal } from "@/components/WaitlistModal";
+import { WaitlistModal, type KnownContact } from "@/components/WaitlistModal";
 import { BOOKING_URL } from "@/lib/site-config";
 
 import { money } from "./AmountModal";
@@ -77,6 +77,7 @@ export function BillingView({
   simulated,
   notice,
   tourStep,
+  known = null,
 }: {
   /** The company this page was rendered for; the actions refuse when the
       account has since switched to another one. */
@@ -86,6 +87,8 @@ export function BillingView({
   simulated: boolean;
   /** Return-trip message from ?checkout= or ?connect= query params. */
   notice: string | null;
+  /** The signed-in admin, so call requests do not ask who they are. */
+  known?: KnownContact | null;
   /** Active ?tour= step, if the product tour is running. */
   tourStep: number | null;
 }) {
@@ -418,6 +421,7 @@ export function BillingView({
                   simulated={simulated}
                   onChoose={purchase}
                   compact
+                  known={known}
                 />
                 {active ? (
                   <div className="flex items-center justify-center gap-5 pt-4">
@@ -621,6 +625,10 @@ export function BillingView({
         onClose={() => setCallOpen(false)}
         kind="call"
         source="billing-budget"
+        known={known}
+        title="Book your budget call"
+        sub="Fifteen minutes with the Noni team to set what you pay your creators. Tell us when works."
+        doneBody="We will email you within a business day to lock in a time."
       />
     </div>
   );

@@ -17,7 +17,9 @@ export function PlanBanner({ kind }: { kind: PlanBannerKind }) {
     <div
       className="mb-5 flex flex-wrap items-center gap-3 px-4 py-3 rounded-ops-md"
       style={{
-        background: failed ? "var(--color-danger-soft)" : "var(--color-blue-100)",
+        background: failed
+          ? "var(--color-danger-soft)"
+          : "var(--color-blue-100)",
       }}
     >
       {failed ? (
@@ -33,7 +35,9 @@ export function PlanBanner({ kind }: { kind: PlanBannerKind }) {
       <Link
         href="/admin/billing"
         className={`inline-flex items-center gap-[7px] whitespace-nowrap px-3.5 py-2 text-[13px] font-bold no-underline rounded-pill ${
-          failed ? "bg-danger text-white" : "bg-blue-500 text-white shadow-accent"
+          failed
+            ? "bg-danger text-white"
+            : "bg-blue-500 text-white shadow-accent"
         }`}
       >
         {failed ? <CreditCard size={14} /> : null}
@@ -55,7 +59,10 @@ export function PlanBlockMessage({
   canOpenBilling: boolean;
 }) {
   return (
-    <p role="alert" className="m-0 text-[13px] font-semibold leading-[1.5] text-danger">
+    <p
+      role="alert"
+      className="m-0 text-[13px] font-semibold leading-[1.5] text-danger"
+    >
       {error}
       {upgrade && canOpenBilling ? (
         <>

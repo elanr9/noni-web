@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { WaitlistModal } from "@/components/WaitlistModal";
+import { WaitlistModal, type KnownContact } from "@/components/WaitlistModal";
 import type {
   BillingCadence,
   PlanTier,
@@ -22,7 +22,13 @@ export const TIER_LABEL: Record<PlanTier, string> = PLAN_TIER_LABEL;
 
 function CheckIcon({ dark }: { dark?: boolean }) {
   return (
-    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" className="mt-px flex-none">
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 20 20"
+      fill="none"
+      className="mt-px flex-none"
+    >
       <circle
         cx="10"
         cy="10"
@@ -40,7 +46,13 @@ function CheckIcon({ dark }: { dark?: boolean }) {
   );
 }
 
-function Feat({ dark, children }: { dark?: boolean; children: React.ReactNode }) {
+function Feat({
+  dark,
+  children,
+}: {
+  dark?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <span className="flex items-start gap-2.5">
       <CheckIcon dark={dark} />
@@ -65,6 +77,7 @@ export function PlanPicker({
   heading = "Pick the plan that fits your creator program",
   eyebrow = "Subscription",
   compact = false,
+  known = null,
 }: {
   subscription?: Subscription;
   /** Dev without Stripe keys, or a pilot company: simulated checkout. */
@@ -77,6 +90,8 @@ export function PlanPicker({
   eyebrow?: string;
   /** Dense layout for the Billing tab. */
   compact?: boolean;
+  /** The signed-in admin, so "Let's talk" does not ask who they are. */
+  known?: KnownContact | null;
 }) {
   const [cadence, setCadence] = useState<BillingCadence>("annual");
   const [busy, setBusy] = useState<SubscriptionPlan | null>(null);
@@ -116,26 +131,28 @@ export function PlanPicker({
   const cadenceSwitch = (
     <>
       <div className="inline-flex border border-line bg-white p-1 shadow-[0_1px_2px_rgba(15,23,32,0.04)] rounded-pill">
-            {(["monthly", "annual"] as const).map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setCadence(c)}
-                className={`cursor-pointer border-none font-bold transition-all duration-150 rounded-pill ${
-                  compact ? "px-4 py-[7px] text-[13px]" : "px-[22px] py-[9px] text-[13.5px]"
-                } ${
-                  cadence === c
-                    ? "bg-ink text-white shadow-[0_1px_3px_rgba(15,23,32,0.18)]"
-                    : "bg-transparent text-slate-500"
-                }`}
-              >
-                {c === "monthly" ? "Monthly" : "Annual"}
-              </button>
-            ))}
-          </div>
-          <span className="whitespace-nowrap bg-green-soft px-3 py-[5px] text-[12px] font-bold text-green rounded-pill">
-            Save up to {MAX_ANNUAL_SAVINGS_PCT}% annually
-          </span>
+        {(["monthly", "annual"] as const).map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setCadence(c)}
+            className={`cursor-pointer border-none font-bold transition-all duration-150 rounded-pill ${
+              compact
+                ? "px-4 py-[7px] text-[13px]"
+                : "px-[22px] py-[9px] text-[13.5px]"
+            } ${
+              cadence === c
+                ? "bg-ink text-white shadow-[0_1px_3px_rgba(15,23,32,0.18)]"
+                : "bg-transparent text-slate-500"
+            }`}
+          >
+            {c === "monthly" ? "Monthly" : "Annual"}
+          </button>
+        ))}
+      </div>
+      <span className="whitespace-nowrap bg-green-soft px-3 py-[5px] text-[12px] font-bold text-green rounded-pill">
+        Save up to {MAX_ANNUAL_SAVINGS_PCT}% annually
+      </span>
     </>
   );
 
@@ -156,7 +173,9 @@ export function PlanPicker({
   const enterpriseFeats = (
     <>
       <div className={`h-px bg-white/15 ${ruleCls}`} />
-      <div className={`flex flex-col font-semibold ${featsCls} ${compact ? "mb-4" : ""}`}>
+      <div
+        className={`flex flex-col font-semibold ${featsCls} ${compact ? "mb-4" : ""}`}
+      >
         <Feat dark>
           <b>{ENTERPRISE_PLAN.capFeat.bold}</b>
           {ENTERPRISE_PLAN.capFeat.rest}
@@ -220,10 +239,10 @@ export function PlanPicker({
           const cta = publicCta
             ? publicCta.label
             : current
-            ? "Current plan"
-            : active
-              ? `Switch to ${TIER_LABEL[p.tier]}`
-              : `Choose ${TIER_LABEL[p.tier]}`;
+              ? "Current plan"
+              : active
+                ? `Switch to ${TIER_LABEL[p.tier]}`
+                : `Choose ${TIER_LABEL[p.tier]}`;
           const feats = (
             <>
               <div className={`h-px bg-line ${ruleCls}`} />
@@ -259,7 +278,9 @@ export function PlanPicker({
                 </span>
               ) : null}
               <span className="flex items-center justify-between gap-2">
-                <span className="text-[17px] font-bold text-ink">{TIER_LABEL[p.tier]}</span>
+                <span className="text-[17px] font-bold text-ink">
+                  {TIER_LABEL[p.tier]}
+                </span>
                 {popular && compact ? (
                   <span className="whitespace-nowrap bg-blue-500 px-2.5 py-[3px] text-[10.5px] font-bold tracking-[0.4px] text-white rounded-pill">
                     MOST POPULAR
@@ -278,7 +299,9 @@ export function PlanPicker({
                 >
                   ${annual ? p.annual : p.monthly}
                 </span>
-                <span className="text-[14px] font-semibold text-slate-400">/mo</span>
+                <span className="text-[14px] font-semibold text-slate-400">
+                  /mo
+                </span>
                 {annual ? (
                   <span className="text-[15px] font-semibold text-slate-300 line-through">
                     ${p.monthly}
@@ -286,7 +309,9 @@ export function PlanPicker({
                 ) : null}
               </div>
               <span className="mt-1 text-[12.5px] font-semibold text-slate-400">
-                {annual ? "per month, billed annually" : "per month, billed monthly"}
+                {annual
+                  ? "per month, billed annually"
+                  : "per month, billed monthly"}
               </span>
               {compact ? feats : null}
               <button
@@ -351,7 +376,9 @@ export function PlanPicker({
       >
         <div className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="text-[17px] font-bold text-ink">{TIER_LABEL.managed}</span>
+            <span className="text-[17px] font-bold text-ink">
+              {TIER_LABEL.managed}
+            </span>
             <span className="whitespace-nowrap bg-blue-100 px-2.5 py-[3px] text-[11.5px] font-bold text-blue-700 rounded-pill">
               {MANAGED_PLAN.tag}
             </span>
@@ -385,8 +412,8 @@ export function PlanPicker({
           compact ? "mt-4" : "mt-8"
         }`}
       >
-        Checkout and card details are handled by Stripe. Switch or cancel
-        any time.
+        Checkout and card details are handled by Stripe. Switch or cancel any
+        time.
       </p>
 
       <WaitlistModal
@@ -394,6 +421,15 @@ export function PlanPicker({
         onClose={() => setContactOpen(false)}
         kind="call"
         source={publicCta ? "pricing" : "billing"}
+        known={known}
+        {...(known
+          ? {
+              title: "Let's talk",
+              sub: "Tell us when works and we will set up a call about the right plan for you.",
+              doneBody:
+                "We will email you within a business day to lock in a time.",
+            }
+          : {})}
       />
     </div>
   );

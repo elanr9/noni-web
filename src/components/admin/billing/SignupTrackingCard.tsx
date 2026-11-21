@@ -116,8 +116,15 @@ export function SignupTrackingCard() {
               : `Connected${projectName ? ` to ${projectName}` : ""}. Your sign-up history is on its way and shows up in Analytics within a minute.`}
           </p>
           <div className="mt-3.5">
-            <Pill size="sm" variant="quiet" icon={busy === "connect" ? Clock : Database} onClick={() => void connect()}>
-              {busy === "connect" ? "Opening Supabase…" : "Connect a different project"}
+            <Pill
+              size="sm"
+              variant="quiet"
+              icon={busy === "connect" ? Clock : Database}
+              onClick={() => void connect()}
+            >
+              {busy === "connect"
+                ? "Opening Supabase…"
+                : "Connect a different project"}
             </Pill>
           </div>
         </>
@@ -129,14 +136,20 @@ export function SignupTrackingCard() {
             and Noni only keeps a number per day: no names, emails or user ids.
           </p>
           <div className="mt-3.5">
-            <Pill size="sm" icon={busy === "connect" ? Clock : Database} onClick={() => void connect()}>
+            <Pill
+              size="sm"
+              icon={busy === "connect" ? Clock : Database}
+              onClick={() => void connect()}
+            >
               {busy === "connect" ? "Opening Supabase…" : "Connect Supabase"}
             </Pill>
           </div>
         </>
       )}
 
-      {error ? <p className="mb-0 mt-3 text-[13px] font-semibold text-ink">{error}</p> : null}
+      {error ? (
+        <p className="mb-0 mt-3 text-[13px] font-semibold text-ink">{error}</p>
+      ) : null}
     </Card>
   );
 }
