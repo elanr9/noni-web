@@ -48,14 +48,14 @@ import {
 import type { InspirationAccount, Platform } from "@/lib/admin/types";
 import { COMPANY_LOGO_ACCEPT, validateCompanyLogo } from "@/lib/company-logo";
 
-/* Company Brain as a company sees it, on one screen with no scrolling: three
-   tabs (About: what you sell, who it is for and the moment that sells it;
-   Features: what it does; Accounts: the accounts you like) over one box to
-   tell Noni something new. Screenshots live in the Media library, not here.
+/* Company Brain as a company sees it, on one screen with no scrolling: four
+   labelled bullets (you sell, it is for, the hook, it does), each a few
+   words and fixed by clicking it, over one box to tell Noni something new.
+   The accounts they like sit on a second tab. Screenshots live in the Media library, not here.
    Nothing to review, score or check off: Noni keeps the detail on its side,
    on the full brain page the Noni team uses. */
 
-const TABS = ["About", "Features", "Accounts"] as const;
+const TABS = ["Your company", "Accounts you like"] as const;
 type BrainTab = (typeof TABS)[number];
 
 const POLL_MS = 4000;
@@ -100,69 +100,78 @@ function IconButton({
   );
 }
 
-function ItemEditor({
-  item,
-  withTitle,
+type Slot = { part: SnapshotPart; index?: number };
+const slotKey = (s: Slot) => (s.index === undefined ? s.part : `${s.part}:${s.index}`);
+
+/** A line cut to bullet length on a word, for summaries written before bullets. */
+function clip(text: string, max = 72): string {
+  const flat = text.replace(/\s+/g, " ").trim().replace(/[.;,]+$/, "");
+  if (flat.length <= max) return flat;
+  return `${flat.slice(0, flat.lastIndexOf(" ", max)).replace(/[,;:]+$/, "")}…`;
+}
+
+/** The bullet a line shows: its own short form, else the nearest thing it has. */
+function bulletOf(item: SnapshotItem, part: SnapshotPart): string {
+  if (item.short?.trim()) return item.short.trim();
+  if (part === "features") return item.title.trim() || clip(item.text);
+  if ((part === "audience" || part === "viral") && item.title.trim()) return item.title.trim();
+  return clip(item.text);
+}
+
+function needsBullets(snapshot: CompanySnapshot): boolean {
+  return [snapshot.sells, snapshot.audience, snapshot.viral, ...snapshot.features].some(
+    (item) => item && item.status !== "dismissed" && !item.short,
+  );
+}
+
+/* ── The summary: four labelled bullets ────────────────────────────────── */
+
+function BulletEditor({
+  value,
   busy,
   onSave,
   onCancel,
 }: {
-  item: SnapshotItem;
-  withTitle: boolean;
+  value: string;
   busy: boolean;
-  onSave: (title: string, text: string) => void;
+  onSave: (text: string) => void;
   onCancel: () => void;
 }) {
-  const [title, setTitle] = useState(item.title);
-  const [text, setText] = useState(item.text);
+  const [text, setText] = useState(value);
   return (
-    <div className="flex flex-col gap-2 animate-om-rise">
-      {withTitle ? (
-        <input
-          aria-label="Name"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className={`${FIELD} text-[14.5px]`}
-        />
-      ) : null}
-      <textarea
-        aria-label="Text"
+    <form
+      className="flex min-w-0 flex-1 items-center gap-2 animate-om-rise"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (text.trim() && !busy) onSave(text.trim());
+      }}
+    >
+      <input
+        aria-label="Edit"
         value={text}
-        rows={3}
         autoFocus
+        maxLength={90}
         onChange={(e) => setText(e.target.value)}
-        className={`${FIELD} resize-y text-[15px] leading-[1.5]`}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onCancel();
+        }}
+        className={`${FIELD} min-w-0 flex-1 py-2 text-[15px]`}
       />
-      <div className="flex gap-2">
-        <Pill
-          size="sm"
-          icon={Check}
-          disabled={!text.trim() || busy}
-          onClick={() => onSave(title, text)}
-        >
-          {busy ? "Saving…" : "Save"}
-        </Pill>
-        <Pill size="sm" variant="quiet" onClick={onCancel}>
-          Cancel
-        </Pill>
-      </div>
-    </div>
+      <Pill size="sm" type="submit" disabled={!text.trim() || busy}>
+        {busy ? "Saving…" : "Save"}
+      </Pill>
+      <Pill size="sm" variant="ghost" onClick={onCancel}>
+        Cancel
+      </Pill>
+    </form>
   );
 }
 
-type Slot = { part: SnapshotPart; index?: number };
-const slotKey = (s: Slot) => (s.index === undefined ? s.part : `${s.part}:${s.index}`);
-
-/* ── The summary ───────────────────────────────────────────────────────── */
-
 function Summary({
   snapshot,
-  part,
   onChange,
 }: {
   snapshot: CompanySnapshot;
-  /** Which half to show: the three summary lines, or the feature tiles. */
-  part: "about" | "features";
   onChange: (next: CompanySnapshot) => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
@@ -183,50 +192,70 @@ function Summary({
     });
   };
 
-  const line = (slot: Slot, label: string, item: SnapshotItem | null, hero = false) => {
-    if (!item || item.status === "dismissed") return null;
+  /* One bullet: click it to fix it. A feature keeps its sentence and takes
+     the new words as its name; the other lines become the new words. */
+  const bullet = (slot: Slot, item: SnapshotItem) => {
     const key = slotKey(slot);
+    const text = bulletOf(item, slot.part);
+    if (editing === key) {
+      return (
+        <BulletEditor
+          key={key}
+          value={text}
+          busy={pending}
+          onCancel={() => setEditing(null)}
+          onSave={(next) =>
+            slot.part === "features"
+              ? settle(slot, "confirm", next, item.text)
+              : settle(slot, "confirm", item.title, next)
+          }
+        />
+      );
+    }
     return (
-      <div
-        key={key}
-        className={`group flex items-start gap-3 px-6 py-4 ${
-          hero ? "bg-blue-50" : ""
-        }`}
-      >
-        <div className="min-w-0 flex-1">
-          <span
-            className={`mb-1.5 flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.5px] ${
-              hero ? "text-blue-700" : "text-slate-400"
-            }`}
+      <span key={key} className="group flex min-w-0 items-center gap-1">
+        <button
+          type="button"
+          title={item.text}
+          onClick={() => setEditing(key)}
+          className="-mx-2 min-w-0 cursor-pointer border-none bg-transparent px-2 py-1 text-left text-[16px] font-bold leading-[1.35] tracking-[-0.2px] text-ink rounded-ops-sm hover:bg-fill-quiet"
+        >
+          {text}
+        </button>
+        <Pencil
+          size={13}
+          className="shrink-0 text-slate-300 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+        />
+        {slot.part === "features" ? (
+          <button
+            type="button"
+            aria-label={`Remove ${text}`}
+            onClick={() => settle(slot, "dismiss")}
+            className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center border-none bg-transparent text-slate-300 opacity-0 transition-opacity duration-150 rounded-pill hover:bg-fill-quiet hover:text-ink group-hover:opacity-100"
           >
-            {hero ? <Zap size={13} /> : null}
-            {label}
-          </span>
-          {editing === key ? (
-            <ItemEditor
-              item={item}
-              withTitle={false}
-              busy={pending}
-              onSave={(title, text) => settle(slot, "confirm", title, text)}
-              onCancel={() => setEditing(null)}
-            />
-          ) : (
-            <p className="m-0 text-[16.5px] font-bold leading-[1.45] tracking-[-0.2px] text-ink">
-              {item.text}
-            </p>
-          )}
-        </div>
-        {editing === key ? null : (
-          <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-            <IconButton label="Edit" onClick={() => setEditing(key)}>
-              <Pencil size={14} />
-            </IconButton>
-          </span>
-        )}
-      </div>
+            <X size={13} />
+          </button>
+        ) : null}
+      </span>
     );
   };
 
+  const row = (label: string, children: ReactNode, hero = false) => (
+    <div className="flex flex-col gap-1 px-6 py-3.5 sm:flex-row sm:items-baseline sm:gap-5">
+      <span
+        className={`flex w-[132px] shrink-0 items-center gap-1.5 text-[12px] font-bold uppercase tracking-[0.5px] ${
+          hero ? "text-blue-700" : "text-slate-400"
+        }`}
+      >
+        {hero ? <Zap size={12} /> : null}
+        {label}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">{children}</div>
+    </div>
+  );
+
+  const shown = (item: SnapshotItem | null): item is SnapshotItem =>
+    item !== null && item.status !== "dismissed";
   const features = snapshot.features
     .map((item, index) => ({ item, index }))
     .filter((f) => f.item.status !== "dismissed");
@@ -234,63 +263,19 @@ function Summary({
   return (
     <Card pad={0} className="overflow-hidden">
       <div className="divide-y divide-line">
-        {part === "about" ? line({ part: "sells" }, "What you sell", snapshot.sells) : null}
-        {part === "about" ? line({ part: "audience" }, "Who it is for", snapshot.audience) : null}
-        {part === "about"
-          ? line({ part: "viral" }, "The moment that sells it", snapshot.viral, true)
+        {shown(snapshot.sells) ? row("You sell", bullet({ part: "sells" }, snapshot.sells)) : null}
+        {shown(snapshot.audience)
+          ? row("It is for", bullet({ part: "audience" }, snapshot.audience))
           : null}
-        {part === "features" && features.length === 0 ? (
-          <p className="m-0 px-6 py-5 text-[13.5px] font-semibold text-slate-400">
-            No features yet. Tell Noni about one below.
-          </p>
-        ) : null}
-        {part === "features" && features.length > 0 ? (
-          <div className="px-5 py-5">
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {features.map(({ item, index }) => {
-                const slot: Slot = { part: "features", index };
-                const key = slotKey(slot);
-                return (
-                  <div
-                    key={key}
-                    className="group flex items-start gap-1 bg-off-white px-4 py-3.5 rounded-ops-sm"
-                  >
-                    <div className="min-w-0 flex-1">
-                      {editing === key ? (
-                        <ItemEditor
-                          item={item}
-                          withTitle
-                          busy={pending}
-                          onSave={(title, text) => settle(slot, "confirm", title, text)}
-                          onCancel={() => setEditing(null)}
-                        />
-                      ) : (
-                        <>
-                          <span className="block text-[14.5px] font-bold text-ink">
-                            {item.title}
-                          </span>
-                          <span className="mt-0.5 line-clamp-3 block text-[13px] font-semibold leading-[1.45] text-slate-500">
-                            {item.text}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    {editing === key ? null : (
-                      <span className="-mr-2 -mt-1.5 flex opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                        <IconButton label="Edit" onClick={() => setEditing(key)}>
-                          <Pencil size={13} />
-                        </IconButton>
-                        <IconButton label="Remove" onClick={() => settle(slot, "dismiss")}>
-                          <X size={14} />
-                        </IconButton>
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : null}
+        {shown(snapshot.viral)
+          ? row("The hook", bullet({ part: "viral" }, snapshot.viral), true)
+          : null}
+        {features.length > 0
+          ? row(
+              "It does",
+              features.map(({ item, index }) => bullet({ part: "features", index }, item)),
+            )
+          : null}
       </div>
       {error ? (
         <p className="m-0 border-t border-line px-6 py-3 text-[13px] font-semibold text-danger">
@@ -676,7 +661,7 @@ export function BrainHome({
   );
   const [writing, setWriting] = useState(false);
   const [note, setNote] = useState<NoteState>("idle");
-  const [tab, setTab] = useState<BrainTab>("About");
+  const [tab, setTab] = useState<BrainTab>("Your company");
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [, startTransition] = useTransition();
@@ -723,6 +708,21 @@ export function BrainHome({
       window.clearTimeout(timer);
     };
   }, [hasSnapshot, running, knowsSomething]);
+
+  /* A summary written before bullets gets them once, on the first open. */
+  const askedForBullets = useRef(false);
+  const lacksBullets = snapshot !== null && needsBullets(snapshot);
+  useEffect(() => {
+    if (!lacksBullets || askedForBullets.current) return;
+    askedForBullets.current = true;
+    let live = true;
+    void getBrainSnapshot().then((result) => {
+      if (live && result.ok && result.data) setSnapshot(result.data);
+    });
+    return () => {
+      live = false;
+    };
+  }, [lacksBullets]);
 
   const run = (action: () => Promise<BrainActionResult>) => {
     setError(null);
@@ -811,7 +811,8 @@ export function BrainHome({
             {companyName}
           </h1>
           <p className="mb-0 mt-1 text-[13.5px] font-semibold text-slate-400">
-            What Noni knows about you. Every brief is written from this.
+            This is what Noni tells your creators. Nothing to do here: if a line is wrong,
+            click it and fix it.
           </p>
         </div>
       </div>
@@ -834,16 +835,12 @@ export function BrainHome({
       />
 
       <div key={tab} className="animate-om-rise">
-        {tab === "Accounts" ? (
+        {tab === "Accounts you like" ? (
           <Card pad={22}>
             <Accounts accounts={accounts} run={run} />
           </Card>
         ) : snapshot ? (
-          <Summary
-            snapshot={snapshot}
-            part={tab === "About" ? "about" : "features"}
-            onChange={setSnapshot}
-          />
+          <Summary snapshot={snapshot} onChange={setSnapshot} />
         ) : running ? (
           <Waiting title="Noni is reading your site" steps={scanSteps(ingest?.ingest ?? null)} />
         ) : writing || knowsSomething ? (

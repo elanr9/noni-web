@@ -137,6 +137,8 @@ export interface IngestState {
 export interface SnapshotItem {
   title: string;
   text: string;
+  /** The same thing as one bullet of a few words; absent on older summaries. */
+  short?: string;
   fact_ids: string[];
   status: "open" | "confirmed" | "dismissed";
 }

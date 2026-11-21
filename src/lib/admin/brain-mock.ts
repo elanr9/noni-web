@@ -426,10 +426,10 @@ export function mockContext(topic: string): BrainContext {
 let mockSnap: CompanySnapshot | null = null;
 
 function freshSnapshot(): CompanySnapshot {
-  const item = (title: string, text: string): SnapshotItem => ({ title, text, fact_ids: [], status: "open" });
+  const item = (title: string, text: string, short?: string): SnapshotItem => ({ title, text, short, fact_ids: [], status: "open" });
   return {
     generated_at: new Date().toISOString(),
-    sells: item("FieldVision", "An app that turns a full game into a highlight video and sends it to college coaches."),
+    sells: item("FieldVision", "An app that turns a full game into a highlight video and sends it to college coaches.", "App that gets soccer players recruited"),
     audience: item(
       "Recruits and transfers",
       "High school soccer players, and college players looking to transfer, who want to get recruited by college coaches.",
