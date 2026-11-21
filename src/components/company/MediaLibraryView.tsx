@@ -6,8 +6,9 @@
    picker (mobile lib/media-library-api.ts). Files upload straight from
    the browser (lib/media-library-upload.ts); the server actions only own
    the rows and companies.settings. */
+import { MediaGuide } from "@/components/company/MediaGuide";
 import { PostTextPreview } from "@/components/company/PostTextPreview";
-import { Check, ChevronLeft, ChevronRight, Clapperboard, Images, Pencil, Play, Plus, Trash2, Upload, Video } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clapperboard, Images, Pencil, Play, Plus, Trash2, Video } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -46,17 +47,6 @@ const KIND_TABS: ReadonlyArray<{ kind: MediaKind; label: string }> = [
 const NOUN: Record<MediaKind, { one: string; many: string; add: string }> = {
   screenshot: { one: "screenshot", many: "screenshots", add: "Add screenshot" },
   recording: { one: "recording", many: "recordings", add: "Add recording" },
-};
-
-const EMPTY_COPY: Record<MediaKind, { title: string; body: string }> = {
-  screenshot: {
-    title: "No screenshots yet",
-    body: "Add screenshots of the product. Give each one a title so it is easy to find in the editor.",
-  },
-  recording: {
-    title: "No recordings yet",
-    body: "Add screen recordings of the product. Give each one a title so it is easy to find in the editor. Up to 200 MB.",
-  },
 };
 
 const NAME_PLACEHOLDER: Record<MediaKind, string> = {
@@ -800,22 +790,11 @@ export function MediaLibraryView({
           }`}
         >
           {empty ? (
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="flex w-full cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed border-line bg-transparent px-6 py-10 text-center rounded-ops-md hover:border-blue-300"
-            >
-              <span className="inline-flex h-12 w-12 items-center justify-center bg-blue-100 text-blue-700 rounded-pill">
-                <Upload size={20} />
-              </span>
-              <p className="mb-0 text-[15px] font-bold text-ink">{EMPTY_COPY[kind].title}</p>
-              <p className="mb-0 max-w-[420px] text-[13.5px] font-semibold leading-normal text-slate-400">
-                {EMPTY_COPY[kind].body}
-              </p>
-              <span className="text-[12.5px] font-bold text-blue-700">
-                Drop files here or click to add
-              </span>
-            </button>
+            <MediaGuide
+              kind={kind}
+              themeColor={themeColor}
+              onAdd={() => inputRef.current?.click()}
+            />
           ) : (
             <>
               <div className="mb-3 flex items-center gap-2">
