@@ -36,6 +36,7 @@ export const MOCK_COMPANY: AdminCompany = {
     selfIsManager: false,
   },
   managerAccess: { ...DEFAULT_MANAGER_ACCESS },
+  mediaCount: 3,
 };
 
 export const MOCK_MANAGERS: Member[] = [

@@ -101,3 +101,18 @@ export const getThemeColor = cache(async (companyId: string): Promise<string | n
   const color = settings.overlay_theme.color;
   return typeof color === "string" ? color : null;
 });
+
+/** True when the theme color was read off the company's website by the
+    site scan (overlay_theme.source "site") and nobody has picked one since. */
+export const getThemeFromSite = cache(async (companyId: string): Promise<boolean> => {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("companies")
+    .select("settings")
+    .eq("id", companyId)
+    .maybeSingle();
+  const settings: unknown = data?.settings;
+  return (
+    isRecord(settings) && isRecord(settings.overlay_theme) && settings.overlay_theme.source === "site"
+  );
+});

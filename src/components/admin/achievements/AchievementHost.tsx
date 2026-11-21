@@ -59,6 +59,8 @@ function toastTitle(step: AchievementStep): string {
   switch (step.key) {
     case "billing":
       return "Budget and subscription set";
+    case "media":
+      return "Product screenshots added";
     case "managers":
       return "Campaign manager invited";
     case "creators":

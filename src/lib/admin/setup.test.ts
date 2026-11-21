@@ -68,18 +68,19 @@ const pastDue = {
 };
 
 describe("deriveSetupStatus", () => {
-  it("orders the steps billing, managers, creators", () => {
+  it("orders the steps billing, media, managers, creators", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
+      "media",
       "managers",
       "creators",
     ]);
   });
 
-  it("counts the mock dataset as 2 of 3 done (invites in, billing pending)", () => {
+  it("counts the mock dataset as 3 of 4 done (media and invites in, billing pending)", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
-    expect(status.doneCount).toBe(2);
+    expect(status.doneCount).toBe(3);
     expect(status.remaining).toBe(1);
     expect(status.complete).toBe(false);
     expect(status.steps.find((s) => s.key === "billing")?.done).toBe(false);
@@ -135,6 +136,7 @@ describe("deriveSetupStatus", () => {
     );
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
+      "media",
       "creators",
     ]);
   });
@@ -179,7 +181,7 @@ describe("deriveSetupStatus", () => {
         creatorCount: 0,
       }),
     );
-    expect(status.steps).toHaveLength(3);
+    expect(status.steps).toHaveLength(4);
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(false);
   });
@@ -188,8 +190,16 @@ describe("deriveSetupStatus", () => {
     const status = deriveSetupStatus(
       dataset({ brainDocs: filledDocs, billing: completeBilling }),
     );
-    expect(status.doneCount).toBe(3);
+    expect(status.doneCount).toBe(4);
     expect(status.remaining).toBe(0);
     expect(status.complete).toBe(true);
+  });
+
+  it("leaves the screenshots step open until the media library has something", () => {
+    const status = deriveSetupStatus(
+      dataset({ company: { ...MOCK_DATASET.company, mediaCount: 0 } }),
+    );
+    expect(status.steps.find((s) => s.key === "media")?.done).toBe(false);
+    expect(status.complete).toBe(false);
   });
 });

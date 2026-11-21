@@ -87,6 +87,8 @@ export interface AdminCompany {
   logoPath: string | null;
   onboarding: OnboardingAnswers;
   managerAccess: ManagerAccess;
+  /** Screenshots and recordings in the media library. */
+  mediaCount: number;
 }
 
 export interface Member {

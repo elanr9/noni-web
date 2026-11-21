@@ -380,6 +380,7 @@ function emptyDataset(companyId: string): AdminDataset {
       logoPath: null,
       onboarding: EMPTY_ONBOARDING,
       managerAccess: parseManagerAccess(null),
+      mediaCount: 0,
     },
     managers: [],
     creators: [],
@@ -434,6 +435,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     featureScreenshotsRes,
     briefTemplatesRes,
     sourcePostsRes,
+    mediaCountRes,
   ] = await Promise.all([
     /* select("*") so onboarding-answer columns that have not been migrated
        yet do not error the query; readers default when absent. */
@@ -533,6 +535,10 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       )
       .eq("company_id", companyId)
       .order("score", { ascending: false }),
+    supabase
+      .from("media_library")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId),
   ]);
 
   const companyRow = (companyRes.data ?? null) as LooseRow | null;
@@ -631,6 +637,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     logoPath: readStr(companyRow, "logo_path"),
     onboarding,
     managerAccess: parseManagerAccess(companyRow?.settings),
+    mediaCount: mediaCountRes.count ?? 0,
   };
 
   /* Posts */

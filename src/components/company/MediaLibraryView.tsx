@@ -7,7 +7,7 @@
    the browser (lib/media-library-upload.ts); the server actions only own
    the rows and companies.settings. */
 import { PostTextPreview } from "@/components/company/PostTextPreview";
-import { Check, Clapperboard, Images, Pencil, Play, Plus, Trash2, Upload, Video } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clapperboard, Images, Pencil, Play, Plus, Trash2, Upload, Video } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -107,6 +107,34 @@ export interface MediaLibraryViewProps {
   companyId: string;
   items: MediaLibraryItem[];
   themeColor: string | null;
+  /** The theme color was read off the company's website, not picked by a person. */
+  themeFromSite?: boolean;
+}
+
+/* The page never scrolls: Screenshots, Recordings and Theme color are tabs,
+   and a library longer than the screen is paged. */
+type Tab = MediaKind | "theme";
+
+const TILE_MIN = 150;
+const TILE_GAP = 12;
+
+/** How many tiles fill the grid without scrolling: the columns that fit its
+    width, in two rows (one on a short window). */
+function usePageSize(): [(node: HTMLDivElement | null) => void, number] {
+  const [size, setSize] = useState(12);
+  const observer = useRef<ResizeObserver | null>(null);
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    if (!node) return;
+    const measure = () => {
+      const cols = Math.max(2, Math.floor((node.clientWidth + TILE_GAP) / (TILE_MIN + TILE_GAP)));
+      setSize(cols * (window.innerHeight >= 860 ? 2 : 1));
+    };
+    observer.current = new ResizeObserver(measure);
+    observer.current.observe(node);
+    measure();
+  }, []);
+  return [ref, size];
 }
 
 function KindToggle({
@@ -114,8 +142,8 @@ function KindToggle({
   onSelect,
   counts,
 }: {
-  active: MediaKind;
-  onSelect: (kind: MediaKind) => void;
+  active: Tab;
+  onSelect: (tab: Tab) => void;
   counts: Record<MediaKind, number>;
 }) {
   return (
@@ -133,11 +161,20 @@ function KindToggle({
           <span className="text-[11px] font-bold text-slate-400">{counts[tab.kind]}</span>
         </button>
       ))}
+      <button
+        type="button"
+        onClick={() => onSelect("theme")}
+        className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap border-none px-3.5 py-[6px] text-[13px] font-bold transition-colors duration-[160ms] ease-om rounded-pill ${
+          active === "theme" ? "bg-white text-ink shadow-card" : "bg-transparent text-slate-400"
+        }`}
+      >
+        Theme color
+      </button>
     </div>
   );
 }
 
-function ThemeColorCard({ initial }: { initial: string | null }) {
+function ThemeColorCard({ initial, fromSite }: { initial: string | null; fromSite: boolean }) {
   const [color, setColor] = useState<string | null>(initial);
   const [draft, setDraft] = useState(initial ?? "");
   const [inputError, setInputError] = useState<string | null>(null);
@@ -177,12 +214,14 @@ function ThemeColorCard({ initial }: { initial: string | null }) {
   };
 
   return (
-    <Card className="mb-5">
+    <Card>
       <div className="flex flex-col gap-6 md:flex-row md:items-start">
         <div className="min-w-0 flex-1">
           <h2 className="m-0 text-[17px] font-bold tracking-[-0.3px] text-ink">Theme color</h2>
           <p className="mb-0 mt-1 text-[13.5px] font-semibold leading-normal text-slate-400">
-            The color of Theme style on screen text in every post. The preview shows it the way it is drawn on a post.
+            {fromSite && color === initial
+              ? "Noni picked this up from your website. It colors the on screen text in your posts. Change it any time."
+              : "The color of the on screen text in your posts."}
           </p>
 
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
@@ -539,8 +578,22 @@ function PreviewModal({
   );
 }
 
-export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryViewProps) {
-  const [kind, setKind] = useState<MediaKind>("screenshot");
+export function MediaLibraryView({
+  companyId,
+  items,
+  themeColor,
+  themeFromSite = false,
+}: MediaLibraryViewProps) {
+  const [tab, setTab] = useState<Tab>("screenshot");
+  /* The media tab last looked at, so uploads and counts have a kind on the Theme tab too. */
+  const [kind, setKindOnly] = useState<MediaKind>("screenshot");
+  const [page, setPage] = useState(0);
+  const [gridRef, pageSize] = usePageSize();
+  const setKind = useCallback((next: MediaKind) => {
+    setKindOnly(next);
+    setTab(next);
+    setPage(0);
+  }, []);
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const [removing, setRemoving] = useState<Set<string>>(() => new Set());
   const [renamed, setRenamed] = useState<Map<string, { title: string; description: string | null }>>(
@@ -589,7 +642,7 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
         setQueue((prev) => [...prev, ...accepted]);
       }
     },
-    [kind],
+    [kind, setKind],
   );
 
   function onNameSaved(title: string, description: string | null) {
@@ -676,6 +729,14 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
   const visibleItems = withTitles.filter((item) => item.kind === kind && !removing.has(item.id));
   const visibleJobs = jobs.filter((job) => job.kind === kind);
   const empty = visibleItems.length === 0 && visibleJobs.length === 0;
+  /* Uploads in flight take the first slots of page one. */
+  const tiles = [
+    ...visibleJobs.map((job) => ({ job, item: null })),
+    ...visibleItems.map((item) => ({ job: null, item })),
+  ];
+  const pages = Math.max(1, Math.ceil(tiles.length / pageSize));
+  const at = Math.min(page, pages - 1);
+  const shown = tiles.slice(at * pageSize, (at + 1) * pageSize);
   const noun = NOUN[kind];
   const counts = {
     screenshot: withTitles.filter((i) => i.kind === "screenshot" && !removing.has(i.id)).length,
@@ -692,13 +753,19 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
     <div>
       <PageHead
         title="Media library"
-        sub="Everything here shows up in the app when a manager taps Add screenshot or recording on a clip."
+        sub="Screenshots and recordings of your product. Managers drop them into posts."
         right={
           <>
-            <KindToggle active={kind} onSelect={setKind} counts={counts} />
-            <Pill icon={Plus} onClick={() => inputRef.current?.click()}>
-              {noun.add}
-            </Pill>
+            <KindToggle
+              active={tab}
+              onSelect={(next) => (next === "theme" ? setTab("theme") : setKind(next))}
+              counts={counts}
+            />
+            {tab === "theme" ? null : (
+              <Pill icon={Plus} onClick={() => inputRef.current?.click()}>
+                {noun.add}
+              </Pill>
+            )}
           </>
         }
       />
@@ -714,9 +781,10 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
         }}
       />
 
-      <ThemeColorCard initial={themeColor} />
+      {tab === "theme" ? <ThemeColorCard initial={themeColor} fromSite={themeFromSite} /> : null}
 
       <div
+        className={tab === "theme" ? "hidden" : undefined}
         onDragOver={(e) => {
           e.preventDefault();
           if (!dragging) setDragging(true);
@@ -736,7 +804,7 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="flex w-full cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed border-line bg-transparent px-6 py-14 text-center rounded-ops-md hover:border-blue-300"
+              className="flex w-full cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed border-line bg-transparent px-6 py-10 text-center rounded-ops-md hover:border-blue-300"
             >
               <span className="inline-flex h-12 w-12 items-center justify-center bg-blue-100 text-blue-700 rounded-pill">
                 <Upload size={20} />
@@ -751,25 +819,56 @@ export function MediaLibraryView({ companyId, items, themeColor }: MediaLibraryV
             </button>
           ) : (
             <>
-              <p className="mb-3 mt-0 text-[12.5px] font-semibold text-slate-500">
-                {`${visibleItems.length} ${visibleItems.length === 1 ? noun.one : noun.many}`}
-              </p>
-              <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]">
-                {visibleJobs.map((job) => (
-                  <UploadTile key={job.id} job={job} onDismiss={() => dropJob(job.id)} />
-                ))}
-                {visibleItems.map((item) => (
-                  <MediaTile
-                    key={item.id}
-                    item={item}
-                    onOpen={() => setPreview(item)}
-                    onEdit={() => {
-                      setSaveError(null);
-                      setRenaming(item);
-                    }}
-                    onRemove={() => setConfirm(item)}
-                  />
-                ))}
+              <div className="mb-3 flex items-center gap-2">
+                <p className="m-0 flex-1 text-[12.5px] font-semibold text-slate-500">
+                  {`${visibleItems.length} ${visibleItems.length === 1 ? noun.one : noun.many}`}
+                </p>
+                {pages > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Previous page"
+                      disabled={at === 0}
+                      onClick={() => setPage(at - 1)}
+                      className="inline-flex h-8 w-8 cursor-pointer items-center justify-center border-none bg-fill-quiet text-ink rounded-pill disabled:cursor-default disabled:opacity-35"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span className="text-[12.5px] font-bold text-slate-500">
+                      {at + 1} of {pages}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Next page"
+                      disabled={at >= pages - 1}
+                      onClick={() => setPage(at + 1)}
+                      className="inline-flex h-8 w-8 cursor-pointer items-center justify-center border-none bg-fill-quiet text-ink rounded-pill disabled:cursor-default disabled:opacity-35"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </>
+                ) : null}
+              </div>
+              <div
+                ref={gridRef}
+                className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]"
+              >
+                {shown.map(({ job, item }) =>
+                  job ? (
+                    <UploadTile key={job.id} job={job} onDismiss={() => dropJob(job.id)} />
+                  ) : (
+                    <MediaTile
+                      key={item.id}
+                      item={item}
+                      onOpen={() => setPreview(item)}
+                      onEdit={() => {
+                        setSaveError(null);
+                        setRenaming(item);
+                      }}
+                      onRemove={() => setConfirm(item)}
+                    />
+                  ),
+                )}
               </div>
             </>
           )}
