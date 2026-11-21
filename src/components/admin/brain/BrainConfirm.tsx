@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUp, Check } from "lucide-react";
+import { ArrowRight, ArrowUp } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -18,39 +18,49 @@ import {
   type SnapshotPart,
 } from "@/lib/admin/brain-model";
 
-/* The company confirms what Noni knows about it in a short chat: Noni reads
-   the summary back one line at a time (what you sell, who it is for, the
-   hook, what it does) and each gets one tap, Yes or Not quite. Not quite
-   takes the right version in the company's own words. The script is fixed
-   here; no model writes the questions. At most four questions. */
+/* The company confirms what Noni understood about it, as a conversation in
+   the same full screen chat as the first onboarding (ChatOnboarding): a
+   start screen, then Noni says one short thing at a time (what you sell,
+   who it is for, the hook, what it does) and the admin taps Yes or types
+   what is wrong in the box. A typed answer becomes the company's own words.
+   The lines are fixed here and typed out on screen; no model writes them. */
 
 type Ask =
-  | { kind: "line"; part: Exclude<SnapshotPart, "features">; lead: string; item: SnapshotItem }
-  | { kind: "features"; lead: string; items: Array<{ index: number; item: SnapshotItem }> };
-
-const LEADS: Record<Exclude<SnapshotPart, "features">, string> = {
-  sells: "You sell",
-  audience: "It is for",
-  viral: "The hook",
-};
+  | { kind: "line"; part: Exclude<SnapshotPart, "features">; item: SnapshotItem }
+  | { kind: "features"; items: Array<{ index: number; item: SnapshotItem }> };
 
 /** The questions still open, in order. Lines already confirmed are not asked again. */
 function asksOf(snapshot: CompanySnapshot): Ask[] {
   const out: Ask[] = [];
   for (const part of ["sells", "audience", "viral"] as const) {
     const item = snapshot[part];
-    if (item && item.status === "open") out.push({ kind: "line", part, lead: LEADS[part], item });
+    if (item && item.status === "open") out.push({ kind: "line", part, item });
   }
   const features = snapshot.features
     .map((item, index) => ({ item, index }))
     .filter((f) => f.item.status !== "dismissed");
-  if (features.some((f) => f.item.status === "open")) {
-    out.push({ kind: "features", lead: "It does", items: features });
-  }
+  if (features.some((f) => f.item.status === "open")) out.push({ kind: "features", items: features });
   return out;
 }
 
-type Turn = { from: "noni"; ask: Ask } | { from: "noni"; text: string } | { from: "me"; text: string };
+const lower = (text: string) => (/^[A-Z][a-z]/.test(text) ? text[0].toLowerCase() + text.slice(1) : text);
+
+/** What Noni says for one question. Short when the summary has a bullet for it. */
+function sayOf(ask: Ask): string {
+  if (ask.kind === "features") {
+    return `It does this:\n${ask.items.map((f) => `•  ${bulletOf(f.item, "features")}`).join("\n")}\n\nAll good?`;
+  }
+  const short = ask.item.short?.trim();
+  if (ask.part === "sells") {
+    return short ? `You sell ${lower(short)}. Right?` : `${ask.item.text} Right?`;
+  }
+  if (ask.part === "audience") {
+    return short ? `It is for ${lower(short)}. Right?` : `${ask.item.text} Right?`;
+  }
+  return `The moment that sells it: ${lower(bulletOf(ask.item, "viral"))}. Right?`;
+}
+
+type Turn = { from: "noni" | "me"; text: string };
 
 function Avatar() {
   return (
@@ -60,41 +70,56 @@ function Avatar() {
   );
 }
 
-function NoniSays({ children }: { children: React.ReactNode }) {
+function Typing() {
   return (
-    <div className="flex gap-3.5 animate-om-rise">
-      <Avatar />
-      <div className="min-w-0 flex-1 pt-[3px] text-[16px] font-medium leading-[1.55] text-ink">
-        {children}
-      </div>
-    </div>
+    <span className="inline-flex h-7 items-center gap-1" aria-label="Noni is typing">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="h-2 w-2 rounded-full bg-slate-300"
+          style={{ animation: `chat-dot 1.1s ${i * 0.15}s infinite ease-in-out` }}
+        />
+      ))}
+    </span>
   );
 }
 
-function AskBody({ ask }: { ask: Ask }) {
-  if (ask.kind === "line") {
-    return (
-      <>
-        <span className="text-slate-500">{ask.lead}:</span>
-        <span className="mt-0.5 block text-[19px] font-bold leading-[1.35] tracking-[-0.3px]">
-          {/* A chat has room for the whole sentence when there is no bullet yet. */}
-          {ask.item.short?.trim() || ask.item.text}
-        </span>
-      </>
-    );
-  }
+/** One Noni message. The newest one types itself out after a beat of dots. */
+function NoniMessage({ text, live, onDone }: { text: string; live: boolean; onDone?: () => void }) {
+  const [shown, setShown] = useState(live ? 0 : text.length);
+  const done = useRef(onDone);
+  useEffect(() => {
+    done.current = onDone;
+  }, [onDone]);
+  useEffect(() => {
+    if (!live) return;
+    let n = 0;
+    let timer = 0;
+    const tick = () => {
+      n = Math.min(text.length, n + 2);
+      setShown(n);
+      if (n >= text.length) done.current?.();
+      else timer = window.setTimeout(tick, 14);
+    };
+    timer = window.setTimeout(tick, 450);
+    return () => window.clearTimeout(timer);
+  }, [live, text]);
   return (
-    <>
-      <span className="text-slate-500">{ask.lead}:</span>
-      <span className="mt-1 flex flex-col gap-0.5">
-        {ask.items.map(({ item, index }) => (
-          <span key={index} className="flex items-baseline gap-2 text-[16.5px] font-bold tracking-[-0.2px]">
-            <span className="h-1.5 w-1.5 shrink-0 -translate-y-[3px] bg-blue-500 rounded-pill" />
-            {bulletOf(item, "features")}
-          </span>
-        ))}
-      </span>
-    </>
+    <div className="flex gap-3.5 animate-om-rise">
+      <Avatar />
+      <div className="min-w-0 flex-1 pt-[3px] text-[17px] font-medium leading-[1.6] tracking-[-0.1px] text-ink">
+        {shown > 0 ? (
+          <p className="m-0 whitespace-pre-wrap">
+            {text.slice(0, shown)}
+            {shown < text.length ? (
+              <span className="ml-0.5 inline-block h-[18px] w-[2px] translate-y-[3px] animate-pulse bg-ink" />
+            ) : null}
+          </p>
+        ) : (
+          <Typing />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -107,41 +132,66 @@ export function BrainConfirm({
 }) {
   const { go, pending: leaving } = useNavigate();
   const [snapshot, setSnapshot] = useState(initial);
-  /* The questions are fixed when the chat opens, so answering one does not reshuffle the rest. */
+  const [started, setStarted] = useState(false);
+  /* The questions are fixed when the chat starts, so answering one does not reshuffle the rest. */
   const [asks, setAsks] = useState<Ask[]>(() => (initial ? asksOf(initial) : []));
   const [at, setAt] = useState(0);
-  const [past, setPast] = useState<Turn[]>([]);
-  const [fixing, setFixing] = useState(false);
+  const [turns, setTurns] = useState<Turn[]>([]);
+  /* True once the newest Noni message has finished typing; the answer box waits for it. */
+  const [settled, setSettled] = useState(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
 
-  /* A summary written before bullets gets them before the first question is read out. */
+  /* What people call the company: the product name Noni found, else the company's. */
+  const name = initial?.sells?.title?.trim() || companyName;
+
+  /* A summary written before bullets gets them while the start screen is up. */
   const upgraded = useRef(false);
   useEffect(() => {
     if (upgraded.current || !initial || !needsBullets(initial)) return;
     upgraded.current = true;
     void getBrainSnapshot().then((result) => {
       if (!result.ok || !result.data) return;
-      setSnapshot(result.data);
-      setAsks((prev) => (prev.length && at === 0 ? asksOf(result.data!) : prev));
+      const fresh = result.data;
+      setSnapshot(fresh);
+      setAsks((prev) => (prev.length ? asksOf(fresh) : prev));
     });
-  }, [initial, at]);
+  }, [initial]);
 
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [past.length, fixing]);
+  }, [turns.length, settled]);
 
-  const ask = asks[at] ?? null;
   const total = asks.length;
+  const ask = started ? (asks[at] ?? null) : null;
+  const finished = started && at >= total;
 
-  const next = (said: string) => {
-    if (!ask) return;
-    setPast((prev) => [...prev, { from: "noni", ask }, { from: "me", text: said }]);
-    setFixing(false);
-    setDraft("");
+  const say = (text: string, mine?: string) => {
+    setSettled(false);
+    setTurns((prev) => [
+      ...prev,
+      ...(mine ? [{ from: "me" as const, text: mine }] : []),
+      { from: "noni" as const, text },
+    ]);
+  };
+
+  const start = () => {
+    setStarted(true);
+    if (snapshot === null) say("I have not read your site yet. Add it in Company Brain first.");
+    else if (asks.length === 0) say("You already confirmed everything.");
+    else say(sayOf(asks[0]));
+  };
+
+  /* After an answer: the next question, or the sign-off. */
+  const advance = (mine: string, fixed: boolean) => {
+    const next = asks[at + 1];
+    const lead = fixed ? "Fixed. " : "";
+    say(next ? `${lead}${sayOf(next)}` : `${lead}That is everything. You are set.`, mine);
     setAt((n) => n + 1);
+    setDraft("");
   };
 
   /* Confirms every open line of this question as written. */
@@ -161,21 +211,21 @@ export function BrainConfirm({
   };
 
   const yes = () => {
-    if (!ask || busy) return;
+    if (!ask || busy || !settled) return;
     setBusy(true);
     setError(null);
     void confirm(ask).then((problem) => {
       setBusy(false);
       if (problem) setError(problem);
-      else next("Yes");
+      else advance("Yes", false);
     });
   };
 
-  /* A fixed line becomes the company's own words. A note about the features
-     goes to Noni as something new to read, and the list is confirmed. */
-  const fix = () => {
+  /* A typed answer replaces the line with the company's own words. A note
+     on the feature list goes to Noni to read, and the list is confirmed. */
+  const send = () => {
     const words = draft.trim();
-    if (!ask || !words || busy) return;
+    if (!ask || !words || busy || !settled) return;
     setBusy(true);
     setError(null);
     const work =
@@ -195,144 +245,143 @@ export function BrainConfirm({
     void work.then((problem) => {
       setBusy(false);
       if (problem) setError(problem);
-      else next(words);
+      else advance(words, true);
     });
   };
 
-  const done = snapshot !== null && !ask;
+  const answering = ask !== null && settled;
+  const lastNoni = turns.map((t) => t.from).lastIndexOf("noni");
 
   return (
-    <div className="mx-auto flex max-w-[680px] flex-col">
-      <div className="mb-5 flex items-center gap-3">
-        <h1 className="display m-0 flex-1 text-[22px] font-bold tracking-[-0.5px] text-ink">
-          {companyName}
-        </h1>
-        {total > 0 ? (
-          <span className="flex items-center gap-2.5">
-            <span className="text-[12.5px] font-bold text-slate-400">
-              {Math.min(at, total)} of {total}
+    <div className="flex min-h-screen flex-col bg-[#fbfbfc] font-ops">
+      <style>{`@keyframes chat-dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0) } 40% { opacity: 1; transform: translateY(-3px) } }`}</style>
+      <header className="sticky top-0 z-10 flex items-center gap-[9px] bg-[#fbfbfc]/85 px-5 py-4 backdrop-blur sm:px-7">
+        <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
+        <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
+        <span className="flex-1" />
+        {started && total > 0 ? (
+          <span className="flex items-center gap-2.5" aria-label={`${Math.min(at, total)} of ${total} answered`}>
+            <span className="hidden text-[13px] font-semibold text-slate-400 sm:inline">
+              {at >= total ? "Done" : `${total - at} to go`}
             </span>
-            <span className="h-1.5 w-24 overflow-hidden bg-line rounded-pill">
+            <span className="h-1.5 w-24 overflow-hidden rounded-full bg-line sm:w-32">
               <span
-                className="block h-full bg-blue-500 transition-[width] duration-500 ease-om rounded-pill"
-                style={{ width: `${(Math.min(at, total) / total) * 100}%` }}
+                className="block h-full rounded-full bg-blue-500 transition-[width] duration-500 ease-om-spring"
+                style={{ width: `${Math.round((Math.min(at, total) / total) * 100)}%` }}
               />
             </span>
           </span>
         ) : null}
-      </div>
+      </header>
 
-      <div className="flex flex-col gap-5">
-        {snapshot === null ? (
-          <NoniSays>
-            I have not read your site yet.
-          </NoniSays>
-        ) : (
-          <NoniSays>
-            {total > 0
-              ? "I read your site. Did I get this right?"
-              : "All confirmed."}
-          </NoniSays>
-        )}
-
-        {past.map((turn, i) =>
-          turn.from === "me" ? (
-            <div key={i} className="flex justify-end animate-om-rise">
-              <p className="m-0 max-w-[80%] whitespace-pre-wrap bg-[#eef1f5] px-[18px] py-2.5 text-[15.5px] font-medium leading-[1.5] text-ink rounded-[22px]">
-                {turn.text}
-              </p>
-            </div>
-          ) : "ask" in turn ? (
-            <NoniSays key={i}>
-              <AskBody ask={turn.ask} />
-            </NoniSays>
-          ) : (
-            <NoniSays key={i}>{turn.text}</NoniSays>
-          ),
-        )}
-
-        {ask ? (
-          <div key={at} className="flex flex-col gap-3">
-            <NoniSays>
-              <AskBody ask={ask} />
-            </NoniSays>
-            {fixing ? (
-              <form
-                className="ml-[46px] flex items-end gap-2 border-[1.5px] border-slate-300 bg-white py-2 pl-4 pr-2 rounded-[26px] focus-within:border-blue-500 animate-om-rise"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  fix();
-                }}
-              >
-                <input
-                  aria-label="The right version"
-                  value={draft}
-                  autoFocus
-                  disabled={busy}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder={
-                    "What is it really?"
-                  }
-                  className="min-w-0 flex-1 self-center border-none bg-transparent py-1 text-[15.5px] font-medium text-ink outline-none placeholder:text-slate-400"
-                />
-                <button
-                  type="submit"
-                  aria-label="Send"
-                  disabled={!draft.trim() || busy}
-                  className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center border-none bg-ink text-white rounded-pill disabled:cursor-default disabled:opacity-25"
-                >
-                  {busy ? <span className="om-spinner" /> : <ArrowUp size={16} strokeWidth={2.6} />}
-                </button>
-              </form>
+      {!started ? (
+        <main className="mx-auto flex w-full max-w-[720px] flex-1 flex-col items-center justify-center gap-8 px-5 pb-24 text-center">
+          <h1 className="display m-0 text-[52px] font-bold leading-[1.02] tracking-[-1.8px] text-ink animate-om-rise">
+            Let&apos;s talk {name}!
+          </h1>
+          <button
+            type="button"
+            onClick={start}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full border-none bg-ink px-8 py-4 text-[17px] font-bold text-white transition-transform duration-150 active:scale-[0.98] animate-om-rise"
+          >
+            Get started
+            <ArrowRight size={18} />
+          </button>
+        </main>
+      ) : (
+        <main
+          className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-7 px-5 pt-6"
+          style={{ paddingBottom: ask ? 190 : 48 }}
+        >
+          {turns.map((turn, i) =>
+            turn.from === "me" ? (
+              <div key={i} className="flex justify-end animate-om-rise">
+                <p className="m-0 max-w-[80%] whitespace-pre-wrap rounded-[22px] bg-[#eef1f5] px-[18px] py-3 text-[16px] font-medium leading-[1.5] text-ink">
+                  {turn.text}
+                </p>
+              </div>
             ) : (
-              <div className="ml-[46px] flex flex-wrap gap-2 animate-om-rise">
+              <NoniMessage
+                key={i}
+                text={turn.text}
+                live={i === lastNoni && !settled}
+                onDone={() => setSettled(true)}
+              />
+            ),
+          )}
+          {error ? (
+            <p className="m-0 pl-[46px] text-[14px] font-semibold text-danger">{error}</p>
+          ) : null}
+          {(finished || snapshot === null) && settled ? (
+            <div className="pl-[46px] animate-om-rise">
+              <button
+                type="button"
+                disabled={leaving}
+                onClick={() => go(snapshot === null ? "/admin/brain" : "/admin")}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border-none bg-ink px-6 py-4 text-[16px] font-bold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
+              >
+                {snapshot === null ? "Open Company Brain" : "Done"}
+                <ArrowRight size={17} />
+              </button>
+            </div>
+          ) : null}
+          <div ref={end} />
+        </main>
+      )}
+
+      {ask ? (
+        <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-[#fbfbfc] via-[#fbfbfc] to-transparent pb-5 pt-10">
+          <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3 px-5">
+            {answering ? (
+              <div className="flex flex-wrap gap-2 animate-om-rise">
                 <button
                   type="button"
                   disabled={busy}
                   onClick={yes}
-                  className="inline-flex cursor-pointer items-center gap-1.5 border-none bg-blue-500 px-5 py-2.5 text-[15px] font-bold text-white rounded-pill active:scale-[0.97] disabled:opacity-60"
+                  className="cursor-pointer rounded-full border-[1.5px] border-blue-500 bg-blue-500 px-[22px] py-2.5 text-[15px] font-bold text-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(37,99,235,0.08)] transition-[background,border-color,transform,box-shadow] duration-150 ease-om hover:-translate-y-px hover:border-blue-600 hover:bg-blue-600 active:translate-y-0 active:scale-[0.97] disabled:cursor-default disabled:opacity-50"
                 >
-                  {busy ? <span className="om-spinner" /> : <Check size={15} strokeWidth={3} />}
                   Yes
                 </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setFixing(true)}
-                  className="cursor-pointer border border-line bg-white px-5 py-2.5 text-[15px] font-bold text-ink rounded-pill active:scale-[0.97] disabled:opacity-60"
-                >
-                  Not quite
-                </button>
               </div>
-            )}
-          </div>
-        ) : null}
-
-        {done && total > 0 ? (
-          <NoniSays>
-            Got it. That is everything.
-          </NoniSays>
-        ) : null}
-
-        {error ? (
-          <p className="m-0 ml-[46px] text-[13px] font-semibold text-danger">{error}</p>
-        ) : null}
-
-        {!ask ? (
-          <div className="ml-[46px] animate-om-rise">
-            <button
-              type="button"
-              disabled={leaving}
-              onClick={() => go(snapshot === null ? "/admin/brain" : "/admin")}
-              className="inline-flex cursor-pointer items-center gap-2 border-none bg-ink px-6 py-3 text-[15px] font-bold text-white rounded-pill active:scale-[0.98] disabled:opacity-60"
+            ) : null}
+            <div
+              onClick={() => box.current?.focus()}
+              className="flex cursor-text items-end gap-2 rounded-[28px] border-[1.5px] border-slate-300 bg-white py-2.5 pl-5 pr-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.10)] transition-[border-color,box-shadow] duration-150 hover:border-slate-400 focus-within:border-blue-500 focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.15),0_8px_30px_rgba(15,23,42,0.10)]"
             >
-              {snapshot === null ? "Open Company Brain" : "Done"}
-              <ArrowRight size={16} />
-            </button>
+              <textarea
+                ref={box}
+                autoComplete="off"
+                autoCorrect="off"
+                {...{ writingsuggestions: "false" }}
+                data-gramm="false"
+                data-1p-ignore="true"
+                data-lpignore="true"
+                value={draft}
+                disabled={busy || !settled}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
+                placeholder={busy || !settled ? "Noni is writing…" : "No? Type what is wrong"}
+                rows={1}
+                className="max-h-[220px] min-h-[28px] flex-1 resize-none self-center border-none bg-transparent py-1.5 text-[16.5px] font-medium leading-[1.5] text-ink caret-blue-500 outline-none placeholder:text-slate-500"
+              />
+              <button
+                type="button"
+                aria-label="Send"
+                onClick={send}
+                disabled={busy || !settled || !draft.trim()}
+                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-ink text-white transition-[opacity,transform] duration-150 active:scale-90 disabled:cursor-default disabled:opacity-25"
+              >
+                <ArrowUp size={19} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
-        ) : null}
-        <div ref={end} />
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

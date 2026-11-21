@@ -5,7 +5,7 @@
       neither gates the step.
    2. Company brain: done once the company has confirmed (or fixed) every
       line of the summary Noni wrote from its website, in the short chat at
-      /admin/brain/confirm. Noni still fills in the detail itself.
+      /onboarding/company. Noni still fills in the detail itself.
    Then, numbered after it:
    2. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
@@ -74,7 +74,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       title: "Confirm your company details",
       short: "Your company",
       action: "Confirm",
-      href: "/admin/brain/confirm",
+      href: "/onboarding/company",
     },
     ...(showManagers
       ? [
