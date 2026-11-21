@@ -1,9 +1,5 @@
 import { BillingView } from "@/components/admin/billing/BillingView";
-import {
-  getBillingContext,
-  runAutoTopUpCheck,
-  stripeSimulated,
-} from "@/lib/admin/billing";
+import { getBillingContext, stripeSimulated } from "@/lib/admin/billing";
 import { getAdminData } from "@/lib/admin/data";
 import { getSessionProfile } from "@/lib/auth";
 
@@ -24,10 +20,6 @@ export default async function AdminBillingPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const ctx = await getBillingContext();
-  /* The auto top-up "job" runs as a check on every billing read; a
-     scheduled job would replace this in production. */
-  if (ctx) await runAutoTopUpCheck(ctx);
-
   const { profile } = await getSessionProfile();
   const data = await getAdminData(ctx?.companyId ?? profile?.active_company_id ?? "");
 

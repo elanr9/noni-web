@@ -31,6 +31,7 @@ import {
   recordCredit,
   runAutoTopUpCheck,
   signConnectState,
+  stripePriceIdForPlan,
   STRIPE_NOT_CONFIGURED,
   writeBilling,
   type BillingContext,
@@ -97,9 +98,9 @@ export async function startCheckout(
 
   const stripe = getStripe();
   if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
-  const priceId = process.env[PLAN_PRICING[plan].priceEnv];
+  const priceId = await stripePriceIdForPlan(stripe, plan);
   if (!priceId) {
-    return { ok: false, error: `${PLAN_PRICING[plan].priceEnv} is not set.` };
+    return { ok: false, error: "This plan has no Stripe price yet." };
   }
 
   const origin = await siteOrigin();
@@ -180,9 +181,9 @@ export async function switchPlan(
   if (!ctx.simulated) {
     const stripe = getStripe();
     if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
-    const priceId = process.env[PLAN_PRICING[plan].priceEnv];
+    const priceId = await stripePriceIdForPlan(stripe, plan);
     if (!priceId) {
-      return { ok: false, error: `${PLAN_PRICING[plan].priceEnv} is not set.` };
+      return { ok: false, error: "This plan has no Stripe price yet." };
     }
     const row = await readBillingRow(ctx.companyId);
     const subscriptionId = row?.stripe_subscription_id;
@@ -195,6 +196,7 @@ export async function switchPlan(
     const updated = await stripe.subscriptions.update(subscriptionId, {
       items: [{ id: item.id, price: priceId }],
       proration_behavior: "create_prorations",
+      metadata: { ...current.metadata, plan },
     });
     const error = await applyStripeSubscription(ctx.companyId, updated);
     if (error) return { ok: false, error };

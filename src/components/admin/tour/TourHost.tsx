@@ -136,7 +136,7 @@ const TOUR: TourStep[] = [
     target: "nav-billing",
     href: "/admin/billing",
     title: "Billing",
-    body: "Your subscription and the creator budget. Top up any time.",
+    body: "Your subscription and the creator budget.",
   },
   {
     target: "billing-subscription",
@@ -148,13 +148,7 @@ const TOUR: TourStep[] = [
     target: "billing-budget",
     href: "/admin/billing",
     title: "Creator budget",
-    body: "The pool that pays creators for views. See where every dollar goes.",
-  },
-  {
-    target: "billing-top-up",
-    href: "/admin/billing",
-    title: "Top up",
-    body: "Add funds any time, or let auto top up keep campaigns from stalling.",
+    body: "The pool that pays your creators. The Noni team sets it with you on a call and invoices you.",
   },
   {
     target: "search",

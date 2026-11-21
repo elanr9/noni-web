@@ -781,7 +781,7 @@ async function fetchOpsData(): Promise<OpsDataset> {
       monthly: Math.round((row?.monthly_budget_cents ?? 0) / 100),
       spent: Math.round(spentCents / 100),
       topups: ledger
-        .filter((r) => r.kind === "topup" && r.amount_cents > 0)
+        .filter((r) => (r.kind === "topup" || r.kind === "budget") && r.amount_cents > 0)
         .map((r) => ({
           amt: Math.round(r.amount_cents / 100),
           date: fmtShortDate(r.created_at),

@@ -555,15 +555,36 @@ export async function chargeSavedCard(
   }
 }
 
+/** The Stripe price a plan is sold at today. Each plan's current price
+    carries the plan name as its lookup key ("premium_annual"), so a price
+    change is a new Stripe price with the key moved onto it and needs no
+    deploy. The STRIPE_PRICE_* envs are the fallback. */
+export async function stripePriceIdForPlan(
+  stripe: Stripe,
+  plan: SubscriptionPlan,
+): Promise<string | null> {
+  try {
+    const found = await stripe.prices.list({ lookup_keys: [plan], active: true, limit: 1 });
+    if (found.data[0]) return found.data[0].id;
+  } catch {
+    /* fall through to the env */
+  }
+  return process.env[PLAN_PRICING[plan].priceEnv] ?? null;
+}
+
 /** Resolves a live Stripe subscription to one of our plans: by price id
     against the four STRIPE_PRICE_* envs, then by the plan metadata Checkout
     stamps on the subscription, then by billing interval as a last resort. */
 function planForStripePrice(
   priceId: string | null,
+  lookupKey: string | null,
   metadataPlan: string | null,
   interval: string | null,
 ): SubscriptionPlan {
   const plans = Object.keys(PLAN_PRICING) as SubscriptionPlan[];
+  /* The current price of each plan carries the plan name as its Stripe
+     lookup key, so a switch is read correctly without env changes. */
+  if (lookupKey && lookupKey in PLAN_PRICING) return lookupKey as SubscriptionPlan;
   if (priceId) {
     const byPrice = plans.find((p) => process.env[PLAN_PRICING[p].priceEnv] === priceId);
     if (byPrice) return byPrice;
@@ -596,6 +617,7 @@ export async function applyStripeSubscription(
   const item = subscription.items.data[0];
   const plan = planForStripePrice(
     item?.price.id ?? null,
+    item?.price.lookup_key ?? null,
     subscription.metadata?.plan ?? null,
     item?.price.recurring?.interval ?? null,
   );

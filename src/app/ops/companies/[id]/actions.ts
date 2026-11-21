@@ -4,6 +4,12 @@
 
 import { revalidatePath } from "next/cache";
 
+import {
+  getStripe,
+  readBillingRow,
+  STRIPE_NOT_CONFIGURED,
+  writeBilling,
+} from "@/lib/admin/billing";
 import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -15,49 +21,6 @@ async function requirePlatformAdmin(): Promise<string | null> {
     return "Platform ops only.";
   }
   return null;
-}
-
-/** Sends the company's admins a "top up your budget" push nudge, using the
-    same Expo push channel the app's notify edge function uses
-    (profiles.expo_push_token on admin/campaign-manager profiles). */
-export async function pingTopUp(input: {
-  companyId: string;
-  adminFirstName: string;
-}): Promise<CompanyActionResult> {
-  const denied = await requirePlatformAdmin();
-  if (denied) return { ok: false, error: denied };
-  if (!input.companyId) return { ok: false, error: "Company id is required." };
-
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("company_roster")
-    .select("expo_push_token")
-    .eq("company_id", input.companyId)
-    .in("member_role", ["company_admin", "campaign_manager"])
-    .not("expo_push_token", "is", null);
-  if (error) return { ok: false, error: error.message };
-
-  const tokens = (data ?? [])
-    .map((p) => (p as { expo_push_token: string | null }).expo_push_token)
-    .filter((t): t is string => Boolean(t));
-  if (tokens.length === 0) {
-    return { ok: false, error: "No admin has push notifications set up yet." };
-  }
-
-  const res = await fetch("https://exp.host/--/api/v2/push/send", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(
-      tokens.map((to) => ({
-        to,
-        title: "Budget running low",
-        body: "Your Noni credits are running low. Top up to keep your creators getting paid.",
-        data: { event: "credits_low", company_id: input.companyId },
-      })),
-    ),
-  });
-  if (!res.ok) return { ok: false, error: "The push could not be sent." };
-  return { ok: true };
 }
 
 /* Every file under the company's folder, in every bucket. Storage has no
@@ -120,4 +83,118 @@ export async function removeCompany(input: {
   revalidatePath("/ops/users");
   revalidatePath("/ops");
   return { ok: true };
+}
+
+/* ── Creator budget ──
+   The creator payout budget is agreed with the client on a call. Ops records
+   it here and invoices the client; the company never sets it or pays for it
+   from its own Billing tab. */
+
+const MAX_BUDGET_DOLLARS = 100_000;
+
+function wholeDollars(value: number): boolean {
+  return Number.isInteger(value) && value >= 0 && value <= MAX_BUDGET_DOLLARS;
+}
+
+/** Records the monthly creator budget agreed on the call. 0 clears it. */
+export async function setCreatorBudget(input: {
+  companyId: string;
+  dollars: number;
+}): Promise<CompanyActionResult> {
+  const denied = await requirePlatformAdmin();
+  if (denied) return { ok: false, error: denied };
+  if (!input.companyId) return { ok: false, error: "Company id is required." };
+  if (!wholeDollars(input.dollars)) {
+    return { ok: false, error: "Enter a whole dollar amount up to $100,000." };
+  }
+  const error = await writeBilling(input.companyId, {
+    monthly_budget_cents: input.dollars * 100,
+  });
+  if (error) return { ok: false, error };
+  revalidatePath(`/ops/companies/${input.companyId}`);
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}
+
+/** Emails the company admin a Stripe invoice for creator budget. When it is
+    paid, the invoice.paid webhook adds the amount to the company's balance
+    (metadata kind "budget"). Nothing is charged automatically. */
+export async function sendBudgetInvoice(input: {
+  companyId: string;
+  dollars: number;
+}): Promise<CompanyActionResult & { email?: string }> {
+  const denied = await requirePlatformAdmin();
+  if (denied) return { ok: false, error: denied };
+  if (!input.companyId) return { ok: false, error: "Company id is required." };
+  if (!wholeDollars(input.dollars) || input.dollars === 0) {
+    return { ok: false, error: "Enter a whole dollar amount up to $100,000." };
+  }
+  const stripe = getStripe();
+  if (!stripe) return { ok: false, error: STRIPE_NOT_CONFIGURED };
+
+  const service = createServiceClient();
+  const [{ data: company }, { data: member }] = await Promise.all([
+    service.from("companies").select("name").eq("id", input.companyId).maybeSingle(),
+    service
+      .from("company_members")
+      .select("profile_id")
+      .eq("company_id", input.companyId)
+      .eq("role", "company_admin")
+      .is("removed_at", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (!company) return { ok: false, error: "That company no longer exists." };
+  const adminId = (member as { profile_id: string } | null)?.profile_id;
+  const email = adminId
+    ? ((await service.auth.admin.getUserById(adminId)).data.user?.email ?? null)
+    : null;
+
+  try {
+    const row = await readBillingRow(input.companyId);
+    let customerId =
+      typeof row?.stripe_customer_id === "string" && row.stripe_customer_id.startsWith("cus_")
+        ? row.stripe_customer_id
+        : null;
+    if (!customerId) {
+      if (!email) {
+        return { ok: false, error: "This company has no admin to send the invoice to yet." };
+      }
+      const customer = await stripe.customers.create({
+        name: company.name,
+        email,
+        metadata: { company_id: input.companyId },
+      });
+      customerId = customer.id;
+      const saved = await writeBilling(input.companyId, { stripe_customer_id: customerId });
+      if (saved) return { ok: false, error: saved };
+    }
+
+    const metadata = { company_id: input.companyId, kind: "budget" };
+    const invoice = await stripe.invoices.create({
+      customer: customerId,
+      collection_method: "send_invoice",
+      days_until_due: 7,
+      auto_advance: false,
+      description: "Noni creator budget. Noni pays your creators from this.",
+      metadata,
+    });
+    if (!invoice.id) return { ok: false, error: "Stripe did not create the invoice." };
+    await stripe.invoiceItems.create({
+      customer: customerId,
+      invoice: invoice.id,
+      amount: input.dollars * 100,
+      currency: "usd",
+      description: "Creator budget",
+      metadata,
+    });
+    await stripe.invoices.finalizeInvoice(invoice.id);
+    const sent = await stripe.invoices.sendInvoice(invoice.id);
+    revalidatePath(`/ops/companies/${input.companyId}`);
+    return { ok: true, email: sent.customer_email ?? email ?? undefined };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Stripe did not answer.";
+    return { ok: false, error: `The invoice could not be sent: ${message}` };
+  }
 }

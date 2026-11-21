@@ -11,15 +11,14 @@ import type {
 } from "@/lib/admin/types";
 import {
   ENTERPRISE_PLAN,
+  MANAGED_PLAN,
   MAX_ANNUAL_SAVINGS_PCT,
   PLAN_TIER_LABEL,
   SELF_SERVE_PLANS,
 } from "@/lib/plans";
-import { contactMailto } from "@/lib/site-config";
+import { BOOKING_URL } from "@/lib/site-config";
 
 export const TIER_LABEL: Record<PlanTier, string> = PLAN_TIER_LABEL;
-
-const ENTERPRISE_MAILTO = contactMailto("Noni Enterprise plan");
 
 function CheckIcon({ dark }: { dark?: boolean }) {
   return (
@@ -97,6 +96,23 @@ export function PlanPicker({
     if (!done) setBusy(null);
   };
 
+  /* Enterprise is sold on a call: the scheduling link when one is
+     configured, else the request-a-call form. */
+  const bookCall = () => {
+    if (BOOKING_URL) window.open(BOOKING_URL, "_blank", "noopener,noreferrer");
+    else setContactOpen(true);
+  };
+
+  const managedPlan: SubscriptionPlan = `managed_${cadence}`;
+  const managedCurrent = currentTier === "managed";
+  const managedCta = publicCta
+    ? publicCta.label
+    : managedCurrent
+      ? "Current plan"
+      : active
+        ? "Switch to Done for you"
+        : "Let Noni run it";
+
   const busyLabel = active
     ? "Switching plan…"
     : simulated
@@ -169,8 +185,7 @@ export function PlanPicker({
               Pick your plan
             </h1>
             <p className="mb-0 mt-1 text-[13px] font-medium leading-[1.5] text-slate-500">
-              Every plan includes everything. They differ only in creators per
-              campaign.
+              Pick how many creators you run, or have Noni run it for you.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
@@ -321,24 +336,77 @@ export function PlanPicker({
             >
               Current plan
             </span>
-          ) : ENTERPRISE_MAILTO ? (
-            <a
-              href={ENTERPRISE_MAILTO}
-              className={`w-full border border-white/35 bg-transparent text-center text-[14px] font-bold text-white no-underline transition-colors duration-150 rounded-pill hover:bg-white/10 ${ctaCls}`}
-            >
-              Contact us
-            </a>
           ) : (
             <button
               type="button"
-              onClick={() => setContactOpen(true)}
+              onClick={bookCall}
               className={`w-full cursor-pointer border border-white/35 bg-transparent text-center text-[14px] font-bold text-white transition-colors duration-150 rounded-pill hover:bg-white/10 ${ctaCls}`}
             >
-              Contact us
+              Book a call
             </button>
           )}
           {compact ? null : enterpriseFeats}
         </div>
+      </div>
+
+      {/* Done for you: the last option, a full-width band under the cards. */}
+      <div
+        className={`flex w-full flex-col gap-x-6 gap-y-4 rounded-[20px] border border-line bg-white shadow-[0_1px_3px_rgba(15,23,32,0.04)] md:flex-row md:items-center ${
+          compact ? "mt-3.5 px-5 py-4" : "mt-5 max-w-[1000px] px-7 py-6"
+        }`}
+      >
+        <div className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-[17px] font-bold text-ink">{TIER_LABEL.managed}</span>
+            <span className="whitespace-nowrap bg-blue-100 px-2.5 py-[3px] text-[11.5px] font-bold text-blue-700 rounded-pill">
+              {MANAGED_PLAN.tag}
+            </span>
+          </span>
+          <p
+            className={`m-0 mt-1 font-medium leading-[1.5] text-slate-500 ${
+              compact ? "text-[13px]" : "text-[13.5px]"
+            }`}
+          >
+            {MANAGED_PLAN.blurb}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col">
+          <span className="flex items-baseline gap-2">
+            <span
+              key={cadence}
+              className={`animate-om-rise font-bold text-ink ${
+                compact ? "text-[26px] tracking-[-0.8px]" : "text-[32px] tracking-[-1px]"
+              }`}
+            >
+              ${(annual ? MANAGED_PLAN.annual : MANAGED_PLAN.monthly).toLocaleString("en-US")}
+            </span>
+            <span className="text-[14px] font-semibold text-slate-400">/mo</span>
+            {annual ? (
+              <span className="text-[15px] font-semibold text-slate-300 line-through">
+                ${MANAGED_PLAN.monthly.toLocaleString("en-US")}
+              </span>
+            ) : null}
+          </span>
+          <span className="text-[12.5px] font-semibold text-slate-400">
+            {annual
+              ? `$${MANAGED_PLAN.yearly.toLocaleString("en-US")} billed annually`
+              : "billed monthly"}
+          </span>
+        </div>
+        <button
+          type="button"
+          disabled={managedCurrent || busy !== null}
+          onClick={() => void pick(managedPlan)}
+          className={`shrink-0 px-6 text-[14px] font-bold transition-colors duration-150 rounded-pill ${
+            compact ? "py-[11px]" : "py-[13px]"
+          } ${
+            managedCurrent
+              ? "cursor-default border border-line bg-transparent text-slate-400"
+              : "cursor-pointer border-none bg-ink text-white hover:bg-ink-900"
+          }`}
+        >
+          {busy === managedPlan ? busyLabel : managedCta}
+        </button>
       </div>
 
       <p
@@ -346,14 +414,14 @@ export function PlanPicker({
           compact ? "mt-4" : "mt-8"
         }`}
       >
-        Checkout and card details are handled by Stripe. The same card funds
-        your creator budget.
+        Checkout and card details are handled by Stripe. Switch or cancel
+        any time.
       </p>
 
       <WaitlistModal
         open={contactOpen}
         onClose={() => setContactOpen(false)}
-        kind="enterprise"
+        kind="call"
         source={publicCta ? "pricing" : "billing"}
       />
     </div>

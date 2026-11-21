@@ -10,7 +10,8 @@ export type PostFormat = "Video" | "Carousel";
 export type MemberRole = "Campaign manager" | "Creator";
 export type MemberStatus = "Active" | "Invite sent";
 export type InviteStatus = "Pending" | "Accepted" | "Expired";
-export type PlanTier = "starter" | "premium" | "enterprise";
+/* "managed" is Done for you: the Noni team runs the whole program. */
+export type PlanTier = "starter" | "premium" | "managed" | "enterprise";
 export type BillingCadence = "monthly" | "annual";
 /** Self-serve Stripe plans (design_handoff_pricing_plans). Enterprise is
     sales-led and never goes through Checkout. */
@@ -18,7 +19,9 @@ export type SubscriptionPlan =
   | "starter_monthly"
   | "starter_annual"
   | "premium_monthly"
-  | "premium_annual";
+  | "premium_annual"
+  | "managed_monthly"
+  | "managed_annual";
 export type BriefStatus = "Active" | "Archived";
 
 /* Answers captured by the onboarding question flow (Agent B persists them).

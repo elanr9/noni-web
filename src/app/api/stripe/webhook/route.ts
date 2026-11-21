@@ -5,8 +5,9 @@
      renewal, card on file and the Stripe customer/subscription ids.
    - customer.subscription.updated: plan switches and renewals.
    - customer.subscription.deleted: cancellation, clears subscription state.
-   - invoice.paid: a monthly budget subscription charge (metadata kind
-     "budget") converts into credits on the company's balance.
+   - invoice.paid: a creator budget invoice ops sent the company (metadata
+     kind "budget"), or an older monthly budget subscription charge,
+     converts into credits on the company's balance.
    The company is resolved from metadata.company_id, which the checkout
    action stamps on both the session and the subscription. Budget
    subscriptions carry metadata kind "budget" so the plan handlers skip
@@ -106,13 +107,14 @@ export async function POST(request: Request): Promise<Response> {
     }
     case "invoice.paid": {
       const invoice = event.data.object as Stripe.Invoice;
+      /* Two sources: a budget invoice ops sent from the ops console
+         (metadata on the invoice itself), and the older monthly budget
+         subscription (metadata on the subscription). */
       const details = invoice.parent?.subscription_details;
-      const companyId = details?.metadata?.company_id;
-      if (
-        details?.metadata?.kind === "budget" &&
-        companyId &&
-        invoice.amount_paid > 0
-      ) {
+      const meta =
+        invoice.metadata?.kind === "budget" ? invoice.metadata : details?.metadata;
+      const companyId = meta?.company_id;
+      if (meta?.kind === "budget" && companyId && invoice.amount_paid > 0) {
         error = await recordCredit(
           companyId,
           invoice.amount_paid,

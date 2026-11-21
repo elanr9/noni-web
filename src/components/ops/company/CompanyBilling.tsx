@@ -1,10 +1,14 @@
 "use client";
 
-import { CircleAlert, DollarSign, Trash2 } from "lucide-react";
+import { CircleAlert, DollarSign, Send, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { pingTopUp, removeCompany } from "@/app/ops/companies/[id]/actions";
+import {
+  removeCompany,
+  sendBudgetInvoice,
+  setCreatorBudget,
+} from "@/app/ops/companies/[id]/actions";
 import { Card, Label, Modal, Pill } from "@/components/kit";
 import { money } from "@/lib/ops/mock-data";
 import type { Company, CompanyBilling as Billing } from "@/lib/ops/types";
@@ -76,7 +80,10 @@ export function CompanyBilling({
 }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
-  const [pinged, setPinged] = useState(false);
+  const [budget, setBudget] = useState(billing ? String(billing.monthly || "") : "");
+  const [invoice, setInvoice] = useState(billing ? String(billing.monthly || "") : "");
+  const [busy, setBusy] = useState<"budget" | "invoice" | null>(null);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
@@ -88,10 +95,32 @@ export function CompanyBilling({
   const low = b.monthly > 0 && remaining / b.monthly < 0.2;
   const barClass = pct > 0.85 ? "bg-danger" : pct > 0.6 ? "bg-amber" : "bg-blue-500";
 
-  const ping = () => {
-    setPinged(true);
-    void pingTopUp({ companyId: company.id, adminFirstName: b.pingTo });
+  const dollars = (v: string) => Number(v.replace(/[$,\s]/g, ""));
+
+  const saveBudget = async () => {
+    setBusy("budget");
+    setNote(null);
+    const result = await setCreatorBudget({ companyId: company.id, dollars: dollars(budget) });
+    setBusy(null);
+    if (!result.ok) return setNote({ ok: false, text: result.error });
+    setNote({ ok: true, text: "Budget saved." });
+    router.refresh();
   };
+
+  const sendInvoice = async () => {
+    setBusy("invoice");
+    setNote(null);
+    const result = await sendBudgetInvoice({ companyId: company.id, dollars: dollars(invoice) });
+    setBusy(null);
+    if (!result.ok) return setNote({ ok: false, text: result.error });
+    setNote({
+      ok: true,
+      text: `Invoice for ${money(dollars(invoice))} sent${result.email ? ` to ${result.email}` : ""}. The balance goes up when it is paid.`,
+    });
+  };
+
+  const field =
+    "box-border w-[130px] border border-line bg-white px-3.5 py-2.5 text-[14.5px] font-semibold text-ink outline-none rounded-ops-sm";
 
   const confirmRemove = async () => {
     setRemoving(true);
@@ -123,9 +152,6 @@ export function CompanyBilling({
           <span className="flex-1 text-[13.5px] font-semibold text-ink">
             Running low. {money(remaining)} left of this month&apos;s budget.
           </span>
-          <Pill size="sm" onClick={ping}>
-            {pinged ? `Pinged ${b.pingTo} ✓` : `Ping ${b.pingTo} to top up`}
-          </Pill>
         </Card>
       ) : null}
       <Card pad={22}>
@@ -159,11 +185,59 @@ export function CompanyBilling({
           {Math.round(pct * 100)}% of August budget used · pays creators
         </div>
       </Card>
+      <Card pad={22}>
+        <Label className="mb-1 block">Creator budget</Label>
+        <p className="m-0 text-[13px] font-semibold leading-[1.5] text-slate-400">
+          Agreed with {company.name} on a call. They see it in Billing but
+          cannot change it. Invoices are emailed by Stripe and add to the
+          balance once paid.
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
+          <label className="flex flex-col gap-[7px]">
+            <span className="text-[12px] font-semibold text-slate-400">Monthly budget ($)</span>
+            <span className="flex items-center gap-2">
+              <input
+                className={field}
+                inputMode="numeric"
+                placeholder="0"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+              />
+              <Pill size="sm" variant="quiet" disabled={busy !== null} onClick={() => void saveBudget()}>
+                {busy === "budget" ? "Saving…" : "Save"}
+              </Pill>
+            </span>
+          </label>
+          <label className="flex flex-col gap-[7px]">
+            <span className="text-[12px] font-semibold text-slate-400">Invoice amount ($)</span>
+            <span className="flex items-center gap-2">
+              <input
+                className={field}
+                inputMode="numeric"
+                placeholder="0"
+                value={invoice}
+                onChange={(e) => setInvoice(e.target.value)}
+              />
+              <Pill size="sm" icon={Send} disabled={busy !== null} onClick={() => void sendInvoice()}>
+                {busy === "invoice" ? "Sending…" : "Send invoice"}
+              </Pill>
+            </span>
+          </label>
+        </div>
+        {note ? (
+          <p
+            role={note.ok ? "status" : "alert"}
+            className={`mb-0 mt-3 text-[13px] font-semibold ${note.ok ? "text-green" : "text-danger"}`}
+          >
+            {note.text}
+          </p>
+        ) : null}
+      </Card>
       <Card pad={0}>
-        <Label className="block px-5 pb-1.5 pt-4">Top-ups</Label>
+        <Label className="block px-5 pb-1.5 pt-4">Paid invoices</Label>
         {b.topups.length === 0 ? (
           <p className="m-0 border-t border-line px-5 py-[13px] text-[13px] font-semibold text-slate-400">
-            No top-ups yet. Prepaid credits show up here.
+            Nothing paid yet. Paid budget invoices show up here.
           </p>
         ) : null}
         {b.topups.map((t, i) => (
@@ -175,7 +249,7 @@ export function CompanyBilling({
               <DollarSign size={14} className="text-green" />
             </span>
             <span className="flex-1 text-[13.5px] font-bold text-ink">
-              Prepaid credits
+              Creator budget
             </span>
             <span className="text-[13px] font-semibold text-slate-400">{t.date}</span>
             <span className="w-[70px] text-right text-[14px] font-bold text-ink">
