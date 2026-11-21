@@ -209,7 +209,7 @@ export function AnalyticsView({
       value: signupsOn ? fmtMoney(ratio(cur.spendCents, cur.signups)) : dash,
       change: signupsOn ? change((t) => ratio(t.spendCents, t.signups)) : null,
       lowerIsBetter: true,
-      sub: `${fmtMoney(cur.spendCents)} to creators`,
+      sub: cur.spendCents > 0 ? `${fmtMoney(cur.spendCents)} to creators` : undefined,
     },
   ];
 
@@ -221,7 +221,6 @@ export function AnalyticsView({
     <div>
       <PageHead
         title="Analytics"
-        sub="Which posts turn views into sign-ups and revenue, and which do not."
         right={
           <>
             {showFilters ? (
@@ -275,18 +274,13 @@ export function AnalyticsView({
           <Card pad={22} key={tab + range} className="animate-om-rise">
             {!hasData ? (
               <div className="py-14 text-center">
-                <p className="m-0 text-[16px] font-bold text-ink">No posts live yet</p>
-                <p className="mx-auto mb-0 mt-1.5 max-w-[420px] text-[13.5px] font-semibold leading-normal text-slate-400">
-                  Once your creators post, every view, sign-up and sale shows up here within a
-                  day, with a verdict on each post.
-                </p>
+                <p className="m-0 text-[16px] font-bold text-ink">No posts yet</p>
               </div>
             ) : tab === "Trend" ? (
               <div className="flex gap-7">
                 <div className="min-w-0 flex-1">
                   {signupsOn ? (
                     <div className="mb-3 flex items-center gap-2.5">
-                      <span className="text-[12px] font-semibold text-slate-400">Compare views with</span>
                       <Segmented
                         options={compareOptions}
                         value={compareOptions.includes(compare) ? compare : "Sign-ups"}
@@ -306,7 +300,7 @@ export function AnalyticsView({
                       className="mt-3 flex items-center gap-2 border border-line px-4 py-3 text-[13px] font-bold text-ink no-underline rounded-[14px] hover:bg-fill-quiet"
                     >
                       <span className="flex-1">
-                        Connect your sales data to see sign-ups and revenue next to views.
+                        Connect sales data
                       </span>
                       <span className="inline-flex items-center gap-1 text-blue-700">
                         Billing <ArrowRight size={13} />
@@ -315,7 +309,7 @@ export function AnalyticsView({
                   )}
                 </div>
                 <div className="w-[292px] shrink-0">
-                  <span className="mb-3 block text-[12.5px] font-bold text-ink">What is working</span>
+                  <span className="mb-3 block text-[12.5px] font-bold text-ink">What works</span>
                   {notes.length === 0 ? (
                     <p className="m-0 text-[13px] font-semibold leading-normal text-slate-400">
                       Nothing stands out in this period yet.

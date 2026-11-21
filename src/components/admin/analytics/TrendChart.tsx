@@ -191,9 +191,9 @@ export function TrendChart({
         <text x={0} y={12} className="fill-ink text-[12.5px] font-bold">
           Views
         </text>
-        <circle cx={width - PAD.r - 92} cy={8} r={2.5} className="fill-slate-300" />
+        <circle cx={width - PAD.r - 44} cy={8} r={2.5} className="fill-slate-300" />
         <text x={width - PAD.r} y={12} textAnchor="end" className="fill-slate-400 text-[11px] font-semibold">
-          a post went live
+          posted
         </text>
         <Panel top={viewsTop} height={VIEWS_H} width={width} max={viewsMax} fmt={fmtCount} />
         {buckets.map((b, i) =>
@@ -311,7 +311,7 @@ export function TrendChart({
               <TipRow label="Revenue per 1k views" value={fmtMoney(per1k(h.salesCents, h.views))} />
             </>
           ) : null}
-          <TipRow label="Posts live" value={String(h.posts)} />
+          <TipRow label="Posted" value={String(h.posts)} />
         </div>
       ) : null}
     </div>

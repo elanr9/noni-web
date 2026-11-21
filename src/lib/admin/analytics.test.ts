@@ -14,8 +14,6 @@ import {
   money,
   monthMeta,
   postsOnDay,
-  RANGES,
-  rangeData,
   scaleSeries,
   topCreators,
 } from "./analytics";
@@ -42,32 +40,6 @@ describe("fmtViews / money", () => {
   it("formats dollars with thousands separators", () => {
     expect(money(2140)).toBe("$2,140");
     expect(money(0)).toBe("$0");
-  });
-});
-
-describe("rangeData", () => {
-  it("buckets every range to the prototype's point counts and labels", () => {
-    const expected: Record<(typeof RANGES)[number], { points: number; labels: number }> = {
-      "Last 24 hours": { points: 12, labels: 6 },
-      "Last 7 days": { points: 7, labels: 7 },
-      "Last 2 weeks": { points: 14, labels: 4 },
-      "Last month": { points: 5, labels: 5 },
-      "Last 12 weeks": { points: 12, labels: 6 },
-    };
-    for (const range of RANGES) {
-      const { data, labels } = rangeData(range, MOCK_WEEKLY_VIEWS);
-      expect(data).toHaveLength(expected[range].points);
-      expect(labels).toHaveLength(expected[range].labels);
-    }
-  });
-
-  it("passes the raw weekly tail through for month and 12-week ranges", () => {
-    expect(rangeData("Last 12 weeks", MOCK_WEEKLY_VIEWS).data).toEqual(MOCK_WEEKLY_VIEWS);
-    expect(rangeData("Last month", MOCK_WEEKLY_VIEWS).data).toEqual([15, 17, 19, 22, 26]);
-  });
-
-  it("floors synthetic buckets at 0.1 for an empty weekly series", () => {
-    expect(rangeData("Last 7 days", []).data).toEqual([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]);
   });
 });
 

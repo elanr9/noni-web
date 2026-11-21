@@ -40,32 +40,6 @@ export function money(n: number): string {
   return "$" + n.toLocaleString("en-US");
 }
 
-/* ── Range bucketing ── */
-
-export interface RangeSeries {
-  data: number[];
-  labels: string[];
-}
-
-/** Re-buckets a 12-point weekly series (thousands) into the chart series and
-    x-axis labels for a range. Verbatim port of the prototype's aRangeData. */
-export function rangeData(range: Range, weekly: number[]): RangeSeries {
-  const lastW = weekly[weekly.length - 1] || 0;
-  const wave = (n: number, base: number, amp: number, rise: number) =>
-    Array.from({ length: n }, (_, i) =>
-      Math.max(0.1, +(base * (1 + amp * Math.sin(i * 1.35 + 0.8) + (rise * i) / n)).toFixed(1)),
-    );
-  if (range === "Last 24 hours")
-    return { data: wave(12, lastW / 7 / 10, 0.45, 0.5), labels: ["2a", "6a", "10a", "2p", "6p", "10p"] };
-  if (range === "Last 7 days")
-    return { data: wave(7, lastW / 7, 0.3, 0.25), labels: ["Wed", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue"] };
-  if (range === "Last 2 weeks")
-    return { data: wave(14, lastW / 7, 0.35, 0.3), labels: ["Jul 30", "Aug 3", "Aug 7", "Aug 11"] };
-  if (range === "Last month")
-    return { data: weekly.slice(-5), labels: ["Jul 13", "Jul 20", "Jul 27", "Aug 3", "Aug 10"] };
-  return { data: weekly, labels: ["May 25", "Jun 8", "Jun 22", "Jul 6", "Jul 20", "Aug 3"] };
-}
-
 /* ── Scope derivation (one company: creators and formats come straight
       from the dataset) ── */
 

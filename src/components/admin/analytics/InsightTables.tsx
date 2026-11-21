@@ -1,7 +1,8 @@
 "use client";
 
 /* The ranked tables behind "which posts work": one row per post with its
-   views, the sign-ups and revenue that came in on the creator's code, what
+   views, the sign-ups and revenue that came in on the creator's code (the
+   only ones that can be tied to a post, hence "Code sign-ups"), what
    it cost and a plain verdict, and the same numbers rolled up by creator
    or by format. Click a column to rank by it. Long lists page, they never
    scroll. */
@@ -141,9 +142,9 @@ export function PostsTable({
 
   const columns: Column[] = [
     { key: "views", label: "Views", show: true },
-    { key: "signups", label: "Sign-ups", show: showSignups },
+    { key: "signups", label: "Code sign-ups", show: showSignups },
     { key: "signupsPer1k", label: "Per 1k views", show: showSignups },
-    { key: "salesCents", label: "Revenue", show: showRevenue },
+    { key: "salesCents", label: "Code revenue", show: showRevenue },
     { key: "costCents", label: "Cost", show: true },
   ];
   const sorted = sortRows(rows, sort);
@@ -255,11 +256,6 @@ export function PostsTable({
         total={sorted.length}
         noun="posts"
         onPage={setPage}
-        note={
-          showSignups
-            ? "Sign-ups and revenue here are the ones that used the creator's code. The verdict compares views with your usual post."
-            : "The verdict compares each post's views with your usual post."
-        }
       />
     </div>
   );
@@ -289,9 +285,9 @@ export function GroupTable({
     { key: "posts", label: "Posts", show: true },
     { key: "views", label: "Views", show: true },
     { key: "viewsPerPost", label: "Views per post", show: true },
-    { key: "signups", label: "Sign-ups", show: showSignups },
+    { key: "signups", label: "Code sign-ups", show: showSignups },
     { key: "signupsPer1k", label: "Per 1k views", show: showSignups },
-    { key: "salesCents", label: "Revenue", show: showRevenue },
+    { key: "salesCents", label: "Code revenue", show: showRevenue },
     { key: "costCents", label: "Cost", show: true },
   ];
   const sorted = [...rows].sort((a, b) => (b[sort] ?? -1) - (a[sort] ?? -1));
@@ -395,7 +391,6 @@ export function GroupTable({
         total={sorted.length}
         noun={noun.toLowerCase() + "s"}
         onPage={setPage}
-        note="A winner is a post with at least twice the views of your usual post."
       />
     </div>
   );
