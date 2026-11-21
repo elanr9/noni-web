@@ -81,11 +81,18 @@ function SideItem({
       href={item.href}
       data-tour={item.tour}
       onClick={onNavigate}
-      className={`flex w-full items-center gap-[11px] px-[11px] py-[9px] text-[13.5px] font-bold transition-colors duration-[160ms] ease-om rounded-[11px] ${
-        active ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-fill-quiet"
+      className={`group/nav flex w-full items-center gap-[11px] px-[11px] py-[9px] text-[13.5px] font-bold transition-[background-color,color,scale] duration-[160ms] ease-om rounded-[11px] active:scale-[0.97] ${
+        active
+          ? "bg-blue-100 text-blue-700"
+          : "text-slate-500 hover:bg-fill-quiet hover:text-ink"
       }`}
     >
-      <Icon size={17} className={active ? "text-blue-700" : "text-slate-400"} />
+      <Icon
+        size={17}
+        className={`transition-transform duration-200 ease-om group-hover/nav:scale-110 ${
+          active ? "text-blue-700" : "text-slate-400"
+        }`}
+      />
       <span className="flex-1 whitespace-nowrap">{item.label}</span>
       {badge ? (
         <span

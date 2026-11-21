@@ -224,7 +224,7 @@ export function BillingView({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-3.5">
+      <div key={shown} className="om-stagger flex flex-col gap-3.5">
         {simulated ? (
           <Card
             pad={14}

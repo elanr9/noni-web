@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Manrope, Plus_Jakarta_Sans, Poppins } from "next/font/google";
 import "./globals.css";
 
+import { NavProgress } from "@/components/motion/NavProgress";
+
 const body = Manrope({
   variable: "--font-body",
   subsets: ["latin"],
@@ -60,7 +62,10 @@ export default function RootLayout({
       lang="en"
       className={`${body.variable} ${display.variable} ${poppins.variable} h-full`}
     >
-      <body className="min-h-full antialiased">{children}</body>
+      <body className="min-h-full antialiased">
+        <NavProgress />
+        {children}
+      </body>
     </html>
   );
 }

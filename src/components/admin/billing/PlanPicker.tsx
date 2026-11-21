@@ -209,7 +209,7 @@ export function PlanPicker({
       )}
 
       <div
-        className={`grid w-full items-stretch lg:grid-cols-3 ${
+        className={`om-stagger grid w-full items-stretch lg:grid-cols-3 ${
           compact ? "mt-5 gap-3.5" : "mt-9 max-w-[1000px] gap-5"
         }`}
       >
@@ -245,7 +245,7 @@ export function PlanPicker({
           return (
             <div
               key={p.tier}
-              className={`flex flex-col rounded-[20px] bg-white ${
+              className={`flex flex-col rounded-[20px] bg-white transition-[translate,box-shadow] duration-200 ease-om hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(15,23,32,0.10)] ${
                 popular
                   ? `relative border-2 border-blue-500 shadow-[0_12px_32px_rgba(27,166,238,0.14)] ${
                       compact ? "p-[19px]" : "px-[27px] py-[29px]"
@@ -309,7 +309,7 @@ export function PlanPicker({
         })}
 
         <div
-          className={`flex flex-col rounded-[20px] border border-ink-900 bg-ink-900 text-white ${cardPad}`}
+          className={`flex flex-col rounded-[20px] border border-ink-900 bg-ink-900 text-white transition-[translate,box-shadow] duration-200 ease-om hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(15,23,32,0.28)] ${cardPad}`}
         >
           <span className="text-[17px] font-bold">Enterprise</span>
           {compact ? null : (
@@ -345,7 +345,7 @@ export function PlanPicker({
 
       {/* Done for you: the last option, a full-width band under the cards. */}
       <div
-        className={`flex w-full flex-col gap-x-6 gap-y-4 rounded-[20px] border border-line bg-white shadow-[0_1px_3px_rgba(15,23,32,0.04)] md:flex-row md:items-center ${
+        className={`flex w-full flex-col gap-x-6 gap-y-4 rounded-[20px] border border-line bg-white shadow-[0_1px_3px_rgba(15,23,32,0.04)] transition-[translate,box-shadow] duration-200 ease-om hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,32,0.08)] md:flex-row md:items-center ${
           compact ? "mt-3.5 px-5 py-4" : "mt-5 max-w-[1000px] px-7 py-6"
         }`}
       >
