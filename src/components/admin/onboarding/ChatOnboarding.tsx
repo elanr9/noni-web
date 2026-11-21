@@ -9,6 +9,7 @@ import { getBrainIngestStatus } from "@/app/admin/brain/knowledge-actions";
 import { finishChatOnboarding, startOnboardingScan } from "@/app/onboarding/actions";
 import { SnapshotReview } from "@/components/admin/brain/SnapshotReview";
 import { GetTheApp } from "@/components/GetTheApp";
+import { RestartOnboardingButton } from "@/components/RestartOnboardingButton";
 import type { IngestState } from "@/lib/admin/brain-model";
 import {
   loadChat,
@@ -126,7 +127,10 @@ export function ChatOnboarding({
   companyId,
   email,
   initialScan,
+  canRestart = false,
 }: {
+  /** Testing accounts get a restart button in the header. */
+  canRestart?: boolean;
   companyId: string;
   email: string;
   initialScan: IngestState | null;
@@ -286,6 +290,7 @@ export function ChatOnboarding({
         <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
         <span className="flex-1" />
+        {canRestart ? <RestartOnboardingButton variant="pill" /> : null}
         {progress && progress.total > 0 ? (
           <span className="flex items-center gap-2.5" aria-label={`${progress.at} of ${progress.total} answered`}>
             <span className="hidden text-[13px] font-semibold text-slate-400 sm:inline">

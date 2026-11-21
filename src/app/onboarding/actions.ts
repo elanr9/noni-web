@@ -7,7 +7,9 @@ import type { IngestState } from "@/lib/admin/brain-model";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import { isStaleCompany, STALE_COMPANY_ERROR } from "@/lib/stale-company";
+import { isOnboardingTester } from "@/lib/onboarding-tester";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /** Campaign intake (companies.intake, app migration 149). */
 export interface OnboardingIntake {
@@ -230,5 +232,23 @@ export async function finishChatOnboarding(renderedFor: string): Promise<Onboard
     .eq("id", gate.companyId);
   if (companyError) return { ok: false, error: companyError.message };
   revalidatePath("/admin");
+  return { ok: true };
+}
+
+/* Testing only: wipes the active company's onboarding (chat, intake, done
+   marks, scan results) and the person's done mark, so onboarding starts
+   over. Allowlisted accounts only (src/lib/onboarding-tester.ts). */
+export async function restartOnboarding(): Promise<OnboardingResult> {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
+  if (!user || !isOnboardingTester(user.email)) return { ok: false, error: "Not allowed." };
+  const { profile } = await getSessionProfile();
+  const companyId = profile?.active_company_id;
+  if (!companyId) return { ok: false, error: "No active company." };
+  const { error } = await createServiceClient().rpc("restart_onboarding", { p_company: companyId, p_user: user.id });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin");
+  revalidatePath("/onboarding");
   return { ok: true };
 }

@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import { RestartOnboardingButton } from "@/components/RestartOnboardingButton";
+import { isOnboardingTester } from "@/lib/onboarding-tester";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/kit/Avatar";
@@ -303,6 +305,9 @@ export function AccountSwitcher({
               </span>
               Add account
             </button>
+            {isOnboardingTester(accounts.find((a) => a.userId === currentId)?.email) ? (
+              <RestartOnboardingButton />
+            ) : null}
             <button
               type="button"
               disabled={busy}

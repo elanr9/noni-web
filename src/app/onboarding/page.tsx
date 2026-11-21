@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { peekBrainIngest } from "@/app/admin/brain/knowledge-actions";
 import { ChatOnboarding } from "@/components/admin/onboarding/ChatOnboarding";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
+import { isOnboardingTester } from "@/lib/onboarding-tester";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -47,6 +48,7 @@ export default async function OnboardingPage() {
       companyId={profile!.active_company_id!}
       email={email}
       initialScan={scan.ok ? scan.data : null}
+      canRestart={isOnboardingTester(email)}
     />
   );
 }
