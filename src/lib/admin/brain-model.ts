@@ -162,8 +162,9 @@ function clip(text: string, max = 72): string {
 
 /** The bullet a line shows: its own short form, else the nearest thing it has. */
 export function bulletOf(item: SnapshotItem, part: SnapshotPart): string {
+  /* A feature is known by its name, which is already two to four words. */
+  if (part === "features" && item.title.trim()) return item.title.trim();
   if (item.short?.trim()) return item.short.trim();
-  if (part === "features") return item.title.trim() || clip(item.text);
   if ((part === "audience" || part === "viral") && item.title.trim()) return item.title.trim();
   return clip(item.text);
 }
