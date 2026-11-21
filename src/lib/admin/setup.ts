@@ -3,13 +3,13 @@
    1. Plan: a running subscription (active or trialing). The creator budget
       is set by the Noni team on a call and Stripe Connect is optional, so
       neither gates the step.
-   2. Screenshots: done once the media library holds at least one
-      screenshot or recording of the product. Managers drop these into
-      briefs, so it comes before inviting anyone.
-   3. Managers: done once at least one campaign manager is on the team
+   2. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
-   4. Creators: done once at least one creator is on the team.
+   3. Creators: done once at least one creator is on the team.
+   4. Screenshots: done once the media library holds at least one
+      screenshot or recording of the product. It comes last: the team is
+      in before anyone is asked to gather files.
    Anything else a company has to do itself belongs here as a step, never
    as a card on some other page waiting to be found.
    The steps run in order: each one stays locked until the one before it
@@ -64,14 +64,6 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       action: "Pick a plan",
       href: "/admin/billing",
     },
-    {
-      key: "media",
-      done: dataset.company.mediaCount >= 1,
-      title: "Add screenshots of your product",
-      sub: "A few screenshots or screen recordings. Your posts are built from them.",
-      action: "Add screenshots",
-      href: "/admin/media",
-    },
     ...(showManagers
       ? [
           {
@@ -96,6 +88,14 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
           },
         ]
       : []),
+    {
+      key: "media",
+      done: dataset.company.mediaCount >= 1,
+      title: "Add screenshots of your product",
+      sub: "A few screenshots or screen recordings. Your posts are built from them.",
+      action: "Add screenshots",
+      href: "/admin/media",
+    },
   ];
 
   const doneCount = steps.filter((s) => s.done).length;

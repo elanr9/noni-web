@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { sendTeamInvite, updateManagerAccess } from "@/app/admin/team/actions";
 import { PlanBlockMessage } from "@/components/admin/billing/PlanNotice";
-import { Avatar, Card, Chip, Field, Label, Modal, PageHead, Pill } from "@/components/kit";
+import { Avatar, Card, Chip, Field, Label, Modal, PageHead, Pill, Tabs } from "@/components/kit";
 import type { ManagerAccess, Member, MemberRole } from "@/lib/admin/types";
 
 /* Team tab (TeamPage in AdminSetupTabs.jsx): Campaign managers + Creators
@@ -182,6 +182,9 @@ function TeamSection({
   );
 }
 
+const TEAM_TABS = ["Managers", "Creators", "Manager access"] as const;
+type TeamTab = (typeof TEAM_TABS)[number];
+
 export function TeamView({
   companyId,
   companyName,
@@ -201,6 +204,8 @@ export function TeamView({
   const [access, setAccess] = useState(managerAccess);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /* One group at a time, so the page never scrolls. */
+  const [tab, setTab] = useState<TeamTab>("Managers");
 
   const toggle = (key: keyof ManagerAccess) => {
     if (pending) return;
@@ -220,10 +225,11 @@ export function TeamView({
     <div>
       <PageHead
         title="Team"
-        sub={`Everyone on ${companyName}. A company admin can also be a campaign manager and a creator. Campaign managers can be creators too.`}
+        sub={`Everyone on ${companyName}.`}
       />
-      <div className="flex flex-col gap-3.5">
-        <div data-tour="team-managers">
+      <Tabs tabs={TEAM_TABS} active={tab} onSelect={setTab} />
+      <div key={tab} className="animate-om-rise">
+        <div data-tour="team-managers" className={tab === "Managers" ? undefined : "hidden"}>
           <TeamSection
             label="Campaign managers"
             hint="They run weekly briefs and keep creators on pace. Company admins can be campaign managers too."
@@ -232,7 +238,7 @@ export function TeamView({
             onInvite={() => setInviting("Campaign manager")}
           />
         </div>
-        <Card pad={0}>
+        <Card pad={0} className={tab === "Manager access" ? undefined : "hidden"}>
           <div className="px-5 py-4">
             <Label>Campaign manager access</Label>
             <span className="mt-[3px] block text-[13px] font-semibold text-slate-400">
@@ -263,7 +269,7 @@ export function TeamView({
             </p>
           ) : null}
         </Card>
-        <div data-tour="team-creators">
+        <div data-tour="team-creators" className={tab === "Creators" ? undefined : "hidden"}>
           <TeamSection
             label="Creators"
             hint="They record. Company admins and campaign managers can be creators too."

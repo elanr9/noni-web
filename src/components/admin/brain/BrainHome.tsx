@@ -5,7 +5,6 @@ import {
   AtSign,
   Camera,
   Check,
-  ImagePlus,
   Mic,
   Music2,
   Paperclip,
@@ -21,7 +20,6 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import {
   addInspirationAccount,
   removeInspirationAccount,
-  removeProductFeature,
   saveCompanyLogo,
   transcribeBrainNote,
   type BrainActionResult,
@@ -34,11 +32,10 @@ import {
   uploadBrainDocument,
   type BrainResult,
 } from "@/app/admin/brain/knowledge-actions";
-import { FeatureModal } from "@/components/admin/brain/BrainView";
 import { useVoiceRecorder } from "@/components/admin/brain/useVoiceRecorder";
 import { Segmented } from "@/components/admin/posts/Segmented";
 import { CompanyMark, useCompanies } from "@/components/CompanySwitcher";
-import { Card, Pill } from "@/components/kit";
+import { Card, Pill, Tabs } from "@/components/kit";
 import {
   BRAIN_UPLOAD_ACCEPT,
   brainUploadProblem,
@@ -48,14 +45,18 @@ import {
   type SnapshotItem,
   type SnapshotPart,
 } from "@/lib/admin/brain-model";
-import type { InspirationAccount, Platform, ProductFeature } from "@/lib/admin/types";
+import type { InspirationAccount, Platform } from "@/lib/admin/types";
 import { COMPANY_LOGO_ACCEPT, validateCompanyLogo } from "@/lib/company-logo";
 
-/* Company Brain as a company sees it: one short summary of what Noni knows
-   (what you sell, who it is for, what it does, the moment that sells it),
-   one box to tell Noni something new, your screenshots and the accounts you
-   like. Nothing to review, score or check off: Noni keeps the detail on its
-   side, on the full brain page the Noni team uses. */
+/* Company Brain as a company sees it, on one screen with no scrolling: three
+   tabs (About: what you sell, who it is for and the moment that sells it;
+   Features: what it does; Accounts: the accounts you like) over one box to
+   tell Noni something new. Screenshots live in the Media library, not here.
+   Nothing to review, score or check off: Noni keeps the detail on its side,
+   on the full brain page the Noni team uses. */
+
+const TABS = ["About", "Features", "Accounts"] as const;
+type BrainTab = (typeof TABS)[number];
 
 const POLL_MS = 4000;
 
@@ -156,9 +157,12 @@ const slotKey = (s: Slot) => (s.index === undefined ? s.part : `${s.part}:${s.in
 
 function Summary({
   snapshot,
+  part,
   onChange,
 }: {
   snapshot: CompanySnapshot;
+  /** Which half to show: the three summary lines, or the feature tiles. */
+  part: "about" | "features";
   onChange: (next: CompanySnapshot) => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
@@ -185,7 +189,7 @@ function Summary({
     return (
       <div
         key={key}
-        className={`group flex items-start gap-3 px-6 py-5 ${
+        className={`group flex items-start gap-3 px-6 py-4 ${
           hero ? "bg-blue-50" : ""
         }`}
       >
@@ -207,7 +211,7 @@ function Summary({
               onCancel={() => setEditing(null)}
             />
           ) : (
-            <p className="m-0 text-[18px] font-bold leading-[1.45] tracking-[-0.2px] text-ink">
+            <p className="m-0 text-[16.5px] font-bold leading-[1.45] tracking-[-0.2px] text-ink">
               {item.text}
             </p>
           )}
@@ -230,15 +234,19 @@ function Summary({
   return (
     <Card pad={0} className="overflow-hidden">
       <div className="divide-y divide-line">
-        {line({ part: "sells" }, "What you sell", snapshot.sells)}
-        {line({ part: "audience" }, "Who it is for", snapshot.audience)}
-        {line({ part: "viral" }, "The moment that sells it", snapshot.viral, true)}
-        {features.length > 0 ? (
-          <div className="px-6 py-5">
-            <span className="mb-3 block text-[12px] font-bold uppercase tracking-[0.5px] text-slate-400">
-              What it does
-            </span>
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {part === "about" ? line({ part: "sells" }, "What you sell", snapshot.sells) : null}
+        {part === "about" ? line({ part: "audience" }, "Who it is for", snapshot.audience) : null}
+        {part === "about"
+          ? line({ part: "viral" }, "The moment that sells it", snapshot.viral, true)
+          : null}
+        {part === "features" && features.length === 0 ? (
+          <p className="m-0 px-6 py-5 text-[13.5px] font-semibold text-slate-400">
+            No features yet. Tell Noni about one below.
+          </p>
+        ) : null}
+        {part === "features" && features.length > 0 ? (
+          <div className="px-5 py-5">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {features.map(({ item, index }) => {
                 const slot: Slot = { part: "features", index };
                 const key = slotKey(slot);
@@ -261,7 +269,7 @@ function Summary({
                           <span className="block text-[14.5px] font-bold text-ink">
                             {item.title}
                           </span>
-                          <span className="mt-0.5 block text-[13.5px] font-semibold leading-[1.5] text-slate-500">
+                          <span className="mt-0.5 line-clamp-3 block text-[13px] font-semibold leading-[1.45] text-slate-500">
                             {item.text}
                           </span>
                         </>
@@ -450,85 +458,83 @@ function TellNoni({
 
   return (
     <div>
-      <h2 className="m-0 mb-2.5 text-[17px] font-bold tracking-[-0.2px] text-ink">
-        Tell Noni something new
-      </h2>
-      <div className="border border-line bg-white shadow-card rounded-ops-md focus-within:border-blue-300">
+      <div className="flex items-end gap-1 border border-line bg-white py-2 pl-2 pr-2 shadow-card rounded-[26px] focus-within:border-blue-300">
+        <IconButton
+          label={voice.recording ? "Stop" : "Speak"}
+          onClick={() => {
+            setError(null);
+            if (voice.recording) voice.stop();
+            else if (!busy) void voice.start();
+          }}
+        >
+          {voice.recording ? (
+            <Square size={13} className="fill-danger text-danger" />
+          ) : (
+            <Mic size={16} />
+          )}
+        </IconButton>
+        <IconButton label="Add a file" onClick={() => fileRef.current?.click()}>
+          <Paperclip size={16} />
+        </IconButton>
+        <input
+          ref={fileRef}
+          type="file"
+          accept={BRAIN_UPLOAD_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            addFile(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
+        />
         <textarea
           aria-label="Tell Noni something new"
           value={text}
-          rows={2}
+          rows={1}
           disabled={busy || voice.recording}
           onChange={(e) => {
             setText(e.target.value);
             if (state === "done") onReset();
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
           }}
-          placeholder="A new feature, a price change, something creators should never say. Or paste a link."
-          className="box-border block w-full resize-none border-none bg-transparent px-5 pb-1 pt-4 text-[15.5px] font-semibold leading-[1.5] text-ink outline-none placeholder:text-slate-300"
+          placeholder={
+            status ?? "Tell Noni something new: a feature, a price change, a link…"
+          }
+          className="box-border block max-h-[84px] min-w-0 flex-1 resize-none self-center border-none bg-transparent px-2 py-1 text-[15px] font-semibold leading-[1.45] text-ink outline-none [field-sizing:content] placeholder:text-slate-300"
         />
-        <div className="flex items-center gap-1 px-3 pb-3 pt-1">
-          <IconButton
-            label={voice.recording ? "Stop" : "Speak"}
-            onClick={() => {
-              setError(null);
-              if (voice.recording) voice.stop();
-              else if (!busy) void voice.start();
-            }}
-          >
-            {voice.recording ? (
-              <Square size={13} className="fill-danger text-danger" />
-            ) : (
-              <Mic size={16} />
-            )}
-          </IconButton>
-          <IconButton label="Add a file" onClick={() => fileRef.current?.click()}>
-            <Paperclip size={16} />
-          </IconButton>
-          <input
-            ref={fileRef}
-            type="file"
-            accept={BRAIN_UPLOAD_ACCEPT}
-            className="hidden"
-            onChange={(e) => {
-              addFile(e.target.files?.[0] ?? null);
-              e.target.value = "";
-            }}
-          />
-          <span
-            role="status"
-            className={`ml-1 flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-semibold ${
-              state === "done" ? "text-green" : "text-slate-400"
-            }`}
-          >
-            {state === "reading" || state === "sending" || hearing ? (
-              <span className="om-spinner" />
-            ) : state === "done" ? (
-              <Check size={14} strokeWidth={3} />
-            ) : null}
-            {status}
-          </span>
-          <button
-            type="button"
-            aria-label="Send"
-            disabled={!text.trim() || busy}
-            onClick={submit}
-            className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center border-none bg-blue-500 text-white rounded-pill transition-opacity duration-150 disabled:cursor-default disabled:opacity-30"
-          >
-            <ArrowUp size={17} strokeWidth={2.6} />
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label="Send"
+          disabled={!text.trim() || busy}
+          onClick={submit}
+          className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center border-none bg-blue-500 text-white rounded-pill transition-opacity duration-150 disabled:cursor-default disabled:opacity-30"
+        >
+          <ArrowUp size={16} strokeWidth={2.6} />
+        </button>
       </div>
-      {error ?? voice.error ? (
-        <p className="mb-0 mt-2 text-[13px] font-semibold text-danger">{error ?? voice.error}</p>
+      {error ?? voice.error ?? (text && status) ? (
+        <p
+          role="status"
+          className={`mb-0 ml-4 mt-1.5 flex items-center gap-1.5 text-[12.5px] font-semibold ${
+            error ?? voice.error ? "text-danger" : state === "done" ? "text-green" : "text-slate-400"
+          }`}
+        >
+          {error ?? voice.error ?? status}
+        </p>
+      ) : state === "done" ? (
+        <p role="status" className="mb-0 ml-4 mt-1.5 flex items-center gap-1.5 text-[12.5px] font-semibold text-green">
+          <Check size={13} strokeWidth={3} /> Got it. Noni knows this now.
+        </p>
       ) : null}
     </div>
   );
 }
 
-/* ── Screenshots ───────────────────────────────────────────────────────── */
+/* ── Shared heading ────────────────────────────────────────────────────── */
 
 function SectionHead({ title, sub, right }: { title: string; sub: string; right: ReactNode }) {
   return (
@@ -538,79 +544,6 @@ function SectionHead({ title, sub, right }: { title: string; sub: string; right:
         <p className="mb-0 mt-0.5 text-[13.5px] font-semibold text-slate-400">{sub}</p>
       </div>
       {right}
-    </div>
-  );
-}
-
-function Screenshots({
-  features,
-  run,
-}: {
-  features: ProductFeature[];
-  run: (action: () => Promise<BrainActionResult>) => void;
-}) {
-  const [adding, setAdding] = useState(false);
-  return (
-    <div>
-      <SectionHead
-        title="Screenshots"
-        sub="Creators drop these into their videos."
-        right={
-          <Pill size="sm" variant="tint" icon={Plus} onClick={() => setAdding(true)}>
-            Add
-          </Pill>
-        }
-      />
-      {features.length === 0 ? (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="flex w-full cursor-pointer flex-col items-center gap-2 border border-dashed border-line bg-white px-5 py-8 text-[13.5px] font-bold text-blue-700 rounded-ops-md hover:border-blue-300"
-        >
-          <ImagePlus size={20} />
-          Add your first screenshots
-        </button>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {features.map((f) => {
-            const shot = f.screenshots[0]?.url || f.screenshotUrl;
-            return (
-              <div
-                key={f.id}
-                className="group relative overflow-hidden border border-line bg-white shadow-card rounded-ops-md"
-              >
-                {shot ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={shot} alt="" className="block h-32 w-full bg-fill-quiet object-cover" />
-                ) : (
-                  <span className="flex h-32 w-full items-center justify-center bg-fill-quiet text-slate-300">
-                    <ImagePlus size={20} />
-                  </span>
-                )}
-                <div className="px-3.5 py-3">
-                  <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[13.5px] font-bold text-ink">
-                    {f.name || f.sentence}
-                  </span>
-                  {f.screenshots.length > 1 ? (
-                    <span className="mt-0.5 block text-[12.5px] font-semibold text-slate-400">
-                      {f.screenshots.length} screenshots
-                    </span>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  aria-label="Remove"
-                  onClick={() => run(() => removeProductFeature({ id: f.id }))}
-                  className="absolute right-2 top-2 hidden h-7 w-7 cursor-pointer items-center justify-center border-none bg-white/95 text-slate-500 shadow-card rounded-pill group-hover:inline-flex"
-                >
-                  <X size={13} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {adding ? <FeatureModal onClose={() => setAdding(false)} /> : null}
     </div>
   );
 }
@@ -724,7 +657,6 @@ export function BrainHome({
   website,
   snapshot: initialSnapshot,
   ingest: initialIngest,
-  features,
   accounts,
   staff = false,
 }: {
@@ -734,7 +666,6 @@ export function BrainHome({
   /** The stored summary, null until one has been written. */
   snapshot: CompanySnapshot | null;
   ingest: BrainResult<IngestState>;
-  features: ProductFeature[];
   accounts: InspirationAccount[];
   /** The Noni team also gets a link to the full brain. */
   staff?: boolean;
@@ -745,6 +676,7 @@ export function BrainHome({
   );
   const [writing, setWriting] = useState(false);
   const [note, setNote] = useState<NoteState>("idle");
+  const [tab, setTab] = useState<BrainTab>("About");
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [, startTransition] = useTransition();
@@ -846,8 +778,8 @@ export function BrainHome({
   };
 
   return (
-    <div className="mx-auto max-w-[860px]">
-      <div className="mb-7 flex items-center gap-4">
+    <div className="mx-auto max-w-[980px]">
+      <div className="mb-4 flex items-center gap-3.5">
         <button
           type="button"
           aria-label="Change logo"
@@ -855,13 +787,13 @@ export function BrainHome({
           onClick={() => logoRef.current?.click()}
           className="group relative shrink-0 cursor-pointer overflow-hidden border-none bg-transparent p-0 rounded-ops-sm"
         >
-          <CompanyMark name={companyName} logoPath={logo} size={60} />
+          <CompanyMark name={companyName} logoPath={logo} size={46} />
           <span
             className={`absolute inset-0 flex items-center justify-center bg-ink/55 text-white transition-opacity duration-150 ${
               logoBusy ? "opacity-100" : "opacity-0 group-hover:opacity-100"
             }`}
           >
-            {logoBusy ? <span className="om-spinner" /> : <Camera size={18} />}
+            {logoBusy ? <span className="om-spinner" /> : <Camera size={16} />}
           </span>
         </button>
         <input
@@ -875,43 +807,57 @@ export function BrainHome({
           }}
         />
         <div className="min-w-0 flex-1">
-          <h1 className="display m-0 text-[30px] font-bold leading-[1.1] tracking-[-0.8px] text-ink">
+          <h1 className="display m-0 text-[24px] font-bold leading-[1.1] tracking-[-0.6px] text-ink">
             {companyName}
           </h1>
-          <p className="mb-0 mt-1.5 text-[14.5px] font-semibold text-slate-400">
+          <p className="mb-0 mt-1 text-[13.5px] font-semibold text-slate-400">
             What Noni knows about you. Every brief is written from this.
           </p>
         </div>
       </div>
 
-      <div className="om-stagger flex flex-col gap-9">
-        <div>
-          {snapshot ? (
-            <Summary snapshot={snapshot} onChange={setSnapshot} />
-          ) : running ? (
-            <Waiting title="Noni is reading your site" steps={scanSteps(ingest?.ingest ?? null)} />
-          ) : writing || knowsSomething ? (
-            <Waiting title="Noni is writing your summary" />
-          ) : (
-            <ReadSite website={website} busy={starting} error={null} onRead={readSite} />
-          )}
-          {error ? (
-            <p className="mb-0 mt-2.5 text-[13px] font-semibold text-danger">{error}</p>
-          ) : null}
-        </div>
-
-        <TellNoni state={note} onSend={sendNote} onReset={() => setNote("idle")} />
-        <Screenshots features={features} run={run} />
-        <Accounts accounts={accounts} run={run} />
-
-        {staff ? (
-          <p className="m-0 text-[13px] font-semibold text-slate-400">
-            Noni team:{" "}
-            <Link href="/admin/brain/full" className="font-bold text-blue-700 no-underline">
-              open the full brain
+      <Tabs
+        tabs={TABS}
+        active={tab}
+        onSelect={setTab}
+        className="mb-3"
+        right={
+          staff ? (
+            <Link
+              href="/admin/brain/full"
+              className="text-[12.5px] font-bold text-slate-400 no-underline hover:text-blue-700"
+            >
+              Noni team: full brain
             </Link>
-          </p>
+          ) : null
+        }
+      />
+
+      <div key={tab} className="animate-om-rise">
+        {tab === "Accounts" ? (
+          <Card pad={22}>
+            <Accounts accounts={accounts} run={run} />
+          </Card>
+        ) : snapshot ? (
+          <Summary
+            snapshot={snapshot}
+            part={tab === "About" ? "about" : "features"}
+            onChange={setSnapshot}
+          />
+        ) : running ? (
+          <Waiting title="Noni is reading your site" steps={scanSteps(ingest?.ingest ?? null)} />
+        ) : writing || knowsSomething ? (
+          <Waiting title="Noni is writing your summary" />
+        ) : (
+          <ReadSite website={website} busy={starting} error={null} onRead={readSite} />
+        )}
+        {error ? (
+          <p className="mb-0 mt-2.5 text-[13px] font-semibold text-danger">{error}</p>
         ) : null}
+      </div>
+
+      <div className="mt-4">
+        <TellNoni state={note} onSend={sendNote} onReset={() => setNote("idle")} />
       </div>
     </div>
   );

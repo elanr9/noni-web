@@ -137,7 +137,8 @@ export function AnalyticsExplorer({
               {fmtSuffix}
               {crSuffix}
             </Label>
-            <AreaChart series={chart.data} labels={chart.labels} vb={300} />
+            {/* Wide and short so the whole page fits one screen. */}
+            <AreaChart series={chart.data} labels={chart.labels} vb={150} />
           </div>
         ) : null}
         {sortBy === "Top creators" ? (
