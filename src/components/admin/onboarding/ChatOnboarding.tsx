@@ -138,14 +138,14 @@ function Chip({
         onClick={onClick}
         className={`flex w-full cursor-pointer items-center gap-3 rounded-[18px] border-[1.5px] px-[18px] py-3.5 text-left text-[15.5px] font-bold leading-[1.4] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(37,99,235,0.08)] transition-[background,border-color,transform,box-shadow] duration-150 ease-om hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(37,99,235,0.16)] active:translate-y-0 active:scale-[0.99] ${
           selected
-            ? "border-blue-600 bg-blue-600 text-white"
-            : "border-blue-200 bg-blue-50 text-blue-800 hover:border-blue-400 hover:bg-blue-100"
+            ? "border-blue-900 bg-blue-900 text-white"
+            : "border-blue-500 bg-blue-500 text-white hover:border-blue-600 hover:bg-blue-600"
         }`}
       >
         {multi ? (
           <span
             className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] ${
-              selected ? "border-white bg-white text-blue-600" : "border-blue-300 bg-white"
+              selected ? "border-white bg-white text-blue-900" : "border-white/70 bg-transparent"
             }`}
           >
             {selected ? <Check size={13} strokeWidth={3} /> : null}
@@ -162,10 +162,11 @@ function Chip({
       onClick={onClick}
       className={`cursor-pointer rounded-full border-[1.5px] px-[18px] py-2.5 text-[15px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(37,99,235,0.08)] transition-[background,border-color,transform,box-shadow] duration-150 ease-om hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(37,99,235,0.16)] active:translate-y-0 active:scale-[0.97] disabled:cursor-default disabled:opacity-50 ${
         selected
-          ? "border-blue-600 bg-blue-600 text-white"
-          : "border-blue-200 bg-blue-50 text-blue-800 hover:border-blue-400 hover:bg-blue-100"
+          ? "border-blue-900 bg-blue-900 text-white"
+          : "border-blue-500 bg-blue-500 text-white hover:border-blue-600 hover:bg-blue-600"
       }`}
     >
+      {selected ? <Check size={15} strokeWidth={3} className="-ml-0.5 mr-1.5 inline-block -translate-y-px" /> : null}
       {label}
     </button>
   );
@@ -498,6 +499,17 @@ export function ChatOnboarding({
               ) : null}
               <textarea
                 ref={box}
+                /* Keep browser AI writing help, autofill and extensions out of
+                   the chat box: they popped grey suggestion boxes over it. */
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="sentences"
+                {...{ writingsuggestions: "false" }}
+                data-gramm="false"
+                data-gramm_editor="false"
+                data-enable-grammarly="false"
+                data-1p-ignore="true"
+                data-lpignore="true"
                 value={draft}
                 disabled={busy}
                 onChange={(e) =>
