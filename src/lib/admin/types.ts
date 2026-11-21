@@ -89,6 +89,8 @@ export interface AdminCompany {
   managerAccess: ManagerAccess;
   /** Screenshots and recordings in the media library. */
   mediaCount: number;
+  /** The company has confirmed what Noni knows about it (the brain summary). */
+  brainConfirmed: boolean;
 }
 
 export interface Member {

@@ -68,19 +68,20 @@ const pastDue = {
 };
 
 describe("deriveSetupStatus", () => {
-  it("orders the steps billing, managers, creators, media", () => {
+  it("orders the steps billing, brain, managers, creators, media", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
+      "brain",
       "managers",
       "creators",
       "media",
     ]);
   });
 
-  it("counts the mock dataset as 3 of 4 done (media and invites in, billing pending)", () => {
+  it("counts the mock dataset as 4 of 5 done (everything but billing)", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
-    expect(status.doneCount).toBe(3);
+    expect(status.doneCount).toBe(4);
     expect(status.remaining).toBe(1);
     expect(status.complete).toBe(false);
     expect(status.steps.find((s) => s.key === "billing")?.done).toBe(false);
@@ -136,6 +137,7 @@ describe("deriveSetupStatus", () => {
     );
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
+      "brain",
       "creators",
       "media",
     ]);
@@ -181,7 +183,7 @@ describe("deriveSetupStatus", () => {
         creatorCount: 0,
       }),
     );
-    expect(status.steps).toHaveLength(4);
+    expect(status.steps).toHaveLength(5);
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(false);
   });
@@ -190,7 +192,7 @@ describe("deriveSetupStatus", () => {
     const status = deriveSetupStatus(
       dataset({ brainDocs: filledDocs, billing: completeBilling }),
     );
-    expect(status.doneCount).toBe(4);
+    expect(status.doneCount).toBe(5);
     expect(status.remaining).toBe(0);
     expect(status.complete).toBe(true);
   });
@@ -201,5 +203,12 @@ describe("deriveSetupStatus", () => {
     );
     expect(status.steps.find((s) => s.key === "media")?.done).toBe(false);
     expect(status.complete).toBe(false);
+  });
+
+  it("leaves the brain step open until the summary is confirmed", () => {
+    const status = deriveSetupStatus(
+      dataset({ company: { ...MOCK_DATASET.company, brainConfirmed: false } }),
+    );
+    expect(status.steps.find((s) => s.key === "brain")?.done).toBe(false);
   });
 });

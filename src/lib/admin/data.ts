@@ -14,6 +14,7 @@
    muted on source_accounts) are read defensively off select("*") rows and
    default sensibly. The SQL to add them lives in supabase/migrations/. */
 
+import { snapshotConfirmed, type CompanySnapshot } from "./brain-model";
 import { cache } from "react";
 
 import { parseStoredPlan, PLAN_PRICING } from "@/lib/admin/billing";
@@ -381,6 +382,7 @@ function emptyDataset(companyId: string): AdminDataset {
       onboarding: EMPTY_ONBOARDING,
       managerAccess: parseManagerAccess(null),
       mediaCount: 0,
+      brainConfirmed: false,
     },
     managers: [],
     creators: [],
@@ -436,6 +438,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     briefTemplatesRes,
     sourcePostsRes,
     mediaCountRes,
+    brainSurveyRes,
   ] = await Promise.all([
     /* select("*") so onboarding-answer columns that have not been migrated
        yet do not error the query; readers default when absent. */
@@ -539,6 +542,7 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
       .from("media_library")
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId),
+    supabase.from("brain_survey").select("snapshot").eq("company_id", companyId).maybeSingle(),
   ]);
 
   const companyRow = (companyRes.data ?? null) as LooseRow | null;
@@ -638,6 +642,9 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     onboarding,
     managerAccess: parseManagerAccess(companyRow?.settings),
     mediaCount: mediaCountRes.count ?? 0,
+    brainConfirmed: snapshotConfirmed(
+      ((brainSurveyRes.data as { snapshot?: CompanySnapshot | null } | null)?.snapshot ?? null) || null,
+    ),
   };
 
   /* Posts */

@@ -6,7 +6,7 @@ import { getAdminData } from "@/lib/admin/data";
 import { deriveSetupStatus } from "@/lib/admin/setup";
 import { getSessionProfile } from "@/lib/auth";
 
-/* Onboarding tab: the gamified setup to-do. */
+/* Onboarding tab: the next setup step, front and centre, over the whole road. */
 export default async function AdminOnboardingPage() {
   const { profile } = await getSessionProfile();
   const data = await getAdminData(profile?.active_company_id ?? "");
@@ -20,14 +20,14 @@ export default async function AdminOnboardingPage() {
   return (
     <div>
       <PageHead
-        title={`Hey ${firstName}.`}
-        sub={`${setup.remaining} ${setup.remaining === 1 ? "step" : "steps"} and ${data.company.name} runs itself.`}
+        title={
+          setup.remaining === 1
+            ? `One step left, ${firstName}.`
+            : `${setup.remaining} steps to your first posts, ${firstName}.`
+        }
+        sub={`Finish these and ${data.company.name} has creators posting for it every week.`}
       />
-      <SetupChecklist
-        companyName={data.company.name}
-        steps={setup.steps}
-        doneCount={setup.doneCount}
-      />
+      <SetupChecklist steps={setup.steps} doneCount={setup.doneCount} />
     </div>
   );
 }

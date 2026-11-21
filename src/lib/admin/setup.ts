@@ -3,6 +3,10 @@
    1. Plan: a running subscription (active or trialing). The creator budget
       is set by the Noni team on a call and Stripe Connect is optional, so
       neither gates the step.
+   2. Company brain: done once the company has confirmed (or fixed) every
+      line of the summary Noni wrote from its website, in the short chat at
+      /admin/brain/confirm. Noni still fills in the detail itself.
+   Then, numbered after it:
    2. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
@@ -14,19 +18,22 @@
    as a card on some other page waiting to be found.
    The steps run in order: each one stays locked until the one before it
    is done, so there is always exactly one thing to do next.
-   The company brain is not a step: Noni fills it in for the company.
    When every step is done the Onboarding tab retires: nav item, badge and
    search entry disappear and /admin redirects to /admin/analytics. */
 
 import type { AdminDataset } from "./types";
 
-export type SetupStepKey = "billing" | "media" | "managers" | "creators";
+export type SetupStepKey = "billing" | "brain" | "media" | "managers" | "creators";
 
 export interface SetupStep {
   key: SetupStepKey;
   done: boolean;
   title: string;
+  /** One or two words for the step strip, e.g. "Plan". */
+  short: string;
   sub: string;
+  /** What finishing the step gets the company, in one line. */
+  payoff: string;
   /** Action pill label, e.g. "Open Billing". */
   action: string;
   /** Where the action pill navigates. */
@@ -60,9 +67,21 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       key: "billing",
       done: billingDone,
       title: "Pick your plan",
+      short: "Plan",
+      payoff: "This unlocks your creator seats.",
       sub: "Choose how many creators you want to run. It takes a minute.",
       action: "Pick a plan",
       href: "/admin/billing",
+    },
+    {
+      key: "brain",
+      done: dataset.company.brainConfirmed,
+      title: "Check what Noni knows about you",
+      short: "Your company",
+      payoff: "So every script sounds like you, not like an ad.",
+      sub: "Noni read your website. Four quick taps to confirm it got you right.",
+      action: "Take a look",
+      href: "/admin/brain/confirm",
     },
     ...(showManagers
       ? [
@@ -70,6 +89,8 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
             key: "managers" as const,
             done: managersDone,
             title: "Invite your first campaign manager",
+            short: "Manager",
+            payoff: "They send the briefs every week so you do not have to.",
             sub: "The person who sends briefs and reviews posts. It can be you.",
             action: "Invite a manager",
             href: "/admin/team",
@@ -82,6 +103,8 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
             key: "creators" as const,
             done: creatorsDone,
             title: "Invite your first creator",
+            short: "Creator",
+            payoff: "Creators are who get you the views and the sales.",
             sub: "The people who post for you. You and your managers can be creators too.",
             action: "Invite a creator",
             href: "/admin/team",
@@ -92,6 +115,8 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       key: "media",
       done: dataset.company.mediaCount >= 1,
       title: "Add screenshots of your product",
+      short: "Screenshots",
+      payoff: "Your real product shows up in every video.",
       sub: "A few screenshots or screen recordings. Your posts are built from them.",
       action: "Add screenshots",
       href: "/admin/media",

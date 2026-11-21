@@ -153,6 +153,38 @@ export interface CompanySnapshot {
 
 export type SnapshotPart = "sells" | "audience" | "features" | "viral";
 
+/** A line cut to bullet length on a word, for summaries written before bullets. */
+function clip(text: string, max = 72): string {
+  const flat = text.replace(/\s+/g, " ").trim().replace(/[.;,]+$/, "");
+  if (flat.length <= max) return flat;
+  return `${flat.slice(0, flat.lastIndexOf(" ", max)).replace(/[,;:]+$/, "")}…`;
+}
+
+/** The bullet a line shows: its own short form, else the nearest thing it has. */
+export function bulletOf(item: SnapshotItem, part: SnapshotPart): string {
+  if (item.short?.trim()) return item.short.trim();
+  if (part === "features") return item.title.trim() || clip(item.text);
+  if ((part === "audience" || part === "viral") && item.title.trim()) return item.title.trim();
+  return clip(item.text);
+}
+
+export function needsBullets(snapshot: CompanySnapshot): boolean {
+  return [snapshot.sells, snapshot.audience, snapshot.viral, ...snapshot.features].some(
+    (item) => item && item.status !== "dismissed" && !item.short,
+  );
+}
+
+
+/** True once nothing in the summary is waiting on the company: every line
+    shown has been confirmed or fixed. No summary yet is not confirmed. */
+export function snapshotConfirmed(snapshot: CompanySnapshot | null): boolean {
+  if (!snapshot) return false;
+  const items = [snapshot.sells, snapshot.audience, snapshot.viral, ...snapshot.features].filter(
+    (item): item is SnapshotItem => item !== null && item.status !== "dismissed",
+  );
+  return items.length > 0 && items.every((item) => item.status === "confirmed");
+}
+
 export interface BrainContext {
   productName: string;
   core: string;

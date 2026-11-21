@@ -39,6 +39,8 @@ import { Card, Pill, Tabs } from "@/components/kit";
 import {
   BRAIN_UPLOAD_ACCEPT,
   brainUploadProblem,
+  bulletOf,
+  needsBullets,
   scanSteps,
   type CompanySnapshot,
   type IngestState,
@@ -102,27 +104,6 @@ function IconButton({
 
 type Slot = { part: SnapshotPart; index?: number };
 const slotKey = (s: Slot) => (s.index === undefined ? s.part : `${s.part}:${s.index}`);
-
-/** A line cut to bullet length on a word, for summaries written before bullets. */
-function clip(text: string, max = 72): string {
-  const flat = text.replace(/\s+/g, " ").trim().replace(/[.;,]+$/, "");
-  if (flat.length <= max) return flat;
-  return `${flat.slice(0, flat.lastIndexOf(" ", max)).replace(/[,;:]+$/, "")}…`;
-}
-
-/** The bullet a line shows: its own short form, else the nearest thing it has. */
-function bulletOf(item: SnapshotItem, part: SnapshotPart): string {
-  if (item.short?.trim()) return item.short.trim();
-  if (part === "features") return item.title.trim() || clip(item.text);
-  if ((part === "audience" || part === "viral") && item.title.trim()) return item.title.trim();
-  return clip(item.text);
-}
-
-function needsBullets(snapshot: CompanySnapshot): boolean {
-  return [snapshot.sells, snapshot.audience, snapshot.viral, ...snapshot.features].some(
-    (item) => item && item.status !== "dismissed" && !item.short,
-  );
-}
 
 /* ── The summary: four labelled bullets ────────────────────────────────── */
 
