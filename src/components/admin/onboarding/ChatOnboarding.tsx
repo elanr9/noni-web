@@ -113,7 +113,46 @@ function ScanLine({ scan, site }: { scan: IngestState | null; site: string }) {
   );
 }
 
-function Chip({ label, selected, onClick, disabled }: { label: string; selected?: boolean; onClick: () => void; disabled?: boolean }) {
+function Chip({
+  label,
+  selected,
+  onClick,
+  disabled,
+  wide = false,
+  multi = false,
+}: {
+  label: string;
+  selected?: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  /** A full-width card for a sentence-long choice. */
+  wide?: boolean;
+  /** Pick-any: shows a check box. */
+  multi?: boolean;
+}) {
+  if (wide) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        className={`flex w-full cursor-pointer items-center gap-3 rounded-[18px] border px-[18px] py-3.5 text-left text-[15.5px] font-semibold leading-[1.4] transition-[background,border-color,transform] duration-150 ease-om active:scale-[0.99] ${
+          selected ? "border-ink bg-ink text-white" : "border-line bg-white text-ink hover:border-slate-300 hover:bg-[#f7f8fa]"
+        }`}
+      >
+        {multi ? (
+          <span
+            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] ${
+              selected ? "border-white bg-white text-ink" : "border-slate-300"
+            }`}
+          >
+            {selected ? <Check size={13} strokeWidth={3} /> : null}
+          </span>
+        ) : null}
+        <span className="flex-1">{label}</span>
+      </button>
+    );
+  }
   return (
     <button
       type="button"
@@ -387,11 +426,18 @@ export function ChatOnboarding({
         <div ref={composer} className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-[#fbfbfc] via-[#fbfbfc] to-transparent pb-5 pt-10">
           <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3 px-5">
             {choice && pending.options ? (
-              <div className="flex flex-wrap gap-2 animate-om-rise">
+              <div
+                className={`animate-om-rise ${
+                  /* Sentences read better as a stack of cards than as pills. */
+                  pending.options.some((o) => o.label.length > 28) ? "flex flex-col items-stretch gap-2" : "flex flex-wrap gap-2"
+                }`}
+              >
                 {pending.options.map((o) => (
                   <Chip
                     key={o.value}
                     label={o.label}
+                    wide={pending.options!.some((x) => x.label.length > 28)}
+                    multi={pending.kind === "multi"}
                     selected={picked.includes(o.value)}
                     onClick={() => {
                       if (pending.kind === "multi") {

@@ -35,8 +35,29 @@ const SCRIPT: Array<{ spec: SlotSpec; say: string }> = [
     say: "Downloads it is, so every script ends on one clear step. Where should the videos go?",
   },
   {
-    spec: { key: "aha_moment", kind: "text", draft: "A coach uploads a full game and gets every tagged play cut into clips in a few minutes." },
-    say: "From your site, the moment it clicks is when a coach uploads a full game and gets every tagged play cut into clips in minutes. Is that right, or how would you put it?",
+    spec: {
+      key: "sells",
+      kind: "choice",
+      options: [
+        "Turns a full game into a highlight video in minutes",
+        "Cuts every tagged play into clips coaches can share",
+        "Video analysis for youth and high school teams",
+      ].map((l) => ({ value: l, label: l })),
+    },
+    say: "I've read www.fieldvision.ai. Which line says best what FieldVision does?",
+  },
+  {
+    spec: {
+      key: "never_say",
+      kind: "multi",
+      options: [
+        { value: "Guarantee a scholarship", label: "Guarantee a scholarship" },
+        { value: "Show a real player's private data", label: "Show a real player's private data" },
+        { value: "Name a competitor", label: "Name a competitor" },
+        { value: "none", label: "Nothing specific" },
+      ],
+    },
+    say: "Last one. Anything creators must never say or show?",
   },
   { spec: { key: "summary", kind: "summary" }, say: "That's everything I need. Here's what I understood about FieldVision. Confirm it or fix anything." },
   { spec: { key: "done", kind: "done" }, say: "You're all set. I'm writing your first briefs from this now, so take a look around." },
