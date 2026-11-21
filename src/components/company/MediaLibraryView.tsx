@@ -6,6 +6,7 @@
    picker (mobile lib/media-library-api.ts). Files upload straight from
    the browser (lib/media-library-upload.ts); the server actions only own
    the rows and companies.settings. */
+import { PostTextPreview } from "@/components/company/PostTextPreview";
 import { Check, Clapperboard, Images, Pencil, Play, Plus, Trash2, Upload, Video } from "lucide-react";
 import {
   useCallback,
@@ -175,15 +176,13 @@ function ThemeColorCard({ initial }: { initial: string | null }) {
     if (e.key === "Enter") commitDraft();
   };
 
-  const bubbleText = color ? themeTextColor(color) : "#FFFFFF";
-
   return (
     <Card className="mb-5">
       <div className="flex flex-col gap-6 md:flex-row md:items-start">
         <div className="min-w-0 flex-1">
           <h2 className="m-0 text-[17px] font-bold tracking-[-0.3px] text-ink">Theme color</h2>
           <p className="mb-0 mt-1 text-[13.5px] font-semibold leading-normal text-slate-400">
-            The color of Theme style on screen text in every post.
+            The color of Theme style on screen text in every post. The preview shows it the way it is drawn on a post.
           </p>
 
           <div className="mt-4 flex flex-wrap items-center gap-2.5">
@@ -245,19 +244,13 @@ function ThemeColorCard({ initial }: { initial: string | null }) {
         </div>
 
         <div
-          className="relative flex w-[126px] shrink-0 items-center justify-center overflow-hidden bg-ink-900 rounded-ops-md"
+          className="relative flex w-[150px] shrink-0 items-center justify-center overflow-hidden bg-ink-900 rounded-ops-md"
           style={{ aspectRatio: "9 / 16" }}
           aria-hidden
         >
           <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent" />
-          <div
-            className="relative max-w-[86%] px-3 py-1.5 text-center text-[12px] font-extrabold leading-tight rounded-[8px]"
-            style={{
-              backgroundColor: color ?? "rgba(255,255,255,0.18)",
-              color: bubbleText,
-            }}
-          >
-            Your caption here
+          <div className="relative flex max-w-[88%] justify-center text-center">
+            <PostTextPreview text="Your caption here" color={color} fontSize={15} />
           </div>
         </div>
       </div>
