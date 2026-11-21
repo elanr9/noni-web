@@ -136,14 +136,16 @@ function Chip({
         type="button"
         disabled={disabled}
         onClick={onClick}
-        className={`flex w-full cursor-pointer items-center gap-3 rounded-[18px] border px-[18px] py-3.5 text-left text-[15.5px] font-semibold leading-[1.4] transition-[background,border-color,transform] duration-150 ease-om active:scale-[0.99] ${
-          selected ? "border-ink bg-ink text-white" : "border-line bg-white text-ink hover:border-slate-300 hover:bg-[#f7f8fa]"
+        className={`flex w-full cursor-pointer items-center gap-3 rounded-[18px] border-[1.5px] px-[18px] py-3.5 text-left text-[15.5px] font-bold leading-[1.4] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(37,99,235,0.08)] transition-[background,border-color,transform,box-shadow] duration-150 ease-om hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(37,99,235,0.16)] active:translate-y-0 active:scale-[0.99] ${
+          selected
+            ? "border-blue-600 bg-blue-600 text-white"
+            : "border-blue-200 bg-blue-50 text-blue-800 hover:border-blue-400 hover:bg-blue-100"
         }`}
       >
         {multi ? (
           <span
             className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] ${
-              selected ? "border-white bg-white text-ink" : "border-slate-300"
+              selected ? "border-white bg-white text-blue-600" : "border-blue-300 bg-white"
             }`}
           >
             {selected ? <Check size={13} strokeWidth={3} /> : null}
@@ -158,10 +160,10 @@ function Chip({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`cursor-pointer rounded-full border px-4 py-2.5 text-[15px] font-semibold transition-[background,border-color,transform] duration-150 ease-om active:scale-[0.97] disabled:cursor-default disabled:opacity-50 ${
+      className={`cursor-pointer rounded-full border-[1.5px] px-[18px] py-2.5 text-[15px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(37,99,235,0.08)] transition-[background,border-color,transform,box-shadow] duration-150 ease-om hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(37,99,235,0.16)] active:translate-y-0 active:scale-[0.97] disabled:cursor-default disabled:opacity-50 ${
         selected
-          ? "border-ink bg-ink text-white"
-          : "border-line bg-white text-ink hover:border-slate-300 hover:bg-[#f7f8fa]"
+          ? "border-blue-600 bg-blue-600 text-white"
+          : "border-blue-200 bg-blue-50 text-blue-800 hover:border-blue-400 hover:bg-blue-100"
       }`}
     >
       {label}
@@ -455,7 +457,7 @@ export function ChatOnboarding({
                         pending.options!.filter((o) => picked.includes(o.value)).map((o) => o.label).join(", "),
                       )
                     }
-                    className="cursor-pointer rounded-full border-none bg-blue-500 px-5 py-2.5 text-[15px] font-bold text-white active:scale-[0.97]"
+                    className="cursor-pointer rounded-full border-none bg-ink px-6 py-2.5 text-[15px] font-bold text-white shadow-[0_4px_14px_rgba(15,23,42,0.18)] active:scale-[0.97]"
                   >
                     Continue
                   </button>
