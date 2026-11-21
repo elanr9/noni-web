@@ -6,16 +6,8 @@ import type { ChatMessage, SlotSpec } from "@/lib/onboarding-chat";
 
 const SCRIPT: Array<{ spec: SlotSpec; say: string }> = [
   {
-    spec: {
-      key: "role",
-      kind: "choice",
-      options: ["Founder", "Marketing", "Content", "Growth", "Operations", "Something else"].map((l) => ({ value: l, label: l })),
-    },
-    say: "Hi Riley, I'm Noni. In the next five minutes I'll get to know FieldVision and we'll plan your first videos together. What do you do there?",
-  },
-  {
     spec: { key: "website", kind: "text", draft: "fieldvision.ai", placeholder: "yourcompany.com" },
-    say: "Founders make this part easy. Is fieldvision.ai the right site? I'll read it while we talk.",
+    say: "Hi Riley, I'm Noni. A few quick questions and your first videos are moving. Is fieldvision.ai your site?",
   },
   {
     spec: {
@@ -65,6 +57,7 @@ export function mockChatResponse(raw: string): Response {
       pending: messages.length && at < SCRIPT.length ? SCRIPT[at].spec : null,
       first_name: "Riley",
       company_name: "FieldVision",
+      progress: { at: Math.max(0, at - 1), total: SCRIPT.length - 1 },
     });
   }
   if (body.answer) {
@@ -83,7 +76,7 @@ export function mockChatResponse(raw: string): Response {
         await new Promise((r) => setTimeout(r, 28));
       }
       messages.push({ role: "assistant", text: step.say, slot: step.spec.key });
-      controller.enqueue(enc.encode(sse({ type: "done", pending: step.spec })));
+      controller.enqueue(enc.encode(sse({ type: "done", pending: step.spec, progress: { at: at - 1, total: SCRIPT.length - 1 } })));
       controller.close();
     },
   });

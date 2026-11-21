@@ -19,7 +19,10 @@ export type ChatState = {
   pending: SlotSpec | null;
   first_name: string;
   company_name: string;
+  progress?: ChatProgress;
 };
+
+export type ChatProgress = { at: number; total: number };
 
 export type ChatAnswer = { slot: string; value: string | string[]; text: string };
 
@@ -34,6 +37,7 @@ export async function loadChat(): Promise<ChatState> {
 export async function sendTurn(
   answer: ChatAnswer | null,
   onDelta: (text: string) => void,
+  onProgress?: (p: ChatProgress) => void,
 ): Promise<SlotSpec | null> {
   const res = await fetch("/onboarding/chat", {
     method: "POST",
@@ -59,10 +63,13 @@ export async function sendTurn(
       if (!line.startsWith("data:")) continue;
       const event = JSON.parse(line.slice(5)) as
         | { type: "delta"; text: string }
-        | { type: "done"; pending: SlotSpec | null }
+        | { type: "done"; pending: SlotSpec | null; progress?: ChatProgress }
         | { type: "error"; message: string };
       if (event.type === "delta") onDelta(event.text);
-      else if (event.type === "done") pending = event.pending;
+      else if (event.type === "done") {
+        pending = event.pending;
+        if (event.progress) onProgress?.(event.progress);
+      }
       else throw new Error(event.message);
     }
   }

@@ -10,7 +10,14 @@ import { finishChatOnboarding, startOnboardingScan } from "@/app/onboarding/acti
 import { SnapshotReview } from "@/components/admin/brain/SnapshotReview";
 import { GetTheApp } from "@/components/GetTheApp";
 import type { IngestState } from "@/lib/admin/brain-model";
-import { loadChat, sendTurn, type ChatAnswer, type ChatMessage, type SlotSpec } from "@/lib/onboarding-chat";
+import {
+  loadChat,
+  sendTurn,
+  type ChatAnswer,
+  type ChatMessage,
+  type ChatProgress,
+  type SlotSpec,
+} from "@/lib/onboarding-chat";
 
 /* Onboarding as a conversation: Noni asks what a UGC agency asks a new
    client, one message at a time, streamed as it is written. Answers are
@@ -137,6 +144,7 @@ export function ChatOnboarding({
   const [name, setName] = useState("");
   const [finishing, setFinishing] = useState(false);
   const [lastAnswer, setLastAnswer] = useState<ChatAnswer | null>(null);
+  const [progress, setProgress] = useState<ChatProgress | null>(null);
   const box = useRef<HTMLTextAreaElement>(null);
   const composer = useRef<HTMLDivElement>(null);
   /* The thread always clears the answer area, however tall it gets. */
@@ -182,10 +190,14 @@ export function ChatOnboarding({
     setStreaming("");
     try {
       let text = "";
-      const next = await sendTurn(answer, (piece) => {
-        text += piece;
-        setStreaming(text);
-      });
+      const next = await sendTurn(
+        answer,
+        (piece) => {
+          text += piece;
+          setStreaming(text);
+        },
+        setProgress,
+      );
       setMessages((m) => [...m, { role: "assistant", text: text.trim(), slot: next?.key ?? "end" }]);
       setPending(next);
       setPicked([]);
@@ -207,6 +219,7 @@ export function ChatOnboarding({
       .then((state) => {
         if (!live) return;
         setName(state.first_name);
+        if (state.progress) setProgress(state.progress);
         if (state.messages.length) {
           setMessages(state.messages);
           setPending(state.pending);
@@ -272,6 +285,20 @@ export function ChatOnboarding({
       <header className="sticky top-0 z-10 flex items-center gap-[9px] bg-[#fbfbfc]/85 px-5 py-4 backdrop-blur sm:px-7">
         <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
+        <span className="flex-1" />
+        {progress && progress.total > 0 ? (
+          <span className="flex items-center gap-2.5" aria-label={`${progress.at} of ${progress.total} answered`}>
+            <span className="hidden text-[13px] font-semibold text-slate-400 sm:inline">
+              {progress.at >= progress.total ? "Done" : `${progress.total - progress.at} to go`}
+            </span>
+            <span className="h-1.5 w-24 overflow-hidden rounded-full bg-line sm:w-32">
+              <span
+                className="block h-full rounded-full bg-blue-500 transition-[width] duration-500 ease-om-spring"
+                style={{ width: `${Math.round((progress.at / progress.total) * 100)}%` }}
+              />
+            </span>
+          </span>
+        ) : null}
       </header>
 
       <main
