@@ -96,22 +96,16 @@ export function PlanPicker({
     if (!done) setBusy(null);
   };
 
-  /* Enterprise is sold on a call: the scheduling link when one is
-     configured, else the request-a-call form. */
+  /* Enterprise and Done for you are sold on a call: the scheduling link
+     when one is configured, else the request-a-call form. */
   const bookCall = () => {
     if (BOOKING_URL) window.open(BOOKING_URL, "_blank", "noopener,noreferrer");
     else setContactOpen(true);
   };
 
-  const managedPlan: SubscriptionPlan = `managed_${cadence}`;
+  /* Done for you is scoped on a call, then ops puts the company on it. */
   const managedCurrent = currentTier === "managed";
-  const managedCta = publicCta
-    ? publicCta.label
-    : managedCurrent
-      ? "Current plan"
-      : active
-        ? "Switch to Done for you"
-        : "Let Noni run it";
+  const managedCta = managedCurrent ? "Current plan" : "Book a call";
 
   const busyLabel = active
     ? "Switching plan…"
@@ -395,8 +389,8 @@ export function PlanPicker({
         </div>
         <button
           type="button"
-          disabled={managedCurrent || busy !== null}
-          onClick={() => void pick(managedPlan)}
+          disabled={managedCurrent}
+          onClick={bookCall}
           className={`shrink-0 px-6 text-[14px] font-bold transition-colors duration-150 rounded-pill ${
             compact ? "py-[11px]" : "py-[13px]"
           } ${
@@ -405,7 +399,7 @@ export function PlanPicker({
               : "cursor-pointer border-none bg-ink text-white hover:bg-ink-900"
           }`}
         >
-          {busy === managedPlan ? busyLabel : managedCta}
+          {managedCta}
         </button>
       </div>
 

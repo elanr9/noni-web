@@ -6,9 +6,10 @@
 
    Starter and Premium differ only in the creator cap. Done for you (tier
    "managed") is the same software with the Noni team running the whole
-   program for the company. All three are self-serve Stripe subscriptions in
-   a monthly or annual cadence; Enterprise is sales-led (book a call) and is
-   written by ops, never by Checkout. */
+   program for the company. Starter and Premium are self-serve Stripe
+   subscriptions in a monthly or annual cadence. Done for you and Enterprise
+   start with a call: ops puts the company on the plan from the ops console
+   and invoices it, never Checkout. */
 
 import type {
   BillingCadence,
@@ -70,12 +71,11 @@ export const PLAN_PRICING: Record<
     monthlyPriceCents: 100000,
     priceEnv: "STRIPE_PRICE_MANAGED_MONTHLY",
   },
-  /* $5,000 a year, shown as $417 a month. */
   managed_annual: {
     tier: "managed",
     cadence: "annual",
-    monthlyPriceCents: 41667,
-    yearlyPriceCents: 500000,
+    monthlyPriceCents: 80000,
+    yearlyPriceCents: 960000,
     priceEnv: "STRIPE_PRICE_MANAGED_ANNUAL",
   },
 };
@@ -178,7 +178,7 @@ export const ENTERPRISE_PLAN = {
   capFeat: { bold: "Unlimited creators", rest: " per campaign" },
 };
 
-/** "Save up to 58% annually": the best annual discount across plans. */
+/** "Save up to 29% annually": the best annual discount across plans. */
 export const MAX_ANNUAL_SAVINGS_PCT = Math.round(
   Math.max(
     ...[...SELF_SERVE_PLANS, MANAGED_PLAN].map((p) => 1 - p.annual / p.monthly),

@@ -45,6 +45,9 @@ export type BillingActionResult =
   | { ok: false; error: string };
 
 const NOT_ALLOWED = "Only the company admin can change billing.";
+const CALL_ONLY = "Done for you starts with a call. Book one and we will set it up for you.";
+const OPS_MANAGED =
+  "Your plan is set up by the Noni team. Book a call or reply to your Noni contact to change it.";
 
 /* Every action takes the company id the Billing page was rendered for. The
    active company is shared with other tabs and the app, so a page left open
@@ -75,6 +78,8 @@ export async function startCheckout(
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
   if (staleFor(ctx, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
+
+  if (PLAN_PRICING[plan].tier === "managed") return { ok: false, error: CALL_ONLY };
 
   if (ctx.mock) {
     mockActivateSubscription(plan);
@@ -151,6 +156,8 @@ export async function switchPlan(
     return { ok: true };
   }
 
+  if (PLAN_PRICING[plan].tier === "managed") return { ok: false, error: CALL_ONLY };
+
   /* Downgrade guard (design_handoff_pricing_plans): blocked while any
      running campaign has more creators than the target cap, naming those
      campaigns. Every publish reaches the whole creator roster, so a roster
@@ -188,7 +195,7 @@ export async function switchPlan(
     const row = await readBillingRow(ctx.companyId);
     const subscriptionId = row?.stripe_subscription_id;
     if (typeof subscriptionId !== "string" || !subscriptionId.startsWith("sub_")) {
-      return { ok: false, error: "No active Stripe subscription to switch." };
+      return { ok: false, error: OPS_MANAGED };
     }
     const current = await stripe.subscriptions.retrieve(subscriptionId);
     const item = current.items.data[0];
@@ -510,7 +517,7 @@ export async function openBillingPortal(renderedFor: string): Promise<BillingAct
   if (typeof customerId !== "string" || !customerId.startsWith("cus_")) {
     return {
       ok: false,
-      error: "No Stripe customer yet. Pick a plan first and your card and invoices show up here.",
+      error: "No invoices yet. They show up here once Noni sends your first one.",
     };
   }
   const origin = await siteOrigin();

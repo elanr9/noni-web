@@ -156,6 +156,9 @@ interface ConversionRow {
 interface BillingRow {
   company_id: string;
   monthly_budget_cents: number;
+  subscription_plan?: string | null;
+  subscription_status?: string | null;
+  stripe_subscription_id?: string | null;
 }
 
 interface BrandDocRow {
@@ -446,7 +449,11 @@ async function fetchOpsData(): Promise<OpsDataset> {
       .select("company_id, day, new_accounts, free_trials, sales_cents")
       .is("creator_id", null)
       .gte("day", monthStartDay),
-    supabase.from("company_billing").select("company_id, monthly_budget_cents"),
+    supabase
+      .from("company_billing")
+      .select(
+        "company_id, monthly_budget_cents, subscription_plan, subscription_status, stripe_subscription_id",
+      ),
     supabase
       .from("brand_docs")
       .select("company_id, kind, content, human_edited, updated_at"),
@@ -787,6 +794,11 @@ async function fetchOpsData(): Promise<OpsDataset> {
           date: fmtShortDate(r.created_at),
         })),
       pingTo: c.admin.name.split(" ")[0] ?? c.admin.name,
+      plan:
+        row?.subscription_status && row.subscription_status !== "none"
+          ? (row.subscription_plan ?? null)
+          : null,
+      stripePlan: (row?.stripe_subscription_id ?? "").startsWith("sub_"),
     };
   }
 

@@ -114,9 +114,10 @@ export function BillingView({
   const shown: Section = locked
     ? "plan"
     : (tourTarget && TOUR_SECTION[tourTarget]) || section;
-  const cardOnFile = active
-    ? `${subscription.cardBrand} ···· ${subscription.cardLast4}`
-    : null;
+  const cardOnFile =
+    active && subscription.cardLast4
+      ? `${subscription.cardBrand} ···· ${subscription.cardLast4}`
+      : null;
 
   /** Runs an action; false keeps the calling modal open. */
   const run = async (
@@ -346,17 +347,22 @@ export function BillingView({
                 </div>
                 <div className="mt-3 flex items-baseline gap-2.5">
                   <span className="display text-[30px] font-bold tracking-[-0.8px] text-ink">
-                    {money(subscription.price)}
-                    <span className="text-[15px] font-bold text-slate-400">
-                      /mo
-                    </span>
+                    {subscription.price > 0 ? money(subscription.price) : "Custom"}
+                    {subscription.price > 0 ? (
+                      <span className="text-[15px] font-bold text-slate-400">/mo</span>
+                    ) : null}
                   </span>
                   <span className="text-[13.5px] font-semibold text-slate-400">
-                    {TIER_LABEL[subscription.tier]}
-                    {annual
-                      ? ` annual · billed ${money(yearlyDollars(subscription.tier, subscription.price))}/yr · renews ${subscription.renewsAt}`
-                      : ` monthly · renews ${subscription.renewsAt}`}
-                    {cardOnFile ? ` · ${cardOnFile}` : ""}
+                    {[
+                      `${TIER_LABEL[subscription.tier]}${annual ? " annual" : " monthly"}`,
+                      annual && subscription.price > 0
+                        ? `billed ${money(yearlyDollars(subscription.tier, subscription.price))}/yr`
+                        : null,
+                      subscription.renewsAt ? `renews ${subscription.renewsAt}` : "invoiced by Noni",
+                      cardOnFile,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </div>
                 <div className="mt-3.5 flex flex-wrap gap-2">

@@ -120,6 +120,11 @@ export interface CompanyBilling {
   topups: TopUp[];
   /** First name the "top up" ping goes to, e.g. "Dana". */
   pingTo: string;
+  /** Stored subscription_plan ("premium_annual", "enterprise"), or null. */
+  plan?: string | null;
+  /** True when the plan is a live Stripe subscription the company pays by
+      card; ops cannot overwrite those. */
+  stripePlan?: boolean;
 }
 
 export interface Brief {

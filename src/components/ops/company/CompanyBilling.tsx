@@ -7,11 +7,24 @@ import { useState } from "react";
 import {
   removeCompany,
   sendBudgetInvoice,
+  setCompanyPlan,
   setCreatorBudget,
+  type OpsPlan,
 } from "@/app/ops/companies/[id]/actions";
 import { Card, Label, Modal, Pill } from "@/components/kit";
 import { money } from "@/lib/ops/mock-data";
 import type { Company, CompanyBilling as Billing } from "@/lib/ops/types";
+
+const PLAN_OPTIONS: [OpsPlan, string][] = [
+  ["none", "No plan"],
+  ["starter_monthly", "Starter, monthly"],
+  ["starter_annual", "Starter, annual"],
+  ["premium_monthly", "Premium, monthly"],
+  ["premium_annual", "Premium, annual"],
+  ["managed_monthly", "Done for you, monthly"],
+  ["managed_annual", "Done for you, annual"],
+  ["enterprise", "Enterprise"],
+];
 
 function RemoveCompanyModal({
   company,
@@ -82,7 +95,15 @@ export function CompanyBilling({
   const [confirming, setConfirming] = useState(false);
   const [budget, setBudget] = useState(billing ? String(billing.monthly || "") : "");
   const [invoice, setInvoice] = useState(billing ? String(billing.monthly || "") : "");
-  const [busy, setBusy] = useState<"budget" | "invoice" | null>(null);
+  const [plan, setPlan] = useState<OpsPlan>(
+    billing?.plan && PLAN_OPTIONS.some(([v]) => v === billing.plan)
+      ? (billing.plan as OpsPlan)
+      : billing?.plan
+        ? "premium_monthly"
+        : "none",
+  );
+  const [planFee, setPlanFee] = useState("");
+  const [busy, setBusy] = useState<"budget" | "invoice" | "plan" | "planInvoice" | null>(null);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -116,6 +137,32 @@ export function CompanyBilling({
     setNote({
       ok: true,
       text: `Invoice for ${money(dollars(invoice))} sent${result.email ? ` to ${result.email}` : ""}. The balance goes up when it is paid.`,
+    });
+  };
+
+  const savePlan = async () => {
+    setBusy("plan");
+    setNote(null);
+    const result = await setCompanyPlan({ companyId: company.id, plan });
+    setBusy(null);
+    if (!result.ok) return setNote({ ok: false, text: result.error });
+    setNote({ ok: true, text: plan === "none" ? "Plan removed." : "Plan saved." });
+    router.refresh();
+  };
+
+  const sendPlanInvoice = async () => {
+    setBusy("planInvoice");
+    setNote(null);
+    const result = await sendBudgetInvoice({
+      companyId: company.id,
+      dollars: dollars(planFee),
+      kind: "plan",
+    });
+    setBusy(null);
+    if (!result.ok) return setNote({ ok: false, text: result.error });
+    setNote({
+      ok: true,
+      text: `Plan invoice for ${money(dollars(planFee))} sent${result.email ? ` to ${result.email}` : ""}.`,
     });
   };
 
@@ -183,6 +230,61 @@ export function CompanyBilling({
         </div>
         <div className="mt-2 text-[12.5px] font-semibold text-slate-400">
           {Math.round(pct * 100)}% of August budget used · pays creators
+        </div>
+      </Card>
+      <Card pad={22}>
+        <Label className="mb-1 block">Plan</Label>
+        <p className="m-0 text-[13px] font-semibold leading-[1.5] text-slate-400">
+          {b.stripePlan
+            ? `${company.name} pays for its plan by card through Stripe, so it cannot be changed here.`
+            : `Put ${company.name} on a plan after a call and bill it by invoice. Starter and Premium can also be bought by card in their Billing.`}
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
+          <label className="flex flex-col gap-[7px]">
+            <span className="text-[12px] font-semibold text-slate-400">Plan</span>
+            <span className="flex items-center gap-2">
+              <select
+                className={`${field} w-[230px]`}
+                value={plan}
+                disabled={b.stripePlan}
+                onChange={(e) => setPlan(e.target.value as OpsPlan)}
+              >
+                {PLAN_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <Pill
+                size="sm"
+                variant="quiet"
+                disabled={busy !== null || b.stripePlan}
+                onClick={() => void savePlan()}
+              >
+                {busy === "plan" ? "Saving…" : "Save"}
+              </Pill>
+            </span>
+          </label>
+          <label className="flex flex-col gap-[7px]">
+            <span className="text-[12px] font-semibold text-slate-400">Plan invoice ($)</span>
+            <span className="flex items-center gap-2">
+              <input
+                className={field}
+                inputMode="numeric"
+                placeholder="0"
+                value={planFee}
+                onChange={(e) => setPlanFee(e.target.value)}
+              />
+              <Pill
+                size="sm"
+                icon={Send}
+                disabled={busy !== null}
+                onClick={() => void sendPlanInvoice()}
+              >
+                {busy === "planInvoice" ? "Sending…" : "Send invoice"}
+              </Pill>
+            </span>
+          </label>
         </div>
       </Card>
       <Card pad={22}>
