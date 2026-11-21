@@ -63,7 +63,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
     {
       key: "billing",
       done: billingDone,
-      title: "Pick a plan",
+      title: "Pick your plan",
       short: "Plan",
       action: "Pick a plan",
       href: "/admin/billing",
@@ -71,9 +71,9 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
     {
       key: "brain",
       done: dataset.company.brainConfirmed,
-      title: "Confirm your company",
+      title: "Confirm your company details",
       short: "Your company",
-      action: "Start",
+      action: "Confirm",
       href: "/admin/brain/confirm",
     },
     ...(showManagers
@@ -81,7 +81,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
           {
             key: "managers" as const,
             done: managersDone,
-            title: "Invite a manager",
+            title: "Invite your first campaign manager",
             short: "Manager",
             action: "Invite a manager",
             href: "/admin/team",
@@ -93,7 +93,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
           {
             key: "creators" as const,
             done: creatorsDone,
-            title: "Invite a creator",
+            title: "Invite your first creator",
             short: "Creator",
             action: "Invite a creator",
             href: "/admin/team",
@@ -103,7 +103,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
     {
       key: "media",
       done: dataset.company.mediaCount >= 1,
-      title: "Add screenshots",
+      title: "Add screenshots of your product",
       short: "Screenshots",
       action: "Add screenshots",
       href: "/admin/media",

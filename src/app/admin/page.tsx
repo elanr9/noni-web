@@ -6,7 +6,7 @@ import { getAdminData } from "@/lib/admin/data";
 import { deriveSetupStatus } from "@/lib/admin/setup";
 import { getSessionProfile } from "@/lib/auth";
 
-/* Onboarding tab: the next setup step, front and centre, over the whole road. */
+/* Onboarding tab: the setup to-do. */
 export default async function AdminOnboardingPage() {
   const { profile } = await getSessionProfile();
   const data = await getAdminData(profile?.active_company_id ?? "");
@@ -20,7 +20,11 @@ export default async function AdminOnboardingPage() {
   return (
     <div>
       <PageHead title={`Hey ${firstName}.`} />
-      <SetupChecklist steps={setup.steps} />
+      <SetupChecklist
+        companyName={data.company.name}
+        steps={setup.steps}
+        doneCount={setup.doneCount}
+      />
     </div>
   );
 }

@@ -151,10 +151,10 @@ describe("deriveSetupStatus", () => {
       }),
     );
     expect(status.steps.find((s) => s.key === "managers")?.title).toBe(
-      "Invite a manager",
+      "Invite your first campaign manager",
     );
     expect(status.steps.find((s) => s.key === "creators")?.title).toBe(
-      "Invite a creator",
+      "Invite your first creator",
     );
   });
 

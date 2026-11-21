@@ -1,87 +1,106 @@
 "use client";
 
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Lock } from "lucide-react";
 
-import { Card, Pill } from "@/components/kit";
+import { Card, Chip, Label, Pill } from "@/components/kit";
 import { useNavigate } from "@/components/motion/NavProgress";
 import type { SetupStep } from "@/lib/admin/setup";
 
-/* The Onboarding tab, in the system's own terms: one flat white card. The
-   step that is up next gets the big type and the only button, and no
-   other words; under a
-   hairline the whole road is a single numbered line, done steps checked
-   and the ones after the current step greyed out until it is done. No
-   colour beyond the one accent, nothing decorative. */
-export function SetupChecklist({ steps }: { steps: SetupStep[] }) {
+/* The setup to-do card on the Onboarding tab. The steps run in order: the
+   first unfinished one is the only one with a button, the ones after it
+   are locked until it is done, and finished ones show a green check. The
+   card fills the screen under the page title and the rows share its
+   height, so there is no empty space below and nothing scrolls. A row is
+   its title and nothing else. */
+export function SetupChecklist({
+  companyName,
+  steps,
+  doneCount,
+}: {
+  companyName: string;
+  steps: SetupStep[];
+  doneCount: number;
+}) {
   const { go, pending } = useNavigate();
   const current = steps.findIndex((s) => !s.done);
-  const step = steps[current] ?? null;
 
   return (
-    <Card pad={0}>
-      {step ? (
-        <div data-tour="onb-first-step" className="px-8 pb-8 pt-7">
-          <span className="text-[13px] font-bold text-blue-700">
-            Step {current + 1} of {steps.length}
+    <Card pad={0} className="flex min-h-[calc(100dvh-232px)] flex-col">
+      <div data-tour="onb-progress" className="px-7 pb-4 pt-[22px]">
+        <div className="flex items-center gap-2.5">
+          <Label className="flex-1">Set up {companyName}</Label>
+          <span className="text-[13px] font-bold text-slate-500">
+            {doneCount} of {steps.length} done
           </span>
-          <h2 className="display mb-0 mt-2 text-[32px] font-bold leading-[1.1] tracking-[-0.8px] text-ink">
-            {step.title}
-          </h2>
-          <Pill
-            icon={ArrowRight}
-            loading={pending}
-            onClick={() => go(step.href)}
-            className="mt-6"
-          >
-            {step.action}
-          </Pill>
         </div>
-      ) : null}
-
-      <ol
-        data-tour="onb-progress"
-        className="m-0 flex list-none items-start border-t border-line px-8 py-5"
-      >
+        <div className="mt-[11px] h-[7px] overflow-hidden bg-fill-quiet rounded-pill">
+          <span
+            className="block h-full bg-blue-500 rounded-pill transition-[width] duration-[400ms] ease-om"
+            style={{
+              width: `${(doneCount / Math.max(steps.length, 1)) * 100}%`,
+            }}
+          />
+        </div>
+      </div>
+      <div className="om-stagger flex flex-1 flex-col">
         {steps.map((s, i) => {
           const isCurrent = i === current;
           const locked = !s.done && !isCurrent;
           return (
-            <li
+            <div
               key={s.key}
-              aria-current={isCurrent ? "step" : undefined}
-              className="flex min-w-0 flex-1 flex-col gap-2 last:flex-none"
+              data-tour={i === 0 ? "onb-first-step" : undefined}
+              aria-disabled={locked || undefined}
+              className={`flex min-h-[64px] flex-1 flex-wrap items-center gap-x-[18px] gap-y-3 px-7 py-3 ${
+                isCurrent ? "bg-blue-100/40" : ""
+              } ${i === steps.length - 1 ? "rounded-b-[inherit]" : "border-b border-line"}`}
             >
-              <span className="flex items-center">
-                <span
-                  className={`inline-flex h-7 w-7 shrink-0 items-center justify-center text-[12.5px] font-extrabold rounded-pill ${
-                    s.done
-                      ? "bg-blue-500 text-white"
-                      : isCurrent
-                        ? "border-2 border-blue-500 bg-white text-blue-700"
-                        : "bg-fill-quiet text-slate-400"
-                  }`}
-                >
-                  {s.done ? <Check size={14} strokeWidth={3} /> : i + 1}
-                </span>
-                {i < steps.length - 1 ? (
-                  <span
-                    className={`mx-2 h-[2px] flex-1 rounded-pill ${
-                      s.done ? "bg-blue-500" : "bg-line"
-                    }`}
-                  />
-                ) : null}
-              </span>
               <span
-                className={`truncate pr-3 text-[13px] font-bold ${
-                  locked ? "text-slate-400" : "text-ink"
+                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center text-[15px] font-extrabold rounded-pill ${
+                  s.done
+                    ? "bg-green-soft"
+                    : isCurrent
+                      ? "bg-blue-500 text-white"
+                      : "bg-fill-quiet text-slate-400"
                 }`}
               >
-                {s.short}
+                {s.done ? <Check size={15} className="text-green" /> : i + 1}
               </span>
-            </li>
+              <span className="min-w-[200px] flex-1">
+                <span
+                  className={`block font-bold tracking-[-0.2px] ${
+                    isCurrent ? "text-[20px]" : "text-[17px]"
+                  } ${
+                    s.done
+                      ? "text-ink line-through decoration-slate-400"
+                      : locked
+                        ? "text-slate-400"
+                        : "text-ink"
+                  }`}
+                >
+                  {s.title}
+                </span>
+              </span>
+              {s.done ? (
+                <Chip tone="green">Done</Chip>
+              ) : isCurrent ? (
+                <Pill
+                  icon={ArrowRight}
+                  loading={pending}
+                  onClick={() => go(s.href)}
+                >
+                  {s.action}
+                </Pill>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-slate-400">
+                  <Lock size={13} />
+                  After step {current + 1}
+                </span>
+              )}
+            </div>
           );
         })}
-      </ol>
+      </div>
     </Card>
   );
 }
