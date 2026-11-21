@@ -68,16 +68,16 @@ const pastDue = {
 };
 
 describe("deriveSetupStatus", () => {
-  it("orders the steps billing, brain, managers, creators, media", () => {
+  it("orders the steps billing, brain, media, color, sales, managers, creators", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
       "brain",
-      "managers",
-      "creators",
       "media",
       "color",
       "sales",
+      "managers",
+      "creators",
     ]);
   });
 
@@ -141,10 +141,10 @@ describe("deriveSetupStatus", () => {
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
       "brain",
-      "creators",
       "media",
       "color",
       "sales",
+      "creators",
     ]);
   });
 

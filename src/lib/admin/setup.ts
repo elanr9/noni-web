@@ -1,25 +1,21 @@
-/* The gamified setup to-do, derived from the dataset exactly per the
-   handoff README:
+/* The setup to-do, derived from the dataset. Everything a company has to
+   do itself is a step here, never a card on some other page waiting to be
+   found. The company sets itself up first and brings people in last:
    1. Plan: a running subscription (active or trialing). The creator budget
-      is set by the Noni team on a call and Stripe Connect is optional, so
-      neither gates the step.
+      is set by the Noni team and does not gate the step.
    2. Company brain: done once the company has confirmed (or fixed) every
       line of the summary Noni wrote from its website, in the short chat at
       /onboarding/company. Noni still fills in the detail itself.
-   Then, numbered after it:
-   2. Managers: done once at least one campaign manager is on the team
+   3. Screenshots: done once the media library holds at least one
+      screenshot or recording of the product.
+   4. Color: done once a person has picked or confirmed the color of the
+      text on their posts (a color the site scan filled in still needs a yes).
+   5. Sales: done once Stripe is connected, so every post shows the sales
+      it brought in. It is required, not optional.
+   6. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
-   3. Creators: done once at least one creator is on the team.
-   4. Screenshots: done once the media library holds at least one
-      screenshot or recording of the product. It comes last: the team is
-      in before anyone is asked to gather files.
-   5. Color: done once a person has picked or confirmed the color of the
-      text on their posts (a color the site scan filled in still needs a yes).
-   6. Sales: done once Stripe is connected, so every post shows the sales
-      it brought in. It is required, not optional.
-   Anything else a company has to do itself belongs here as a step, never
-   as a card on some other page waiting to be found.
+   7. Creators: done once at least one creator is on the team.
    The steps run in order: each one stays locked until the one before it
    is done, so there is always exactly one thing to do next.
    When every step is done the Onboarding tab retires: nav item, badge and
@@ -87,30 +83,6 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       action: "Confirm",
       href: "/onboarding/company",
     },
-    ...(showManagers
-      ? [
-          {
-            key: "managers" as const,
-            done: managersDone,
-            title: "Invite your first campaign manager",
-            short: "Manager",
-            action: "Invite a manager",
-            href: "/admin/team",
-          },
-        ]
-      : []),
-    ...(showCreators
-      ? [
-          {
-            key: "creators" as const,
-            done: creatorsDone,
-            title: "Invite your first creator",
-            short: "Creator",
-            action: "Invite a creator",
-            href: "/admin/team",
-          },
-        ]
-      : []),
     {
       key: "media",
       done: dataset.company.mediaCount >= 1,
@@ -135,6 +107,30 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       action: "Connect Stripe",
       href: "/admin/billing?step=sales",
     },
+    ...(showManagers
+      ? [
+          {
+            key: "managers" as const,
+            done: managersDone,
+            title: "Invite your first campaign manager",
+            short: "Manager",
+            action: "Invite a manager",
+            href: "/admin/team",
+          },
+        ]
+      : []),
+    ...(showCreators
+      ? [
+          {
+            key: "creators" as const,
+            done: creatorsDone,
+            title: "Invite your first creator",
+            short: "Creator",
+            action: "Invite a creator",
+            href: "/admin/team",
+          },
+        ]
+      : []),
   ];
 
   const doneCount = steps.filter((s) => s.done).length;
