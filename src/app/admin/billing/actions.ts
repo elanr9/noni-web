@@ -18,6 +18,9 @@ import {
   companyCreatorCount,
   ensureBudgetProduct,
   getBillingContext,
+  isDevServer,
+  LIVE_CONNECTIONS_URL,
+  oauthOrigin,
   getStripe,
   IN_HOUSE_COMPANY_ID,
   mockActivateSubscription,
@@ -461,16 +464,19 @@ export async function startStripeConnect(renderedFor: string): Promise<BillingAc
      show Noni's revenue in a customer's Analytics. */
   const clientId = process.env.STRIPE_CONNECT_CLIENT_ID?.trim();
   if (!clientId || !clientId.startsWith("ca_")) {
+    /* A dev server without the Connect key: connect on the live site,
+       which has it. Same database, so it shows here after a refresh. */
+    if (isDevServer()) return { ok: true, redirectUrl: LIVE_CONNECTIONS_URL };
     console.error(
       "Stripe Connect is not configured: set STRIPE_CONNECT_CLIENT_ID (ca_...) from the Stripe Connect settings.",
     );
     return {
       ok: false,
       error:
-        "Connecting Stripe is not available yet. Your plan and creator budget work without it; we will let you know when sales analytics can be connected.",
+        "Stripe could not be opened. Try again.",
     };
   }
-  const origin = await siteOrigin();
+  const origin = oauthOrigin((await headers()).get("origin"));
   const params = new URLSearchParams({
     response_type: "code",
     client_id: clientId,

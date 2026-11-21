@@ -653,6 +653,26 @@ function storedStatus(status: string): SubscriptionStatus | null {
     : null;
 }
 
+/* ── Connect OAuth: where the provider sends the admin back ──
+   Stripe and Supabase only accept the redirect addresses registered with
+   them, and those are the live site's. A local dev server therefore runs
+   the round trip through the live site: same database, so the connection
+   shows on localhost after a refresh. */
+
+export const LIVE_ORIGIN = "https://www.usenoni.app";
+export const LIVE_CONNECTIONS_URL = `${LIVE_ORIGIN}/admin/billing?step=sales`;
+
+/** The origin to build an OAuth redirect address on, given where the request came from. */
+export function oauthOrigin(requestOrigin: string | null): string {
+  const origin = requestOrigin ?? process.env.NEXT_PUBLIC_SITE_URL ?? LIVE_ORIGIN;
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(origin) ? LIVE_ORIGIN : origin;
+}
+
+/** True on a dev server, where the OAuth client keys are usually not set. */
+export function isDevServer(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
 /* ── Connect OAuth state (companyId, HMAC signed against CSRF) ── */
 
 function connectStateSecret(): string {

@@ -8,7 +8,13 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { getBillingContext, signConnectState } from "@/lib/admin/billing";
+import {
+  getBillingContext,
+  isDevServer,
+  LIVE_CONNECTIONS_URL,
+  oauthOrigin,
+  signConnectState,
+} from "@/lib/admin/billing";
 import {
   readSignupSource,
   selectSupabaseProject,
@@ -61,15 +67,17 @@ export async function startSupabaseConnect(): Promise<SignupActionResult> {
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
   const config = supabaseOAuthConfig();
   if (ctx.mock || !config) {
+    /* A dev server without the OAuth keys: connect on the live site. */
+    if (!ctx.mock && isDevServer()) return { ok: true, redirectUrl: LIVE_CONNECTIONS_URL };
     if (!ctx.mock) {
       console.error(
         "Supabase connect is not configured: set SUPABASE_OAUTH_CLIENT_ID and SUPABASE_OAUTH_CLIENT_SECRET.",
       );
     }
-    return { ok: false, error: "Connecting Supabase is not available yet. We will let you know when it is." };
+    return { ok: false, error: "Supabase could not be opened. Try again." };
   }
   const h = await headers();
-  const origin = h.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const origin = oauthOrigin(h.get("origin"));
   return {
     ok: true,
     redirectUrl: supabaseAuthorizeUrl(
