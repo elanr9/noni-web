@@ -1,5 +1,9 @@
 import { BillingView } from "@/components/admin/billing/BillingView";
-import { getBillingContext, stripeSimulated } from "@/lib/admin/billing";
+import {
+  getBillingContext,
+  openBudgetInvoice,
+  stripeSimulated,
+} from "@/lib/admin/billing";
 import { getAdminData } from "@/lib/admin/data";
 import { getSessionProfile } from "@/lib/auth";
 
@@ -25,6 +29,9 @@ export default async function AdminBillingPage({
     ctx?.companyId ?? profile?.active_company_id ?? "",
   );
 
+  const budgetInvoice =
+    ctx && !ctx.simulated ? await openBudgetInvoice(ctx.companyId) : null;
+
   const sp = await searchParams;
   const notice =
     NOTICES[`checkout=${typeof sp.checkout === "string" ? sp.checkout : ""}`] ??
@@ -38,6 +45,7 @@ export default async function AdminBillingPage({
       billing={data.billing}
       simulated={ctx?.simulated ?? stripeSimulated()}
       notice={notice}
+      budgetInvoice={budgetInvoice}
       known={
         profile?.email
           ? {

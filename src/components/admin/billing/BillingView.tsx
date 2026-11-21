@@ -27,8 +27,7 @@ import { Card, Chip, Label, Pill } from "@/components/kit";
 import type { AdminBilling, SubscriptionPlan } from "@/lib/admin/types";
 
 import { yearlyDollars } from "@/lib/plans";
-import { WaitlistModal, type KnownContact } from "@/components/WaitlistModal";
-import { BOOKING_URL } from "@/lib/site-config";
+import type { KnownContact } from "@/components/WaitlistModal";
 
 import { money } from "./AmountModal";
 import { PlanPicker, TIER_LABEL } from "./PlanPicker";
@@ -71,6 +70,15 @@ const TOUR_SECTION: Record<string, Section> = {
   "billing-budget": "budget",
 };
 
+export interface OpenBudgetInvoice {
+  /** Dollars due. */
+  amount: number;
+  /** Display due date, empty when Stripe gave none. */
+  due: string;
+  /** Stripe's hosted page where the invoice is paid. */
+  url: string;
+}
+
 export function BillingView({
   companyId,
   billing,
@@ -78,6 +86,7 @@ export function BillingView({
   notice,
   tourStep,
   known = null,
+  budgetInvoice = null,
 }: {
   /** The company this page was rendered for; the actions refuse when the
       account has since switched to another one. */
@@ -89,6 +98,8 @@ export function BillingView({
   notice: string | null;
   /** The signed-in admin, so call requests do not ask who they are. */
   known?: KnownContact | null;
+  /** A creator budget invoice Noni has sent that is still unpaid. */
+  budgetInvoice?: OpenBudgetInvoice | null;
   /** Active ?tour= step, if the product tour is running. */
   tourStep: number | null;
 }) {
@@ -99,7 +110,6 @@ export function BillingView({
   const [error, setError] = useState<string | null>(notice);
   const [connecting, setConnecting] = useState(false);
   const [section, setSection] = useState<Section | null>(null);
-  const [callOpen, setCallOpen] = useState(false);
 
   const tourTarget = tourStep !== null ? tourStepTarget(tourStep) : null;
 
@@ -116,23 +126,17 @@ export function BillingView({
   /* No plan yet: Budget and Sales data are locked. Pilots ops runs by hand
      (simulated billing) have no plan to buy, so nothing locks for them. */
   const locked = !active && !simulated;
-  /* The steps unlock one at a time: Budget once there is a plan, Sales
-     data once the budget is set (or there is already credit to spend). */
+  /* Budget and Sales data unlock once there is a plan. The budget is never
+     the company's to set: Noni agrees it during onboarding and invoices it,
+     so it never holds up the next step. */
   const budgetDone = limit > 0 || billing.creditBalance > 0;
   const lockedStep = (id: Section): boolean =>
-    simulated
-      ? false
-      : id === "budget"
-        ? !active
-        : id === "stripe"
-          ? !active || !budgetDone
-          : false;
+    simulated ? false : id !== "plan" && !active;
   /* Open on the step that is up next, until the admin picks one. */
   const upNext: Section = !active ? "plan" : !budgetDone ? "budget" : "plan";
   const wanted: Section =
     (tourTarget && TOUR_SECTION[tourTarget]) || section || upNext;
   const shown: Section = lockedStep(wanted) ? upNext : wanted;
-  const stepNo = SECTIONS.findIndex((x) => x.id === upNext) + 1;
   const cardOnFile =
     active && subscription.cardLast4
       ? `${subscription.cardBrand} ···· ${subscription.cardLast4}`
@@ -204,13 +208,7 @@ export function BillingView({
                 key={s.id}
                 type="button"
                 disabled={isLocked}
-                title={
-                  isLocked
-                    ? active
-                      ? "Unlocks once your creator budget is set"
-                      : "Pick a plan first"
-                    : undefined
-                }
+                title={isLocked ? "Pick a plan first" : undefined}
                 onClick={() => setSection(s.id)}
                 className={`inline-flex items-center gap-2 border-none px-[16px] py-2 text-[13px] font-bold transition-all duration-150 rounded-pill ${
                   on
@@ -245,10 +243,6 @@ export function BillingView({
         {locked ? (
           <span className="text-[12.5px] font-semibold text-slate-400">
             Step 1 of 3. Pick a plan to unlock your budget and sales data.
-          </span>
-        ) : active && !budgetDone && !simulated ? (
-          <span className="text-[12.5px] font-semibold text-slate-400">
-            Step {stepNo} of 3. Set your creator budget to unlock sales data.
           </span>
         ) : null}
       </div>
@@ -448,8 +442,9 @@ export function BillingView({
 
         {shown === "budget" ? (
           <>
-            {/* The creator budget is agreed with the Noni team on a call and
-                invoiced; nothing here charges a card. */}
+            {/* The creator budget is agreed with the Noni team during
+                onboarding and invoiced. The only thing a company ever does
+                here is pay the invoice Noni sent. */}
             {!active ? (
               <Card pad={16} className="flex flex-wrap items-center gap-3">
                 <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-ink">
@@ -474,7 +469,9 @@ export function BillingView({
                         ? money(limit)
                         : budgetDone
                           ? "Set by Noni"
-                          : "Set your creator budget"}
+                          : budgetInvoice
+                            ? "Your budget invoice is ready"
+                            : "Noni is setting up your budget"}
                       {limit > 0 ? (
                         <span className="text-[15px] font-bold text-slate-400">
                           /mo
@@ -482,29 +479,32 @@ export function BillingView({
                       ) : null}
                     </span>
                     <span className="mt-1 block max-w-[560px] text-[13.5px] font-semibold leading-[1.5] text-slate-500">
-                      {budgetDone
-                        ? "Set with the Noni team and invoiced to you. Noni pays your creators from it."
-                        : "This is the money that pays your creators. We set the amount with you on a quick call, then send you an invoice. Nothing is charged to your card."}
+                      {budgetInvoice
+                        ? `${money(budgetInvoice.amount)}${
+                            budgetInvoice.due
+                              ? `, due ${budgetInvoice.due}`
+                              : ""
+                          }. It lands in your balance as soon as it is paid, and Noni pays your creators from it.`
+                        : budgetDone
+                          ? "Set with the Noni team and invoiced to you. Noni pays your creators from it."
+                          : "This is the money that pays your creators. We agreed the amount with you during onboarding, so there is nothing to do here. Your invoice comes by email and shows up on this page. Nothing is charged to your card."}
                     </span>
                   </span>
-                  <Pill
-                    size={budgetDone ? "sm" : "md"}
-                    variant={budgetDone ? "quiet" : "primary"}
-                    icon={budgetDone ? undefined : ArrowRight}
-                    onClick={() => {
-                      if (BOOKING_URL)
+                  {budgetInvoice ? (
+                    <Pill
+                      size="md"
+                      icon={ArrowRight}
+                      onClick={() =>
                         window.open(
-                          BOOKING_URL,
+                          budgetInvoice.url,
                           "_blank",
                           "noopener,noreferrer",
-                        );
-                      else setCallOpen(true);
-                    }}
-                  >
-                    {budgetDone
-                      ? "Change it on a call"
-                      : "Book your budget call"}
-                  </Pill>
+                        )
+                      }
+                    >
+                      Pay invoice
+                    </Pill>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-4 border-t border-line px-[22px] py-4">
                   <span className="min-w-0">
@@ -534,22 +534,18 @@ export function BillingView({
               </Card>
             </div>
 
-            {budgetDone ? (
+            {active || simulated ? (
               <div className="flex justify-end">
                 <Pill
                   size="sm"
+                  variant={budgetInvoice ? "quiet" : "primary"}
                   icon={ArrowRight}
                   onClick={() => setSection("stripe")}
                 >
                   Next: sales data
                 </Pill>
               </div>
-            ) : (
-              <p className="m-0 flex items-center justify-end gap-1.5 text-[12.5px] font-bold text-slate-400">
-                <Lock size={13} />
-                Sales data unlocks once your budget is set
-              </p>
-            )}
+            ) : null}
 
             {billing.topUpHistory.length > 0 ? (
               <Card pad={0}>
@@ -620,16 +616,6 @@ export function BillingView({
 
         {shown === "stripe" ? <SignupTrackingCard /> : null}
       </div>
-      <WaitlistModal
-        open={callOpen}
-        onClose={() => setCallOpen(false)}
-        kind="call"
-        source="billing-budget"
-        known={known}
-        title="Book your budget call"
-        sub="Fifteen minutes with the Noni team to set what you pay your creators. Tell us when works."
-        doneBody="We will email you within a business day to lock in a time."
-      />
     </div>
   );
 }

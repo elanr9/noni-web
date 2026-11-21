@@ -713,3 +713,42 @@ export async function runAutoTopUpCheck(ctx: BillingContext): Promise<void> {
   }
   await recordCredit(ctx.companyId, AUTO_TOP_UP_AMOUNT_CENTS, "topup");
 }
+
+/** The newest creator budget invoice Noni sent this company that is still
+    unpaid, for the Pay invoice button on the Budget step. Null when there
+    is none, or when Stripe is not configured or does not answer. */
+export async function openBudgetInvoice(
+  companyId: string,
+): Promise<{ amount: number; due: string; url: string } | null> {
+  const stripe = getStripe();
+  if (!stripe || !companyId) return null;
+  const customerId = rowStr(await readBillingRow(companyId), "stripe_customer_id");
+  if (!customerId || !customerId.startsWith("cus_")) return null;
+  try {
+    const { data } = await stripe.invoices.list({
+      customer: customerId,
+      status: "open",
+      limit: 20,
+    });
+    const invoice = data.find(
+      (i) =>
+        i.metadata?.kind === "budget" &&
+        i.metadata?.company_id === companyId &&
+        Boolean(i.hosted_invoice_url),
+    );
+    if (!invoice?.hosted_invoice_url) return null;
+    return {
+      amount: Math.round(invoice.amount_remaining / 100),
+      due: invoice.due_date
+        ? new Date(invoice.due_date * 1000).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            timeZone: "UTC",
+          })
+        : "",
+      url: invoice.hosted_invoice_url,
+    };
+  } catch {
+    return null;
+  }
+}
