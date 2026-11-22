@@ -42,11 +42,12 @@ const DRIFT_PX = 40;
 const BAND_PX = 96;
 const SLOT_COUNT = 4;
 
-/** Delay before the first card, the gap between the opening four, the hold before each swap, and the exit. */
+/** Delay before the first card, then a new card every EVERY_MS (the opening four, then each swap), and the exit. */
 const FIRST_MS = 600;
-const STAGGER_MS = 1500;
-const HOLD_MS = 3000;
+const EVERY_MS = 2000;
 const OUT_MS = 300;
+/** Phones show one card at a time, so each stays up long enough to read. */
+const DOCK_HOLD_MS = 3000;
 
 /** A spot a card can sit in, beside the hero content, with its top-left in hero pixels. */
 type Zone = { side: "l" | "r"; top: number; left: number; span: number };
@@ -219,12 +220,12 @@ export function HeroPings() {
       });
       timer = window.setTimeout(() => {
         land(target);
-        timer = window.setTimeout(rotate, HOLD_MS);
+        timer = window.setTimeout(rotate, EVERY_MS - OUT_MS);
       }, OUT_MS);
     };
     const open = (i: number) => {
       land(i);
-      timer = i + 1 < SLOT_COUNT ? window.setTimeout(() => open(i + 1), STAGGER_MS) : window.setTimeout(rotate, HOLD_MS);
+      timer = i + 1 < SLOT_COUNT ? window.setTimeout(() => open(i + 1), EVERY_MS) : window.setTimeout(rotate, EVERY_MS - OUT_MS);
     };
     timer = window.setTimeout(() => {
       // Measure again once the headline has finished rising into place.
@@ -263,12 +264,12 @@ export function HeroPingDock() {
       setSlot((s) => (s ? { ...s, out: true } : s));
       timer = window.setTimeout(() => {
         setSlot({ note: deal(false), out: false, key: ++key });
-        timer = window.setTimeout(next, HOLD_MS);
+        timer = window.setTimeout(next, DOCK_HOLD_MS);
       }, OUT_MS);
     };
     timer = window.setTimeout(() => {
       setSlot({ note: deal(true), out: false, key: 0 });
-      timer = window.setTimeout(next, HOLD_MS);
+      timer = window.setTimeout(next, DOCK_HOLD_MS);
     }, FIRST_MS + 400);
     return () => window.clearTimeout(timer);
   }, []);

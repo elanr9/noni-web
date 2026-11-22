@@ -212,7 +212,7 @@ export function LandingPage() {
           <div className="relative mx-auto w-full max-w-[1240px] px-5 py-8 md:px-8">
             <div className="relative mx-auto max-w-[880px] text-center animate-om-rise">
               <h1 data-hero-text className="display text-balance text-[clamp(38px,6.6svh,62px)] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink">
-                <span className="text-accent-deep">UGC Campaigns</span> made easy
+                <span className="text-accent-deep">UGC,</span> fully automated
               </h1>
               <p data-hero-text className="mx-auto mt-[clamp(14px,2.6svh,24px)] max-w-[640px] text-balance text-[clamp(16px,2.2svh,20px)] leading-[1.5] text-muted">
                 Everything you need to run UGC Campaigns, all in one place.
