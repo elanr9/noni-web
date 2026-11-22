@@ -24,6 +24,7 @@ export default async function CompanyChatPage() {
   return (
     <BrainConfirm
       companyName={data.company.name}
+      firstName={profile.full_name?.trim().split(/\s+/)[0] ?? ""}
       logoPath={data.company.logoPath}
       themeColor={themeColor}
       snapshot={snapshot}

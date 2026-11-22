@@ -160,11 +160,14 @@ function NoniMessage({ text, live, onDone }: { text: string; live: boolean; onDo
 
 export function BrainConfirm({
   companyName,
+  firstName,
   logoPath,
   themeColor,
   snapshot: initial,
 }: {
   companyName: string;
+  /** Who is answering, for the thank you at the end. */
+  firstName: string;
   logoPath: string | null;
   /** The company's own color; Noni blue when it has none. */
   themeColor: string | null;
@@ -187,6 +190,8 @@ export function BrainConfirm({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* Every question answered: the thank you screen replaces the thread. */
+  const [thanked, setThanked] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -248,7 +253,12 @@ export function BrainConfirm({
     const next = asks[at + 1];
     const lead = fixedTo === null ? "" : fixedTo ? `Got it: ${fixedTo}.\n\n` : "Got it.\n\n";
     setWins((n) => n + 1);
-    say(next ? `${lead}${sayOf(next)}` : `${lead}${name} is locked in.`, mine);
+    if (next) say(`${lead}${sayOf(next)}`, mine);
+    else {
+      /* The last answer lands in the thread, then the thank you takes the screen. */
+      setTurns((prev) => [...prev, { from: "me", text: mine, yes: mine === "Yes" }]);
+      window.setTimeout(() => setThanked(true), 650);
+    }
     setAt((n) => n + 1);
     setDraft("");
   };
@@ -344,7 +354,36 @@ export function BrainConfirm({
         ) : null}
       </header>
 
-      {!started ? (
+      {thanked ? (
+        <main className="mx-auto flex w-full max-w-[760px] flex-1 flex-col items-center justify-center gap-7 px-5 pb-24 text-center">
+          <span
+            className="relative inline-flex h-24 w-24 items-center justify-center rounded-full animate-om-check"
+            style={{ backgroundColor: "#22C55E", color: "#FFFFFF" }}
+          >
+            <Burst colors={sparks} count={36} reach={190} />
+            <Check size={48} strokeWidth={3.5} />
+          </span>
+          <h1 className="display m-0 text-[52px] font-bold leading-[1.05] tracking-[-1.8px] text-ink animate-om-rise">
+            Thanks{firstName ? ` ${firstName}` : ""}, we got
+            <br />
+            everything we need!
+          </h1>
+          <button
+            type="button"
+            disabled={leaving}
+            onClick={() => go("/admin")}
+            className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-9 py-[18px] text-[18px] font-bold transition-[transform,box-shadow,filter] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.96] disabled:opacity-60 animate-om-rise"
+            style={{
+              backgroundColor: accent,
+              color: onAccent,
+              boxShadow: `0 12px 28px color-mix(in srgb, ${accent} 38%, transparent)`,
+            }}
+          >
+            Go to dashboard
+            <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />
+          </button>
+        </main>
+      ) : !started ? (
         <main className="mx-auto flex w-full max-w-[720px] flex-1 flex-col items-center justify-center gap-7 px-5 pb-24 text-center">
           <span className="overflow-hidden rounded-[22px] shadow-[0_10px_30px_rgba(15,23,42,0.12)] animate-om-check">
             <CompanyMark name={companyName} logoPath={logoPath} size={84} />
@@ -401,17 +440,8 @@ export function BrainConfirm({
           {error ? (
             <p className="m-0 pl-[46px] text-[14px] font-semibold text-danger">{error}</p>
           ) : null}
-          {(finished || snapshot === null) && settled ? (
+          {(snapshot === null || (finished && total === 0)) && settled ? (
             <div className="flex items-center gap-4 pl-[46px] animate-om-rise">
-              {finished && total > 0 ? (
-                <span
-                  className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full animate-om-check"
-                  style={{ backgroundColor: "#22C55E", color: "#FFFFFF" }}
-                >
-                  <Burst colors={sparks} count={26} reach={120} />
-                  <Check size={24} strokeWidth={3.5} />
-                </span>
-              ) : null}
               <button
                 type="button"
                 disabled={leaving}
@@ -419,7 +449,7 @@ export function BrainConfirm({
                 className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-7 py-4 text-[16px] font-bold transition-transform duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-60"
                 style={{ backgroundColor: accent, color: onAccent }}
               >
-                {snapshot === null ? "Open Company Brain" : "Done"}
+                {snapshot === null ? "Open Company Brain" : "Go to dashboard"}
                 <ArrowRight size={17} className="transition-transform duration-150 group-hover:translate-x-1" />
               </button>
             </div>
