@@ -17,6 +17,7 @@ import { FOUNDERS, FOUNDERS_NOTE } from "@/lib/founders";
 import { SELF_SERVE_PLANS } from "@/lib/plans";
 import { BOOKING_URL, IOS_APP_AVAILABILITY } from "@/lib/site-config";
 
+import { HeroDemo } from "./HeroDemo";
 import { Phone } from "./Phone";
 
 const FROM_PRICE = Math.min(...SELF_SERVE_PLANS.map((p) => p.annual));
@@ -200,13 +201,7 @@ export function LandingPage() {
               transition={{ duration: 0.7, ease, delay: 0.12 }}
               className="mt-12 flex justify-center lg:mt-0"
             >
-              <Phone
-                src="/landing/post.png"
-                alt="One post in Noni with its views, sales and sign-ups"
-                priority
-                sizes="(min-width: 1024px) 300px, 70vw"
-                className="w-[70%] max-w-[300px]"
-              />
+              <HeroDemo />
             </motion.div>
           </div>
         </section>
