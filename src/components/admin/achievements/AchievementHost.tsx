@@ -61,8 +61,6 @@ function toastTitle(step: AchievementStep): string {
       return "Budget and subscription set";
     case "brain":
       return "Noni knows your company";
-    case "color":
-      return "Color picked";
     case "sales":
       return "Stripe and Supabase connected";
     case "media":

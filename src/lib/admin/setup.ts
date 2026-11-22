@@ -8,14 +8,14 @@
       /onboarding/company. Noni still fills in the detail itself.
    3. Screenshots: done once the media library holds at least one
       screenshot or recording of the product.
-   4. Color: done once a person has picked or confirmed the color of the
-      text on their posts (a color the site scan filled in still needs a yes).
-   5. Connections: done once both Stripe (sales) and Supabase (sign-ups)
+   The color of the text on posts is not a step: Noni reads it off the
+   company's website, and it can be changed under Media.
+   4. Connections: done once both Stripe (sales) and Supabase (sign-ups)
       are connected, so every post shows what it brought in. Required.
-   6. Managers: done once at least one campaign manager is on the team
+   5. Managers: done once at least one campaign manager is on the team
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
-   7. Creators: done once at least one creator is on the team.
+   6. Creators: done once at least one creator is on the team.
    The steps run in order: each one stays locked until the one before it
    is done, so there is always exactly one thing to do next.
    When every step is done the Onboarding tab retires: nav item, badge and
@@ -27,7 +27,6 @@ export type SetupStepKey =
   | "billing"
   | "brain"
   | "media"
-  | "color"
   | "managers"
   | "creators"
   | "sales";
@@ -90,14 +89,6 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       short: "Screenshots",
       action: "Add screenshots",
       href: "/onboarding/media",
-    },
-    {
-      key: "color",
-      done: dataset.company.themeConfirmed,
-      title: "Pick your color",
-      short: "Color",
-      action: "Pick",
-      href: "/onboarding/media?step=color",
     },
     {
       key: "sales",
