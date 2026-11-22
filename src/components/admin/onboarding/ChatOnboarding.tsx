@@ -10,6 +10,7 @@ import { finishChatOnboarding, startOnboardingScan } from "@/app/onboarding/acti
 import { SnapshotReview } from "@/components/admin/brain/SnapshotReview";
 import { GetTheApp } from "@/components/GetTheApp";
 import { BackButton } from "@/components/onboarding/BackButton";
+import { WelcomeLaunch } from "@/components/admin/onboarding/WelcomeLaunch";
 import { RestartOnboardingButton } from "@/components/RestartOnboardingButton";
 import type { IngestState } from "@/lib/admin/brain-model";
 import {
@@ -181,7 +182,12 @@ export function ChatOnboarding({
   canRestart = false,
   source,
   done,
+  fresh = false,
+  firstName = "",
 }: {
+  /** No conversation yet: the welcome screen shows from the first paint. */
+  fresh?: boolean;
+  firstName?: string;
   /** Another conversation in the same format (the apply chat). With one,
       there is no company yet: no site scan, and `done` is what the end shows. */
   source?: ChatSource;
@@ -202,13 +208,13 @@ export function ChatOnboarding({
   const [picked, setPicked] = useState<string[]>([]);
   const [scan, setScan] = useState<IngestState | null>(initialScan ?? null);
   const [site, setSite] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName] = useState(firstName);
   const [finishing, setFinishing] = useState(false);
   const [lastAnswer, setLastAnswer] = useState<ChatAnswer | null>(null);
   const [progress, setProgress] = useState<ChatProgress | null>(null);
   /* A company's first visit (from the invite email) opens on a welcome
      screen; the chat starts from its button. Back returns to it. */
-  const [welcome, setWelcome] = useState(false);
+  const [welcome, setWelcome] = useState(fresh && !source);
   const box = useRef<HTMLTextAreaElement>(null);
   const composer = useRef<HTMLDivElement>(null);
   /* The thread always clears the answer area, however tall it gets. */
@@ -293,11 +299,12 @@ export function ChatOnboarding({
     void loadChat(source)
       .then((state) => {
         if (!live) return;
-        setName(state.first_name);
+        if (state.first_name) setName(state.first_name);
         if (state.progress) setProgress(state.progress);
         if (state.messages.length) {
           setMessages(state.messages);
           setPending(state.pending);
+          setWelcome(false);
           setBusy(false);
         } else if (!source) {
           setWelcome(true);
@@ -365,42 +372,7 @@ export function ChatOnboarding({
   if (welcome) {
     return (
       <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#fbfbfc] font-ops">
-        {/* The rocket flies once across the screen, bottom left to top right, leaving a puff trail. */}
-        <style>{`
-          @keyframes rocket-fly {
-            0% { transform: translate(-12vw, 112vh) rotate(0deg) scale(0.8); opacity: 0 }
-            8% { opacity: 1 }
-            50% { transform: translate(42vw, 48vh) rotate(-4deg) scale(1.15) }
-            92% { opacity: 1 }
-            100% { transform: translate(112vw, -18vh) rotate(0deg) scale(0.9); opacity: 0 }
-          }
-          @keyframes rocket-puff {
-            0% { transform: scale(0.4); opacity: 0 }
-            15% { opacity: .55 }
-            100% { transform: scale(1.6); opacity: 0 }
-          }
-          @media (prefers-reduced-motion: reduce) { .rocket-fly { display: none } }
-        `}</style>
-        <span
-          aria-hidden
-          className="rocket-fly pointer-events-none fixed left-0 top-0 z-20"
-          style={{ animation: "rocket-fly 2.2s cubic-bezier(.45,.05,.35,1) .25s both" }}
-        >
-          {[0, 1, 2, 3].map((i) => (
-            <span
-              key={i}
-              className="absolute rounded-full bg-blue-200"
-              style={{
-                width: 14 - i * 2,
-                height: 14 - i * 2,
-                left: -10 - i * 16,
-                top: 52 + i * 16,
-                animation: `rocket-puff .7s ease-out ${0.35 + i * 0.08}s infinite`,
-              }}
-            />
-          ))}
-          <Image src="/brand/noni-logo.svg" alt="" width={64} height={64} priority />
-        </span>
+        <WelcomeLaunch />
         <header className="flex items-center gap-[9px] px-5 py-4 sm:px-7">
           <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
           <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>

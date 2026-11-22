@@ -41,7 +41,16 @@ export default async function OnboardingPage() {
     if (name) await supabase.from("profiles").update({ full_name: name }).eq("id", userId);
   }
 
-  const scan = await peekBrainIngest();
+  const [scan, { data: company }] = await Promise.all([
+    peekBrainIngest(),
+    createServiceClient()
+      .from("companies")
+      .select("onboarding_chat")
+      .eq("id", profile!.active_company_id!)
+      .maybeSingle(),
+  ]);
+  const chat = company?.onboarding_chat as { messages?: unknown[] } | null;
+  const { profile: named } = await getSessionProfile();
 
   return (
     <ChatOnboarding
@@ -49,6 +58,8 @@ export default async function OnboardingPage() {
       email={email}
       initialScan={scan.ok ? scan.data : null}
       canRestart={isOnboardingTester(email)}
+      fresh={!chat?.messages?.length}
+      firstName={named?.full_name?.trim().split(/\s+/)[0] ?? ""}
     />
   );
 }
