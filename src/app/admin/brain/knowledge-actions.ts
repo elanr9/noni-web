@@ -228,6 +228,8 @@ export async function settleBrainSnapshot(input: {
   decision: "confirm" | "dismiss";
   title?: string;
   text?: string;
+  /** A correction typed in conversation; the line is rewritten to take it in. */
+  note?: string;
 }): Promise<BrainResult<CompanySnapshot>> {
   const gate = await requireBrainAccess();
   if (!gate.ok) return gate;

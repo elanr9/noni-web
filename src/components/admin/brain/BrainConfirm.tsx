@@ -206,6 +206,18 @@ export function BrainConfirm({
     });
   }, [initial]);
 
+  /* The thread stays pinned to the bottom: as a line types out, when an
+     answer lands, and when the answer row or the Done button appears. */
+  const thread = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const node = thread.current;
+    if (!node) return;
+    const pin = () => window.scrollTo({ top: document.documentElement.scrollHeight });
+    const observer = new ResizeObserver(pin);
+    observer.observe(node);
+    pin();
+    return () => observer.disconnect();
+  }, [started]);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [turns.length, settled]);
@@ -230,10 +242,11 @@ export function BrainConfirm({
     else say(sayOf(asks[0]));
   };
 
-  /* After an answer: the next question, or the sign-off. */
-  const advance = (mine: string, fixed: boolean) => {
+  /* After an answer: the next question, or the sign-off. A correction is
+     read back as the line it became. */
+  const advance = (mine: string, fixedTo: string | null) => {
     const next = asks[at + 1];
-    const lead = fixed ? "Fixed. " : "";
+    const lead = fixedTo === null ? "" : fixedTo ? `Got it: ${fixedTo}.\n\n` : "Got it.\n\n";
     setWins((n) => n + 1);
     say(next ? `${lead}${sayOf(next)}` : `${lead}${name} is locked in.`, mine);
     setAt((n) => n + 1);
@@ -263,12 +276,13 @@ export function BrainConfirm({
     void confirm(ask).then((problem) => {
       setBusy(false);
       if (problem) setError(problem);
-      else advance("Yes", false);
+      else advance("Yes", null);
     });
   };
 
-  /* A typed answer replaces the line with the company's own words. A note
-     on the feature list goes to Noni to read, and the list is confirmed. */
+  /* A typed answer is a correction: the line is rewritten to take it in
+     (never replaced by the reply itself). A note on the feature list goes
+     to Noni to read, and the list is confirmed. */
   const send = () => {
     const words = draft.trim();
     if (!ask || !words || busy || !settled) return;
@@ -276,22 +290,24 @@ export function BrainConfirm({
     setError(null);
     const work =
       ask.kind === "line"
-        ? settleBrainSnapshot({
-            part: ask.part,
-            decision: "confirm",
-            title: ask.item.title,
-            text: words,
-          }).then((result) => {
-            if (result.ok) setSnapshot(result.data);
-            return result.ok ? null : result.error;
-          })
+        ? settleBrainSnapshot({ part: ask.part, decision: "confirm", note: words }).then(
+            (result) => {
+              if (!result.ok) return { problem: result.error, fixedTo: "" };
+              setSnapshot(result.data);
+              const line = result.data[ask.part];
+              return { problem: null, fixedTo: line ? lower(bulletOf(line, ask.part)) : "" };
+            },
+          )
         : startBrainIngest({ texts: [{ title: "What the product does", text: words }] }).then(
-            (result) => (result.ok ? confirm(ask) : result.error),
+            async (result) => ({
+              problem: result.ok ? await confirm(ask) : result.error,
+              fixedTo: "",
+            }),
           );
-    void work.then((problem) => {
+    void work.then(({ problem, fixedTo }) => {
       setBusy(false);
       if (problem) setError(problem);
-      else advance(words, true);
+      else advance(words, fixedTo);
     });
   };
 
@@ -352,8 +368,9 @@ export function BrainConfirm({
         </main>
       ) : (
         <main
+          ref={thread}
           className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-7 px-5 pt-6"
-          style={{ paddingBottom: ask ? 190 : 48 }}
+          style={{ paddingBottom: ask ? 230 : 64 }}
         >
           {turns.map((turn, i) =>
             turn.from === "me" ? (
