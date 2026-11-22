@@ -203,12 +203,10 @@ export function LandingPage() {
 
             <div className="relative mx-auto max-w-[880px] text-center animate-om-rise">
               <h1 className="display text-balance text-[clamp(38px,6.6svh,62px)] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink">
-                Your entire <span className="text-accent-deep">UGC campaigns</span>
-                <br className="hidden lg:block" /> all in one place
+                <span className="text-accent-deep">UGC Campaigns</span> made easy
               </h1>
               <p className="mx-auto mt-[clamp(14px,2.6svh,24px)] max-w-[640px] text-balance text-[clamp(16px,2.2svh,20px)] leading-[1.5] text-muted">
-                Run your creators on Noni, or let the Noni team run it all for you.
-                <span className="mt-1 block font-semibold text-ink">Work better, work faster.</span>
+                Everything you need to run UGC Campaigns, all in one place.
               </p>
               <div className="mt-[clamp(18px,3.4svh,32px)] flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
                 <Link

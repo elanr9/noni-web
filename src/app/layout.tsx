@@ -27,7 +27,7 @@ const display = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "Noni: your entire UGC campaigns, all in one place",
+    default: "Noni: UGC Campaigns made easy",
     template: "%s · Noni",
   },
   icons: {
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   applicationName: "Noni",
   description:
-    "Your entire UGC campaigns, all in one place. Write briefs, film, edit with AI, post, track results and pay your creators.",
+    "Everything you need to run UGC Campaigns, all in one place. Write briefs, film, edit with AI, post, track results and pay your creators.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.usenoni.app",
   ),
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: "Noni",
     siteName: "Noni",
     description:
-      "Your entire UGC campaigns, all in one place. Write briefs, film, edit with AI, post, track results and pay your creators.",
+      "Everything you need to run UGC Campaigns, all in one place. Write briefs, film, edit with AI, post, track results and pay your creators.",
     type: "website",
   },
   appleWebApp: {
