@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Check, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -9,6 +9,7 @@ import { getBrainIngestStatus } from "@/app/admin/brain/knowledge-actions";
 import { finishChatOnboarding, startOnboardingScan } from "@/app/onboarding/actions";
 import { SnapshotReview } from "@/components/admin/brain/SnapshotReview";
 import { GetTheApp } from "@/components/GetTheApp";
+import { BackButton } from "@/components/onboarding/BackButton";
 import { RestartOnboardingButton } from "@/components/RestartOnboardingButton";
 import type { IngestState } from "@/lib/admin/brain-model";
 import {
@@ -205,6 +206,9 @@ export function ChatOnboarding({
   const [finishing, setFinishing] = useState(false);
   const [lastAnswer, setLastAnswer] = useState<ChatAnswer | null>(null);
   const [progress, setProgress] = useState<ChatProgress | null>(null);
+  /* A company's first visit (from the invite email) opens on a welcome
+     screen; the chat starts from its button. Back returns to it. */
+  const [welcome, setWelcome] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
   const composer = useRef<HTMLDivElement>(null);
   /* The thread always clears the answer area, however tall it gets. */
@@ -295,6 +299,9 @@ export function ChatOnboarding({
           setMessages(state.messages);
           setPending(state.pending);
           setBusy(false);
+        } else if (!source) {
+          setWelcome(true);
+          setBusy(false);
         } else void turn(null);
       })
       .catch((e: unknown) => {
@@ -350,6 +357,44 @@ export function ChatOnboarding({
     router.push("/admin?tour=1");
   };
 
+  const begin = () => {
+    setWelcome(false);
+    if (messages.length === 0 && streaming === null) void turn(null);
+  };
+
+  if (welcome) {
+    return (
+      <div className="flex min-h-screen flex-col bg-[#fbfbfc] font-ops">
+        <header className="flex items-center gap-[9px] px-5 py-4 sm:px-7">
+          <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
+          <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
+          <span className="flex-1" />
+          {canRestart ? <RestartOnboardingButton variant="pill" /> : null}
+        </header>
+        <main className="mx-auto flex w-full max-w-[760px] flex-1 flex-col items-center justify-center gap-7 px-5 pb-24 text-center">
+          <span className="inline-flex h-[84px] w-[84px] items-center justify-center rounded-[24px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.12)] animate-om-check">
+            <Image src="/brand/noni-logo.svg" alt="" width={46} height={46} />
+          </span>
+          <h1 className="display m-0 text-[52px] font-bold leading-[1.05] tracking-[-1.8px] text-ink animate-om-rise">
+            Hey{name ? ` ${name}` : ""}, welcome to <span className="text-blue-500">Noni</span>!
+          </h1>
+          <p className="m-0 max-w-[560px] text-[19px] font-medium leading-[1.55] text-slate-500 animate-om-rise">
+            We&apos;re so excited to work with you. Take 10 minutes to complete our onboarding. Once that&apos;s all
+            done, we can get your UGC campaigns started!
+          </p>
+          <button
+            type="button"
+            onClick={begin}
+            className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none bg-blue-500 px-9 py-[18px] text-[18px] font-bold text-white shadow-[0_12px_28px_rgba(59,130,246,0.34)] transition-[transform,filter] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.96] animate-om-rise"
+          >
+            Let&apos;s get started
+            <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />
+          </button>
+        </main>
+      </div>
+    );
+  }
+
   const scanAfter = messages.findIndex((m) => m.role === "user" && m.slot === "website");
   const choice = pending && (pending.kind === "choice" || pending.kind === "multi") && !busy;
   const composerOn = pending && pending.kind !== "summary" && pending.kind !== "done";
@@ -358,6 +403,7 @@ export function ChatOnboarding({
     <div className="flex min-h-screen flex-col bg-[#fbfbfc] font-ops">
       <style>{`@keyframes chat-dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0) } 40% { opacity: 1; transform: translateY(-3px) } }`}</style>
       <header className="sticky top-0 z-10 flex items-center gap-[9px] bg-[#fbfbfc]/85 px-5 py-4 backdrop-blur sm:px-7">
+        {!source ? <BackButton disabled={busy || finishing} onClick={() => setWelcome(true)} /> : null}
         <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
         <span className="flex-1" />

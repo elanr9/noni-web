@@ -8,6 +8,7 @@ import { addMediaLibraryItem, saveThemeColor } from "@/app/manager/media/actions
 import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { PostTextPreview } from "@/components/company/PostTextPreview";
 import { useNavigate } from "@/components/motion/NavProgress";
+import { BackButton } from "@/components/onboarding/BackButton";
 import {
   checkMediaFile,
   THEME_SWATCHES,
@@ -151,6 +152,14 @@ export function MediaSetup({
   };
 
   const uploading = [...shots, ...recs].some((s) => s.busy);
+
+  /* Back walks the screens in reverse; from the first one it is the dashboard. */
+  const back = () => {
+    setError(null);
+    if (step === "recording") setStep("shots");
+    else if (step === "done") setStep(start === "color" ? "color" : "recording");
+    else go("/admin");
+  };
   const primary =
     "group inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-9 py-[18px] text-[18px] font-bold transition-[transform,filter,opacity] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.96] disabled:cursor-default disabled:opacity-35 disabled:hover:translate-y-0";
   const primaryStyle = {
@@ -221,6 +230,7 @@ export function MediaSetup({
       onDrop={onDrop}
     >
       <header className="flex items-center gap-[9px] px-5 py-4 sm:px-7">
+        <BackButton disabled={leaving} onClick={back} />
         <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
         <span className="flex-1" />

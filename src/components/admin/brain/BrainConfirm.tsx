@@ -12,6 +12,7 @@ import {
 } from "@/app/admin/brain/knowledge-actions";
 import { CompanyMark } from "@/components/CompanySwitcher";
 import { useNavigate } from "@/components/motion/NavProgress";
+import { BackButton } from "@/components/onboarding/BackButton";
 import {
   bulletOf,
   needsBullets,
@@ -379,6 +380,8 @@ export function BrainConfirm({
     <div className="flex min-h-screen flex-col bg-[#fbfbfc] font-ops">
       <style>{`@keyframes chat-dot { 0%, 80%, 100% { opacity: .25; transform: translateY(0) } 40% { opacity: 1; transform: translateY(-3px) } }`}</style>
       <header className="sticky top-0 z-10 flex items-center gap-[9px] bg-[#fbfbfc]/85 px-5 py-4 backdrop-blur sm:px-7">
+        {/* Every answer is saved as it is given, so leaving loses nothing. */}
+        <BackButton disabled={leaving || busy} onClick={() => go("/admin")} />
         <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
         <span className="flex-1" />
