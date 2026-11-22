@@ -100,17 +100,53 @@ const CREATOR_STEPS = [
   { icon: BadgeDollarSign, label: "Get paid" },
 ];
 
+/* One row of real screens, sized from the screen height so every phone
+   shows whole. Wide: three side by side. Narrow: swipe one at a time with
+   the next one peeking in. */
 function ShotRow({ shots, dark = false }: { shots: Shot[]; dark?: boolean }) {
   return (
-    <div className="mt-12 grid gap-12 sm:grid-cols-3 sm:gap-6 lg:gap-10">
+    <div className="landing-swipe -mx-5 flex min-h-0 flex-1 snap-x snap-mandatory gap-4 overflow-x-auto px-[9%] sm:mx-0 sm:gap-6 sm:overflow-visible sm:px-0 lg:gap-10">
       {shots.map((s, i) => (
-        <Reveal key={s.title} delay={i * 0.06} className="flex flex-col items-center text-center">
-          <Phone src={s.src} alt={s.alt} sizes="(min-width: 1024px) 260px, (min-width: 640px) 28vw, 62vw" className="w-[62%] max-w-[260px] sm:w-[88%]" />
-          <h3 className={`m-0 mt-7 text-[20px] font-extrabold ${dark ? "text-white" : "text-ink"}`}>{s.title}</h3>
-          <p className={`m-0 mt-1.5 text-[15px] ${dark ? "text-white/65" : "text-ink-soft/75"}`}>{s.line}</p>
+        <Reveal
+          key={s.title}
+          delay={i * 0.06}
+          className="flex min-h-0 shrink-0 basis-[82%] snap-center flex-col items-center text-center sm:basis-0 sm:flex-1"
+        >
+          <div className="flex min-h-0 w-full flex-1 justify-center">
+            <Phone fitHeight src={s.src} alt={s.alt} sizes="(min-width: 640px) 30vw, 70vw" />
+          </div>
+          <h3 className={`m-0 mt-[clamp(10px,2svh,22px)] text-[clamp(16px,2.3svh,20px)] font-extrabold ${dark ? "text-white" : "text-ink"}`}>{s.title}</h3>
+          <p className={`m-0 mt-1 text-[clamp(13px,1.8svh,15px)] ${dark ? "text-white/65" : "text-ink-soft/75"}`}>{s.line}</p>
         </Reveal>
       ))}
     </div>
+  );
+}
+
+/** Each section is exactly one screen under the navbar, and the page snaps to them. */
+function LandingScreenStyles() {
+  return (
+    <style>{`
+      .landing-root { --nav: 56px; }
+      @media (min-width: 768px) { .landing-root { --nav: 72px; } }
+      html:has(.landing-root) { scroll-snap-type: y proximity; scroll-padding-top: 56px; }
+      @media (min-width: 768px) { html:has(.landing-root) { scroll-padding-top: 72px; } }
+      .landing-screen { min-height: calc(100svh - var(--nav)); scroll-snap-align: start; }
+      .landing-screen-fixed { height: calc(100svh - var(--nav)); min-height: 430px; scroll-snap-align: start; }
+      /* Short laptop windows: shrink the text sections a little so each still fits. */
+      @media (min-width: 640px) and (max-height: 780px) { .landing-fit { zoom: 0.86; } }
+      @media (min-width: 640px) and (max-height: 640px) { .landing-fit { zoom: 0.7; } }
+      /* Plans: three across from tablet up, one at a time to swipe on phones. */
+      @media (min-width: 640px) { .landing-pricing .plan-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 639px) {
+        .landing-pricing .plan-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin-inline: -16px; padding: 4px 16px 8px; }
+        .landing-pricing .plan-grid::-webkit-scrollbar { display: none; }
+        .landing-pricing .plan-grid > * { flex: 0 0 84%; scroll-snap-align: center; }
+        .landing-pricing .plan-title, .landing-pricing .plan-footnote { display: none; }
+      }
+      .landing-swipe { scrollbar-width: none; }
+      .landing-swipe::-webkit-scrollbar { display: none; }
+    `}</style>
   );
 }
 
@@ -147,49 +183,51 @@ export function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-white">
+    <div className="landing-root min-h-screen overflow-x-clip bg-white">
+      <LandingScreenStyles />
       <Navbar />
 
       <main>
         {/* ── Hero ── */}
-        <section className="relative overflow-hidden">
+        <section className="landing-screen relative flex flex-col justify-center overflow-hidden">
           <HeroNoteStyles />
-          <div className="relative mx-auto max-w-[1240px] px-5 pb-20 pt-14 md:px-8 md:pt-20 lg:pb-28">
+          <div className="relative mx-auto w-full max-w-[1240px] px-5 py-8 md:px-8">
             {/* Notifications around the headline (wide screens) */}
             <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
-              <NoteCard note={HERO_NOTES[0]} delay={500} drift={0} className="absolute left-0 top-[262px]" />
-              <NoteCard note={HERO_NOTES[1]} delay={750} drift={1500} className="absolute right-0 top-[250px]" />
-              <NoteCard note={HERO_NOTES[2]} delay={1000} drift={800} className="absolute left-[56px] top-[392px]" />
-              <NoteCard note={HERO_NOTES[3]} delay={1250} drift={2200} className="absolute right-[48px] top-[380px]" />
+              <NoteCard note={HERO_NOTES[0]} delay={500} drift={0} className="absolute left-0 top-[34%]" />
+              <NoteCard note={HERO_NOTES[1]} delay={750} drift={1500} className="absolute right-0 top-[31%]" />
+              <NoteCard note={HERO_NOTES[2]} delay={1000} drift={800} className="absolute left-[56px] top-[62%]" />
+              <NoteCard note={HERO_NOTES[3]} delay={1250} drift={2200} className="absolute right-[48px] top-[59%]" />
+              <NoteCard note={HERO_NOTES[4]} delay={1500} drift={3000} className="absolute left-[150px] top-[86%]" />
             </div>
 
             <div className="relative mx-auto max-w-[880px] text-center animate-om-rise">
-              <h1 className="display text-balance text-[44px] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink sm:text-[56px] lg:text-[62px]">
+              <h1 className="display text-balance text-[clamp(38px,6.6svh,62px)] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink">
                 Your entire <span className="text-accent-deep">UGC campaigns</span>
                 <br className="hidden lg:block" /> all in one place
               </h1>
-              <p className="mx-auto mt-6 max-w-[640px] text-balance text-[18px] leading-[1.5] text-muted md:text-[20px]">
+              <p className="mx-auto mt-[clamp(14px,2.6svh,24px)] max-w-[640px] text-balance text-[clamp(16px,2.2svh,20px)] leading-[1.5] text-muted">
                 Run your creators on Noni, or let the Noni team run it all for you.
                 <span className="mt-1 block font-semibold text-ink">Work better, work faster.</span>
               </p>
-              <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <div className="mt-[clamp(18px,3.4svh,32px)] flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
                 <Link
                   href="/apply?as=company"
-                  className="group inline-flex items-center justify-center gap-2 rounded-[14px] bg-ink px-8 py-4 text-[16px] font-bold text-white no-underline transition hover:bg-ink-soft"
+                  className="group inline-flex items-center justify-center gap-2 rounded-[14px] bg-ink px-8 py-4 text-[16px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97]"
                 >
                   Get started
                   <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-1" />
                 </Link>
                 <Link
                   href="#pricing"
-                  className="inline-flex items-center justify-center rounded-[14px] border border-line-strong bg-white px-8 py-4 text-[16px] font-bold text-ink no-underline transition hover:bg-soft"
+                  className="inline-flex items-center justify-center rounded-[14px] border border-line-strong bg-white px-8 py-4 text-[16px] font-bold text-ink no-underline transition hover:bg-soft active:scale-[0.97]"
                 >
                   See pricing
                 </Link>
               </div>
               <Link
                 href="/apply?as=creator"
-                className="group mt-6 inline-flex items-center gap-1.5 text-[14.5px] font-semibold text-muted no-underline transition hover:text-ink"
+                className="group mt-[clamp(14px,2.6svh,24px)] inline-flex items-center gap-1.5 text-[14.5px] font-semibold text-muted no-underline transition hover:text-ink"
               >
                 Creator? <span className="text-accent-deep">Get paid to post for brands</span>
                 <ArrowRight className="h-3.5 w-3.5 text-accent-deep transition-transform duration-150 group-hover:translate-x-1" />
@@ -197,35 +235,37 @@ export function LandingPage() {
             </div>
 
             {/* Notifications under the buttons (small screens) */}
-            <div aria-hidden className="mt-10 flex flex-col items-center gap-3 lg:hidden">
+            <div aria-hidden className="mt-[clamp(20px,4svh,40px)] flex flex-col items-center gap-3 lg:hidden">
               <NoteCard note={HERO_NOTES[0]} delay={400} />
-              <NoteCard note={HERO_NOTES[1]} delay={600} drift={1500} />
+              <NoteCard note={HERO_NOTES[1]} delay={600} drift={1500} className="[@media(max-height:900px)]:hidden" />
             </div>
           </div>
         </section>
 
-        <div id="features" className="scroll-mt-20">
-          {/* ── For Businesses ── */}
-          <section id="for-businesses" className="scroll-mt-20 px-3 md:px-6">
-            <div className="mx-auto max-w-[1180px] rounded-[36px] bg-ink px-6 py-14 md:px-12 lg:py-20">
+        <div id="features">
+          {/* ── For campaign managers ── */}
+          <section id="for-businesses" className="landing-screen-fixed px-3 py-3 md:px-6">
+            <div className="mx-auto flex h-full max-w-[1180px] flex-col rounded-[clamp(24px,4svh,36px)] bg-ink px-5 py-[clamp(20px,4svh,44px)] md:px-12">
               <Reveal className="text-center">
                 <p className="text-[12.5px] font-extrabold uppercase tracking-[0.14em] text-accent">For campaign managers</p>
-                <h2 className="display mt-3 text-[36px] font-bold leading-[1.04] text-white md:text-[50px]">
+                <h2 className="display mt-2 text-[clamp(28px,5svh,48px)] font-bold leading-[1.04] text-white">
                   Run every campaign from one app
                 </h2>
               </Reveal>
-              <ShotRow shots={MANAGER_SHOTS} dark />
-              <div className="mt-14 flex flex-col justify-center gap-3 sm:flex-row">
+              <div className="mt-[clamp(16px,3.4svh,36px)] flex min-h-0 flex-1 flex-col">
+                <ShotRow shots={MANAGER_SHOTS} dark />
+              </div>
+              <div className="mt-[clamp(16px,3svh,32px)] flex justify-center gap-3">
                 <Link
                   href="/apply?as=company"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-accent-deep"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-accent-deep active:scale-[0.97] md:px-7 md:py-3.5"
                 >
                   Get started
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href="#pricing"
-                  className="inline-flex items-center justify-center rounded-full border border-white/20 px-7 py-4 text-[15.5px] font-bold text-white transition hover:bg-white/10"
+                  className="inline-flex items-center justify-center rounded-full border border-white/20 px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-white/10 active:scale-[0.97] md:px-7 md:py-3.5"
                 >
                   See pricing
                 </Link>
@@ -233,19 +273,19 @@ export function LandingPage() {
             </div>
           </section>
 
-          {/* ── For Creators ── */}
-          <section id="for-creators" className="scroll-mt-20 px-3 pt-5 md:px-6">
-            <div className="mx-auto max-w-[1180px] rounded-[36px] bg-accent-soft px-6 py-14 md:px-12 lg:py-20">
+          {/* ── For creators ── */}
+          <section id="for-creators" className="landing-screen-fixed px-3 py-3 md:px-6">
+            <div className="mx-auto flex h-full max-w-[1180px] flex-col rounded-[clamp(24px,4svh,36px)] bg-accent-soft px-5 py-[clamp(20px,4svh,44px)] md:px-12">
               <Reveal className="text-center">
                 <Eyebrow>For creators</Eyebrow>
-                <h2 className="display mt-3 text-[36px] font-bold leading-[1.04] text-ink md:text-[50px]">
+                <h2 className="display mt-2 text-[clamp(28px,5svh,48px)] font-bold leading-[1.04] text-ink">
                   Everything in one place
                 </h2>
-                <ol className="m-0 mx-auto mt-7 flex max-w-[760px] list-none flex-wrap items-center justify-center gap-2 p-0">
+                <ol className="m-0 mx-auto mt-[clamp(10px,2svh,20px)] hidden max-w-[760px] list-none flex-wrap items-center justify-center gap-2 p-0 sm:flex [@media(max-height:680px)]:hidden">
                   {CREATOR_STEPS.map(({ icon: Icon, label }) => (
                     <li
                       key={label}
-                      className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-[14.5px] font-extrabold text-ink"
+                      className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-[14px] font-extrabold text-ink"
                     >
                       <Icon className="h-4 w-4 text-accent-deep" />
                       {label}
@@ -253,11 +293,13 @@ export function LandingPage() {
                   ))}
                 </ol>
               </Reveal>
-              <ShotRow shots={CREATOR_SHOTS} />
-              <div className="mt-14 flex justify-center">
+              <div className="mt-[clamp(16px,3svh,32px)] flex min-h-0 flex-1 flex-col">
+                <ShotRow shots={CREATOR_SHOTS} />
+              </div>
+              <div className="mt-[clamp(16px,3svh,32px)] flex justify-center">
                 <Link
                   href="/apply?as=creator"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-ink-soft sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97] md:px-7 md:py-3.5"
                 >
                   Apply as a creator
                   <ArrowRight className="h-4 w-4" />
@@ -268,15 +310,15 @@ export function LandingPage() {
         </div>
 
         {/* ── Pricing ── */}
-        <section id="pricing" className="scroll-mt-20 pt-16 lg:pt-24">
-          <div className="font-ops mx-auto max-w-[1080px] px-4 md:px-8">
-            <PricingFork />
+        <section id="pricing" className="landing-screen flex flex-col justify-center py-6">
+          <div className="landing-fit landing-pricing font-ops mx-auto w-full max-w-[1080px] px-4 md:px-8">
+            <PricingFork tight />
           </div>
         </section>
 
         {/* ── Founders ── */}
-        <section id="founders" className="scroll-mt-20">
-          <div className="mx-auto max-w-[920px] px-5 pt-20 md:px-8 lg:pt-28">
+        <section id="founders" className="landing-screen flex flex-col justify-center py-6">
+          <div className="landing-fit mx-auto w-full max-w-[920px] px-5 md:px-8">
             <Reveal className="rounded-[36px] border border-line bg-white px-6 py-10 md:px-12 md:py-14">
               <Eyebrow>From the founders</Eyebrow>
               <h2 className="display mt-3 text-[30px] font-bold leading-[1.06] text-ink md:text-[40px]">
@@ -315,7 +357,7 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={bookCall}
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-ink px-6 py-3.5 text-[15px] font-bold text-white transition hover:bg-ink-soft"
+                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border-none bg-ink px-6 py-3.5 text-[15px] font-bold text-white transition hover:bg-ink-soft active:scale-[0.97]"
                 >
                   Talk to us
                   <ArrowRight className="h-4 w-4" />
@@ -325,47 +367,47 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* ── FAQ ── */}
-        <section id="faq" className="scroll-mt-20">
-          <div className="mx-auto max-w-[820px] px-5 pb-20 pt-20 md:px-8 lg:pb-28 lg:pt-28">
+        {/* ── FAQ and the last call to action, one screen ── */}
+        <section id="faq" className="landing-screen flex flex-col justify-center py-6">
+          <div className="landing-fit mx-auto w-full max-w-[820px] px-5 md:px-8">
             <Reveal className="text-center">
               <Eyebrow>FAQ</Eyebrow>
-              <h2 className="display mt-3 text-[34px] font-bold leading-[1.04] text-ink md:text-[44px]">
+              <h2 className="display mt-2 text-[clamp(28px,4.6svh,44px)] font-bold leading-[1.04] text-ink">
                 Questions
               </h2>
             </Reveal>
-            <div className="mt-9 flex flex-col gap-3">
+            <div className="mt-[clamp(14px,3svh,32px)] flex flex-col gap-2.5">
               {FAQ.map((item) => (
                 <details
                   key={item.q}
-                  className="group rounded-[20px] border border-line bg-white px-5 py-4 md:px-6 md:py-5 [&_summary::-webkit-details-marker]:hidden"
+                  className="group rounded-[18px] border border-line bg-white px-5 py-3.5 md:px-6 [&_summary::-webkit-details-marker]:hidden"
                 >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[16px] font-extrabold text-ink">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15.5px] font-extrabold text-ink">
                     {item.q}
                     <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-soft text-[18px] font-semibold text-ink-soft transition-transform group-open:rotate-45">
                       +
                     </span>
                   </summary>
-                  <p className="m-0 mt-3 text-[15px] leading-[1.65] text-muted">{item.a}</p>
+                  <p className="m-0 mt-2.5 text-[15px] leading-[1.6] text-muted">{item.a}</p>
                 </details>
               ))}
             </div>
 
-            <Reveal className="mt-14 rounded-[32px] bg-soft px-6 py-10 text-center md:py-12">
-              <h2 className="display m-0 text-[28px] font-bold leading-[1.08] text-ink md:text-[36px]">
+            <Reveal className="mt-[clamp(16px,3.4svh,36px)] rounded-[28px] bg-soft px-6 py-[clamp(20px,3.6svh,36px)] text-center">
+              <h2 className="display m-0 text-[clamp(24px,3.6svh,34px)] font-bold leading-[1.08] text-ink">
                 Ready when you are
               </h2>
-              <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <div className="mt-[clamp(12px,2.4svh,22px)] flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
                 <Link
                   href="/apply?as=company"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-ink-soft"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-7 py-3.5 text-[15px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97]"
                 >
                   Get started
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
                   href="/apply?as=creator"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-accent-deep"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-3.5 text-[15px] font-bold text-white no-underline transition hover:bg-accent-deep active:scale-[0.97]"
                 >
                   Apply as a creator
                   <ArrowRight className="h-4 w-4" />

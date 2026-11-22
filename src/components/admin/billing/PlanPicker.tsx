@@ -196,7 +196,7 @@ export function PlanPicker({
     <div className={`flex flex-col items-center ${compact ? "" : "py-8"}`}>
       {compact ? (
         <div className="flex w-full flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <div className="min-w-0">
+          <div className="plan-title min-w-0">
             <h1 className="display m-0 text-[22px] font-bold leading-[1.2] tracking-[-0.5px] text-ink">
               Pick your plan
             </h1>
@@ -233,7 +233,7 @@ export function PlanPicker({
       )}
 
       <div
-        className={`om-stagger grid w-full items-stretch lg:grid-cols-3 ${
+        className={`plan-grid om-stagger grid w-full items-stretch lg:grid-cols-3 ${
           compact ? "mt-5 gap-3.5" : "mt-9 max-w-[1000px] gap-5"
         }`}
       >
@@ -415,7 +415,7 @@ export function PlanPicker({
       )}
 
       <p
-        className={`mb-0 text-center text-[12.5px] font-semibold text-slate-400 ${
+        className={`plan-footnote mb-0 text-center text-[12.5px] font-semibold text-slate-400 ${
           compact ? "mt-4" : "mt-8"
         }`}
       >

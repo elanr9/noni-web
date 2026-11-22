@@ -17,19 +17,19 @@ export const SIGN_UP = "/apply?as=company";
 
 type Path = "diy" | "dfy";
 
-export function PricingFork() {
+export function PricingFork({ tight = false }: { tight?: boolean } = {}) {
   const router = useRouter();
   const [path, setPath] = useState<Path>("diy");
 
   return (
-      <div className="mx-auto flex max-w-[1080px] flex-col items-center px-4 pt-10 md:px-8">
-        <span className="inline-flex whitespace-nowrap bg-blue-100 px-3.5 py-1.5 text-[12.5px] font-bold tracking-[0.3px] text-blue-700 rounded-pill">
+      <div className={`mx-auto flex max-w-[1080px] flex-col items-center px-4 md:px-8 ${tight ? "pt-0" : "pt-10"}`}>
+        <span className={`${tight ? "hidden sm:inline-flex" : "inline-flex"} whitespace-nowrap bg-blue-100 px-3.5 py-1.5 text-[12.5px] font-bold tracking-[0.3px] text-blue-700 rounded-pill`}>
           Pricing
         </span>
-        <h1 className="display m-0 mt-[18px] text-center text-[44px] font-bold leading-[1.08] tracking-[-1.2px] text-ink">
+        <h1 className={`display m-0 text-center ${tight ? "text-[30px] sm:mt-[18px] sm:text-[clamp(30px,4.6svh,44px)]" : "mt-[18px] text-[44px]"} font-bold leading-[1.08] tracking-[-1.2px] text-ink`}>
           What are you looking for?
         </h1>
-        <div className="mt-7 inline-flex border border-line bg-white p-1.5 shadow-[0_1px_2px_rgba(15,23,32,0.04)] rounded-pill">
+        <div className={`${tight ? "mt-[clamp(14px,2.6svh,28px)]" : "mt-7"} inline-flex border border-line bg-white p-1.5 shadow-[0_1px_2px_rgba(15,23,32,0.04)] rounded-pill`}>
           {(
             [
               ["diy", "Run it on Noni"],
@@ -40,7 +40,7 @@ export function PricingFork() {
               key={key}
               type="button"
               onClick={() => setPath(key)}
-              className={`cursor-pointer border-none px-6 py-2.5 text-[15px] font-bold transition-all duration-150 rounded-pill active:scale-[0.96] ${
+              className={`cursor-pointer whitespace-nowrap border-none px-4 py-2.5 text-[14px] sm:px-6 sm:text-[15px] font-bold transition-all duration-150 rounded-pill active:scale-[0.96] ${
                 path === key ? "bg-ink text-white" : "bg-transparent text-slate-500 hover:text-ink"
               }`}
             >

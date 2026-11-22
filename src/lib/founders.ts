@@ -15,6 +15,6 @@ export const FOUNDERS_NOTE = {
   title: "We built Noni because we needed it",
   paragraphs: [
     "We run a creator program for our own product, Field Vision AI. No tool covered the whole job, from telling a creator what to film to knowing whether the post made us a dollar, so we built one.",
-    "Noni is that tool. Every company that joins talks to one of us first, so tell us what your program needs.",
+    "Noni is that tool. Tell us what your program needs.",
   ],
 };
