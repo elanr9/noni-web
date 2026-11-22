@@ -15,7 +15,6 @@ const SCRIPT: Array<{ spec: SlotSpec; say: string }> = [
       kind: "choice",
       options: [
         { value: "signups", label: "Downloads and sign ups" },
-        { value: "sales", label: "Sales" },
         { value: "audience", label: "A bigger audience" },
         { value: "trust", label: "Trust in the brand" },
       ],
