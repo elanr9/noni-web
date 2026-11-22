@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -22,7 +22,6 @@ export function AuthCallbackClient({
   forceNew?: boolean;
 }) {
   const router = useRouter();
-  const [message, setMessage] = useState("Signing you in…");
 
   useEffect(() => {
     let cancelled = false;
@@ -34,7 +33,6 @@ export function AuthCallbackClient({
       if (cancelled) return;
       /* Remember this account so the sidebar switcher can offer it later. */
       if (supabase) await rememberCurrentAccount(supabase).catch(() => null);
-      setMessage("Signed in. Redirecting…");
       router.replace(path);
       router.refresh();
     }
@@ -128,9 +126,23 @@ export function AuthCallbackClient({
     };
   }, [code, flowId, next, router, forceNew]);
 
+  return <SigningIn />;
+}
+
+/* While the sign in finishes: the Noni rocket inside a thin spinning ring.
+   No words; the ring says it is working. */
+function SigningIn() {
   return (
-    <div className="grid min-h-screen place-items-center bg-soft text-[15px] text-muted">
-      {message}
+    <div className="grid min-h-screen place-items-center bg-[#fbfbfc]" role="status" aria-label="Signing you in">
+      <span className="relative inline-flex h-16 w-16 items-center justify-center animate-om-rise">
+        <span className="absolute inset-0 rounded-full border-[3px] border-blue-100" />
+        <span
+          className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-blue-500"
+          style={{ animation: "om-spin 700ms linear infinite" }}
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/noni-logo.svg" alt="" width={28} height={28} />
+      </span>
     </div>
   );
 }
