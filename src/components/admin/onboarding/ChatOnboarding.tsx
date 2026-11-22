@@ -627,7 +627,11 @@ export function ChatOnboarding({
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border-none bg-blue-500 px-4 py-2.5 text-[15px] font-bold text-white active:scale-[0.97]"
                 >
                   <Check size={16} strokeWidth={3} />
-                  {pending.key === "website" ? `Yes, ${wwwHost(pending.draft)}` : "That's right"}
+                  {pending.key === "website"
+                    ? `Yes, ${wwwHost(pending.draft)}`
+                    : pending.key === "company_name" || pending.key === "your_name"
+                      ? `Yes, ${pending.draft}`
+                      : "That's right"}
                 </button>
                 {pending.key !== "website" ? (
                   <Chip
