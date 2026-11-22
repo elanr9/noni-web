@@ -90,3 +90,20 @@ export async function chooseRunPath(renderedFor: string, path: RunPath): Promise
   revalidatePath("/admin", "layout");
   return { ok: true };
 }
+
+/** Calendly said the call is booked (its embed's event_scheduled message):
+    the "Do it for me" screen shows the booking from now on. */
+export async function markCallBooked(renderedFor: string): Promise<StartResult> {
+  const { userId, profile } = await getSessionProfile();
+  const companyId = profile?.active_company_id;
+  if (!userId || !companyId || !isCompanyAdmin(profile)) return { ok: false, error: "Company admins only." };
+  if (isStaleCompany(companyId, renderedFor)) return { ok: false, error: STALE_COMPANY_ERROR };
+  const db = createServiceClient();
+  const { data } = await db.from("companies").select("intake").eq("id", companyId).maybeSingle();
+  const intake = (data?.intake as Record<string, unknown> | null) ?? {};
+  const { error } = await db
+    .from("companies")
+    .update({ intake: { ...intake, call_booked_at: new Date().toISOString() } })
+    .eq("id", companyId);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}

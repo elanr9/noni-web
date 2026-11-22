@@ -50,8 +50,9 @@ export function Burst({ colors, count = 12, reach = 46 }: { colors: string[]; co
             style={
               {
                 backgroundColor: colors[i % colors.length],
-                "--dx": `${Math.cos(angle) * far}px`,
-                "--dy": `${Math.sin(angle) * far}px`,
+                /* Rounded, so the server and the browser draw the same thing. */
+                "--dx": `${Math.round(Math.cos(angle) * far * 10) / 10}px`,
+                "--dy": `${Math.round(Math.sin(angle) * far * 10) / 10}px`,
                 animation: `om-spark ${520 + (i % 4) * 90}ms var(--ease-om) ${(i % 5) * 18}ms both`,
               } as CSSProperties
             }

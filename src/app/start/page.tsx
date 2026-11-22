@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { StartFlow, type StartStep } from "@/components/start/StartFlow";
@@ -32,7 +33,8 @@ export default async function StartPage({
     getThemeColor(companyId),
     (await createClient()).auth.getUser(),
   ]);
-  const runBy = (company?.intake as { campaigns_run_by?: unknown } | null)?.campaigns_run_by;
+  const intake = (company?.intake as { campaigns_run_by?: unknown; call_booked_at?: unknown } | null) ?? {};
+  const runBy = intake.campaigns_run_by;
 
   const sp = await searchParams;
   const initialStep: StartStep =
@@ -41,7 +43,9 @@ export default async function StartPage({
       : sp.step === "plans"
         ? "plans"
         : runBy === "noni"
-          ? "call"
+          ? intake.call_booked_at
+            ? "booked"
+            : "call"
           : runBy === "me" || runBy === "team"
             ? "plans"
             : "choose";
@@ -51,6 +55,8 @@ export default async function StartPage({
       companyId={companyId}
       companyName={company?.name ?? "your company"}
       firstName={profile?.full_name?.trim().split(/\s+/)[0] ?? ""}
+      fullName={profile?.full_name?.trim() ?? ""}
+      host={(await headers()).get("host") ?? "usenoni.app"}
       email={auth.user?.email ?? ""}
       themeColor={themeColor}
       bookingUrl={BOOKING_URL}

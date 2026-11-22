@@ -53,6 +53,6 @@ export function contactMailto(subject: string): string | null {
 }
 
 /* Where a company books a call with the founders (a Calendly or Cal.com
-   link in NEXT_PUBLIC_BOOKING_URL). Leave it empty and "Book a call" opens
-   the request form instead, which emails the founders. */
-export const BOOKING_URL: string | null = cleanUrl(process.env.NEXT_PUBLIC_BOOKING_URL);
+   link in NEXT_PUBLIC_BOOKING_URL), else the founders' Calendly. */
+export const BOOKING_URL: string | null =
+  cleanUrl(process.env.NEXT_PUBLIC_BOOKING_URL) ?? "https://calendly.com/founders-usenoni/30min";
