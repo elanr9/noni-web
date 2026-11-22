@@ -1,7 +1,20 @@
 "use client";
 
 import { AnimatePresence, motion, useInView } from "framer-motion";
-import { Check, Music, Play, Sparkles } from "lucide-react";
+import {
+  BadgeCheck,
+  Check,
+  CircleDollarSign,
+  FileText,
+  Hand,
+  Music,
+  Play,
+  Send,
+  Share2,
+  Sparkles,
+  Video as VideoIcon,
+  type LucideIcon,
+} from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -15,7 +28,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 type Who = "company" | "creator" | "noni";
 
 const WHO: Record<Who, { label: string; cls: string }> = {
-  company: { label: "Company", cls: "bg-ink text-white" },
+  company: { label: "Company", cls: "bg-soft text-ink-soft" },
   creator: { label: "Creator", cls: "bg-accent-soft text-accent-deep" },
   noni: { label: "Noni", cls: "bg-green-soft text-green" },
 };
@@ -333,7 +346,7 @@ function ApproveScreen() {
           <span className="flex flex-1 items-center justify-center rounded-full border border-line-strong bg-white py-[3.4cqw] text-[5.1cqw] font-bold text-ink-soft">Changes</span>
           <span
             className={`flex flex-1 items-center justify-center gap-[1.4cqw] rounded-full py-[3.4cqw] text-[5.1cqw] font-bold text-white transition-colors duration-300 ${
-              ok ? "bg-green" : "bg-ink"
+              ok ? "bg-green" : "bg-accent-deep"
             }`}
           >
             {ok ? <Check className="h-[4cqw] w-[4cqw]" strokeWidth={3} /> : null}
@@ -440,15 +453,15 @@ function PaidScreen() {
   );
 }
 
-const STEPS: { who: Who; title: string; Screen: () => ReactNode }[] = [
-  { who: "company", title: "Write the brief", Screen: BriefScreen },
-  { who: "creator", title: "Pick a post", Screen: PickScreen },
-  { who: "creator", title: "Record it", Screen: RecordScreen },
-  { who: "noni", title: "Edited for you", Screen: EditScreen },
-  { who: "creator", title: "Submit", Screen: SubmitScreen },
-  { who: "company", title: "Approve it", Screen: ApproveScreen },
-  { who: "noni", title: "Posted everywhere", Screen: PostedScreen },
-  { who: "noni", title: "Tracked and paid", Screen: PaidScreen },
+const STEPS: { who: Who; title: string; icon: LucideIcon; Screen: () => ReactNode }[] = [
+  { who: "company", title: "Brief written", icon: FileText, Screen: BriefScreen },
+  { who: "creator", title: "Pick a post", icon: Hand, Screen: PickScreen },
+  { who: "creator", title: "Record it", icon: VideoIcon, Screen: RecordScreen },
+  { who: "noni", title: "Edited for you", icon: Sparkles, Screen: EditScreen },
+  { who: "creator", title: "Submit", icon: Send, Screen: SubmitScreen },
+  { who: "company", title: "Approve", icon: BadgeCheck, Screen: ApproveScreen },
+  { who: "noni", title: "Posted", icon: Share2, Screen: PostedScreen },
+  { who: "noni", title: "Tracked and paid", icon: CircleDollarSign, Screen: PaidScreen },
 ];
 
 /** The iPhone the steps play in: metal edge, black bezel, Dynamic Island. Height driven. */
@@ -473,12 +486,8 @@ function StagePhone({ children }: { children: ReactNode }) {
   );
 }
 
-function WhoChip({ who, className = "" }: { who: Who; className?: string }) {
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-[3px] text-[12px] font-bold ${WHO[who].cls} ${className}`}>
-      {WHO[who].label}
-    </span>
-  );
+function WhoChip({ who }: { who: Who }) {
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-[3px] text-[12px] font-bold ${WHO[who].cls}`}>{WHO[who].label}</span>;
 }
 
 export function HowItWorks() {
@@ -495,78 +504,76 @@ export function HowItWorks() {
   }, [step, running]);
 
   const Current = STEPS[step].Screen;
+  const last = STEPS.length - 1;
 
   return (
     <section id="how" ref={ref} className="landing-screen-fixed px-5 md:px-8">
-      <style>{`@keyframes hiw-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }`}</style>
-      <div className="mx-auto flex h-full max-w-[1080px] flex-col py-[clamp(16px,3.4svh,40px)]">
+      <div className="mx-auto flex h-full max-w-[1100px] flex-col py-[clamp(16px,3svh,36px)]">
         <h2 className="display m-0 text-center text-[clamp(28px,4.8svh,46px)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">How it works</h2>
 
-        <div className="mt-[clamp(14px,3svh,32px)] flex min-h-0 flex-1 items-stretch justify-center gap-[clamp(28px,6vw,96px)]">
-          {/* Steps (wide screens) */}
-          <ol
-            className="m-0 hidden w-[330px] list-none flex-col justify-center p-0 md:flex"
-            onMouseEnter={() => setPaused(true)}
-            onMouseLeave={() => setPaused(false)}
-          >
-            {STEPS.map((s, i) => {
-              const active = i === step;
-              const done = i < step;
-              return (
-                <li key={s.title} className="relative">
-                  {i < STEPS.length - 1 ? (
-                    <span className={`absolute left-[27px] top-[calc(50%+16px)] h-[calc(100%-32px)] w-[2px] ${done ? "bg-accent" : "bg-line"}`} />
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => setStep(i)}
-                    className={`relative flex w-full cursor-pointer items-center gap-3.5 rounded-[16px] border-none px-3 py-[clamp(5px,1.05svh,10px)] text-left transition-colors duration-200 ${
-                      active ? "bg-soft" : "bg-transparent hover:bg-soft/60"
+        {/* The flow, left to right (wide screens) */}
+        <ol
+          className="relative m-0 mx-auto mt-[clamp(16px,3svh,32px)] hidden w-full max-w-[1000px] list-none grid-cols-8 p-0 md:grid"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          <span aria-hidden className="absolute left-[6.25%] right-[6.25%] top-[21px] h-[2px] rounded-full bg-line">
+            <span
+              className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
+              style={{ width: `${(step / last) * 100}%` }}
+            />
+          </span>
+          {STEPS.map((s, i) => {
+            const Icon = s.icon;
+            const active = i === step;
+            const done = i < step;
+            return (
+              <li key={s.title} className="relative flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setStep(i)}
+                  className="group flex cursor-pointer flex-col items-center gap-2 border-none bg-transparent p-0 text-center [@media(max-height:700px)]:gap-1"
+                >
+                  <span
+                    className={`flex h-[44px] w-[44px] items-center justify-center rounded-full transition-all duration-300 ${
+                      active
+                        ? "scale-110 bg-accent-deep text-white shadow-[0_0_0_6px_var(--accent-soft)]"
+                        : done
+                          ? "bg-accent-soft text-accent-deep"
+                          : "bg-white text-slate-400 shadow-[inset_0_0_0_1.5px_var(--line)] group-hover:text-ink-soft"
                     }`}
                   >
-                    <span
-                      className={`flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full text-[14px] font-extrabold transition-colors duration-200 ${
-                        active ? "bg-ink text-white" : done ? "bg-accent text-white" : "bg-white text-muted shadow-[inset_0_0_0_1.5px_var(--line)]"
-                      }`}
-                    >
-                      {done ? <Check className="h-4 w-4" strokeWidth={3} /> : i + 1}
-                    </span>
-                    <span className={`flex-1 text-[clamp(15px,2.1svh,18px)] font-extrabold ${active ? "text-ink" : done ? "text-ink-soft" : "text-muted"}`}>
-                      {s.title}
-                    </span>
-                    <WhoChip who={s.who} className={active ? "" : "opacity-60"} />
-                    {active ? (
-                      <span className="absolute inset-x-3 bottom-[3px] h-[3px] overflow-hidden rounded-full bg-line">
-                        <span
-                          key={step}
-                          className="block h-full origin-left rounded-full bg-accent"
-                          style={{ animation: `hiw-fill ${STEP_MS}ms linear both`, animationPlayState: running ? "running" : "paused" }}
-                        />
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
+                    {done ? <Check className="h-5 w-5" strokeWidth={2.6} /> : <Icon className="h-5 w-5" strokeWidth={2.2} />}
+                  </span>
+                  <span className={`whitespace-nowrap text-[clamp(12.5px,1.7svh,14.5px)] font-bold leading-[1.2] transition-colors duration-200 ${active ? "text-ink" : "text-slate-400 group-hover:text-ink-soft"}`}>
+                    {s.title}
+                  </span>
+                  <span className={`text-[12px] font-semibold [@media(max-height:700px)]:hidden ${active ? "text-accent-deep" : "text-slate-300"}`}>{WHO[s.who].label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
 
-          {/* The phone acting each step out */}
-          <div className="flex min-h-0 flex-1 justify-center md:flex-none" onClick={() => setStep((s) => (s + 1) % STEPS.length)}>
-            <StagePhone>
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div
-                  key={step}
-                  className="absolute inset-0"
-                  initial={{ opacity: 0, x: 24 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -24 }}
-                  transition={{ duration: 0.35, ease }}
-                >
-                  <Current />
-                </motion.div>
-              </AnimatePresence>
-            </StagePhone>
-          </div>
+        {/* The phone acting the step out */}
+        <div
+          className="mt-[clamp(16px,3svh,32px)] flex min-h-0 flex-1 cursor-pointer justify-center"
+          onClick={() => setStep((s) => (s + 1) % STEPS.length)}
+        >
+          <StagePhone>
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={step}
+                className="absolute inset-0"
+                initial={{ opacity: 0, x: 24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -24 }}
+                transition={{ duration: 0.35, ease }}
+              >
+                <Current />
+              </motion.div>
+            </AnimatePresence>
+          </StagePhone>
         </div>
 
         {/* Current step (small screens) */}
@@ -582,7 +589,9 @@ export function HowItWorks() {
                 type="button"
                 aria-label={s.title}
                 onClick={() => setStep(i)}
-                className={`h-2 cursor-pointer rounded-full border-none p-0 transition-all duration-200 ${i === step ? "w-6 bg-ink" : i < step ? "w-2 bg-accent" : "w-2 bg-line"}`}
+                className={`h-2 cursor-pointer rounded-full border-none p-0 transition-all duration-200 ${
+                  i === step ? "w-6 bg-accent-deep" : i < step ? "w-2 bg-accent/50" : "w-2 bg-line"
+                }`}
               />
             ))}
           </div>

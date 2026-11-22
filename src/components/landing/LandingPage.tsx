@@ -124,16 +124,16 @@ function ShotRow({ shots, dark = false }: { shots: Shot[]; dark?: boolean }) {
   );
 }
 
-/** Each section is exactly one screen under the navbar, and the page snaps to them. */
+/** Each section is exactly one screen under the navbar. The page scrolls freely, no snapping. */
 function LandingScreenStyles() {
   return (
     <style>{`
       .landing-root { --nav: 56px; }
       @media (min-width: 768px) { .landing-root { --nav: 72px; } }
-      html:has(.landing-root) { scroll-snap-type: y proximity; scroll-padding-top: 56px; }
+      html:has(.landing-root) { scroll-padding-top: 56px; }
       @media (min-width: 768px) { html:has(.landing-root) { scroll-padding-top: 72px; } }
-      .landing-screen { min-height: calc(100svh - var(--nav)); scroll-snap-align: start; }
-      .landing-screen-fixed { height: calc(100svh - var(--nav)); min-height: 430px; scroll-snap-align: start; }
+      .landing-screen { min-height: calc(100svh - var(--nav)); }
+      .landing-screen-fixed { height: calc(100svh - var(--nav)); min-height: 430px; }
       /* Short laptop windows: shrink the text sections a little so each still fits. */
       @media (min-width: 640px) and (max-height: 780px) { .landing-fit { zoom: 0.86; } }
       @media (min-width: 640px) and (max-height: 640px) { .landing-fit { zoom: 0.7; } }
@@ -275,7 +275,7 @@ export function LandingPage() {
                   {side === key ? (
                     <motion.span
                       layoutId="landing-side"
-                      className="absolute inset-0 rounded-full bg-ink"
+                      className="absolute inset-0 rounded-full bg-accent-deep"
                       transition={{ type: "spring", stiffness: 500, damping: 36 }}
                     />
                   ) : null}

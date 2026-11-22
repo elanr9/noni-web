@@ -41,7 +41,7 @@ export function PricingFork({ tight = false }: { tight?: boolean } = {}) {
               type="button"
               onClick={() => setPath(key)}
               className={`cursor-pointer whitespace-nowrap border-none px-4 py-2.5 text-[14px] sm:px-6 sm:text-[15px] font-bold transition-all duration-150 rounded-pill active:scale-[0.96] ${
-                path === key ? "bg-ink text-white" : "bg-transparent text-slate-500 hover:text-ink"
+                path === key ? "bg-accent-deep text-white" : "bg-transparent text-slate-500 hover:text-ink"
               }`}
             >
               {label}

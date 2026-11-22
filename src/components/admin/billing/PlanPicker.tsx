@@ -145,7 +145,7 @@ export function PlanPicker({
                 : "px-[22px] py-[9px] text-[13.5px]"
             } ${
               cadence === c
-                ? "bg-ink text-white shadow-[0_1px_3px_rgba(15,23,32,0.18)]"
+                ? "bg-accent-deep text-white shadow-[0_1px_3px_rgba(15,23,32,0.18)]"
                 : "bg-transparent text-slate-500"
             }`}
           >
@@ -175,16 +175,16 @@ export function PlanPicker({
 
   const enterpriseFeats = (
     <>
-      <div className={`h-px bg-white/15 ${ruleCls}`} />
+      <div className={`h-px bg-line ${ruleCls}`} />
       <div
         className={`flex flex-col font-semibold ${featsCls} ${compact ? "mb-4" : ""}`}
       >
-        <Feat dark>
+        <Feat>
           <b>{ENTERPRISE_PLAN.capFeat.bold}</b>
           {ENTERPRISE_PLAN.capFeat.rest}
         </Feat>
         {ENTERPRISE_PLAN.feats.map((f) => (
-          <Feat dark key={f}>
+          <Feat key={f}>
             {f}
           </Feat>
         ))}
@@ -339,24 +339,24 @@ export function PlanPicker({
         })}
 
         <div
-          className={`flex flex-col rounded-[20px] border border-ink-900 bg-ink-900 text-white transition-[translate,box-shadow] duration-200 ease-om hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(15,23,32,0.28)] ${cardPad}`}
+          className={`flex flex-col rounded-[20px] border border-line bg-white text-ink transition-[translate,box-shadow] duration-200 ease-om hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(15,23,32,0.12)] ${cardPad}`}
         >
           <span className="text-[17px] font-bold">Enterprise</span>
           {compact ? null : (
-            <span className="mt-1 text-[13px] font-medium leading-[1.5] text-white/65">
+            <span className="mt-1 text-[13px] font-medium leading-[1.5] text-slate-500">
               {ENTERPRISE_PLAN.blurb}
             </span>
           )}
           <div className={`flex items-baseline gap-2 ${priceGap}`}>
             <span className={`font-bold ${priceCls}`}>Custom</span>
           </div>
-          <span className="mt-1 text-[12.5px] font-semibold text-white/55">
+          <span className="mt-1 text-[12.5px] font-semibold text-slate-400">
             Pricing built around your volume
           </span>
           {compact ? enterpriseFeats : null}
           {currentTier === "enterprise" ? (
             <span
-              className={`w-full cursor-default border border-white/35 text-center text-[14px] font-bold text-white/60 rounded-pill ${ctaCls}`}
+              className={`w-full cursor-default border border-line text-center text-[14px] font-bold text-slate-400 rounded-pill ${ctaCls}`}
             >
               Current plan
             </span>
@@ -364,7 +364,7 @@ export function PlanPicker({
             <button
               type="button"
               onClick={bookCall}
-              className={`w-full cursor-pointer border border-white/35 bg-transparent text-center text-[14px] font-bold text-white transition-colors duration-150 rounded-pill hover:bg-white/10 ${ctaCls}`}
+              className={`w-full cursor-pointer border border-line-strong bg-white text-center text-[14px] font-bold text-ink transition-colors duration-150 rounded-pill hover:bg-soft ${ctaCls}`}
             >
               Let&apos;s talk
             </button>
