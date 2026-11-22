@@ -34,6 +34,8 @@ export interface OnboardingAnswers {
   creatorCount: number;
   managerCount: number;
   selfIsManager: boolean;
+  /** Who runs the campaigns, from the onboarding chat (companies.intake.campaigns_run_by). */
+  runBy?: "noni" | "me" | "team" | null;
 }
 
 /* Campaign manager access in the app. Company admins toggle these on Team.

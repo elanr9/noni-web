@@ -640,6 +640,10 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     creatorCount: readNum(companyRow, "creator_count") ?? 0,
     managerCount: readNum(companyRow, "manager_count") ?? 0,
     selfIsManager: readBool(companyRow, "self_is_manager") ?? false,
+    runBy: (() => {
+      const by = (companyRow?.intake as { campaigns_run_by?: unknown } | null)?.campaigns_run_by;
+      return by === "noni" || by === "me" || by === "team" ? by : null;
+    })(),
   };
   const company = {
     id: companyId,

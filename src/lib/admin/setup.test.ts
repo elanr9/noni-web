@@ -213,3 +213,15 @@ describe("deriveSetupStatus", () => {
     expect(status.steps.find((s) => s.key === "brain")?.done).toBe(false);
   });
 });
+
+describe("deriveSetupStatus when Noni runs the campaigns", () => {
+  it("asks only for the plan and the connections", () => {
+    const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "noni" }));
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales"]);
+  });
+
+  it("keeps every step when the company runs it", () => {
+    const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "me", doesUgc: false }));
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "brain", "media", "sales", "managers", "creators"]);
+  });
+});

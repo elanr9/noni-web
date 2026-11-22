@@ -16,6 +16,10 @@
       (self-as-manager rows count like any other). Omitted when the
       onboarding count is 0.
    6. Creators: done once at least one creator is on the team.
+   When the company hands the campaigns to Noni (onboarding chat: "Noni runs
+   it for us"), it is hands off: only the plan and the connections are its
+   to do. Noni writes the company details, gets the screenshots and brings
+   the creators in itself.
    The steps run in order: each one stays locked until the one before it
    is done, so there is always exactly one thing to do next.
    When every step is done the Onboarding tab retires: nav item, badge and
@@ -124,11 +128,14 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       : []),
   ];
 
-  const doneCount = steps.filter((s) => s.done).length;
+  const keep: SetupStepKey[] = ["billing", "sales"];
+  const shown = onboarding.runBy === "noni" ? steps.filter((s) => keep.includes(s.key)) : steps;
+
+  const doneCount = shown.filter((s) => s.done).length;
   return {
-    steps,
+    steps: shown,
     doneCount,
-    remaining: steps.length - doneCount,
-    complete: doneCount === steps.length,
+    remaining: shown.length - doneCount,
+    complete: doneCount === shown.length,
   };
 }
