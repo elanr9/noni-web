@@ -329,7 +329,7 @@ export function LandingPage() {
         {/* ── Founders ── */}
         <section id="founders" className="landing-screen flex flex-col justify-center py-6">
           <div className="landing-fit mx-auto w-full max-w-[920px] px-5 md:px-8">
-            <Reveal className="rounded-[36px] border border-line bg-white px-6 py-10 md:px-12 md:py-14">
+            <Reveal className="px-1 md:px-4">
               <Eyebrow>From the founders</Eyebrow>
               <h2 className="display mt-3 text-[30px] font-bold leading-[1.06] text-ink md:text-[40px]">
                 {FOUNDERS_NOTE.title}
@@ -403,7 +403,7 @@ export function LandingPage() {
               ))}
             </div>
 
-            <Reveal className="mt-[clamp(16px,3.4svh,36px)] rounded-[28px] bg-soft px-6 py-[clamp(20px,3.6svh,36px)] text-center">
+            <Reveal className="mt-[clamp(20px,4svh,44px)] text-center">
               <h2 className="display m-0 text-[clamp(24px,3.6svh,34px)] font-bold leading-[1.08] text-ink">
                 Ready when you are
               </h2>
