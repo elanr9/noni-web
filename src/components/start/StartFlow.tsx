@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Rocket, Sparkles, Wrench } from "lucide-react";
+import { ArrowRight, Check, Rocket } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -111,6 +111,17 @@ export function StartFlow({
     });
   };
 
+  useEffect(() => {
+    if (step !== "choose") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "1") choose("diy");
+      if (e.key === "2") choose("dfy");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const buy = async (plan: SubscriptionPlan): Promise<boolean> => {
     setError(null);
     const r = await startCheckout(companyId, plan, "start");
@@ -125,31 +136,49 @@ export function StartFlow({
 
   const back = step === "plans" || step === "call" ? () => setStep("choose") : null;
 
-  /* One option: an icon and the sentence the company would say. The whole
-     card is the button; picking it pops the icon to a check with a burst. */
-  const card = (path: RunPath, Icon: typeof Wrench, sentence: string) => {
+  /* One answer, as a row: a radio, the sentence the company would say and
+     an arrow. Hover tints it in the company color; picking it fills the
+     radio with a check and a small burst. 1 and 2 on the keyboard pick too. */
+  const option = (path: RunPath, key: string, sentence: string) => {
     const on = picked === path;
     return (
       <button
         type="button"
         disabled={picked !== null}
         onClick={() => choose(path)}
-        className={`group relative flex w-full cursor-pointer flex-col items-start justify-between gap-10 rounded-[26px] border-2 bg-white p-8 text-left transition-[transform,box-shadow,border-color] duration-200 ease-om hover:-translate-y-1.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.12)] active:scale-[0.98] disabled:cursor-default sm:min-h-[260px] sm:w-[340px] ${
-          on ? "animate-om-bounce" : ""
+        className={`group relative flex w-full cursor-pointer items-center gap-4 rounded-[20px] border-[1.5px] bg-white px-5 py-[22px] text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[transform,box-shadow,border-color,background-color] duration-150 ease-om hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)] active:translate-y-0 active:scale-[0.99] disabled:cursor-default ${
+          on ? "animate-om-bounce" : "border-line hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
         }`}
-        style={{
-          borderColor: on ? accent : "#E6EBF1",
-          boxShadow: on ? `0 18px 40px color-mix(in srgb, ${accent} 28%, transparent)` : undefined,
-        }}
+        style={
+          {
+            "--accent": accent,
+            "--accent-soft": `color-mix(in srgb, ${accent} 5%, white)`,
+            ...(on ? { borderColor: accent, backgroundColor: `color-mix(in srgb, ${accent} 6%, white)` } : {}),
+          } as React.CSSProperties
+        }
       >
-        {on ? <Burst colors={sparks} count={16} reach={110} /> : null}
         <span
-          className="inline-flex h-14 w-14 items-center justify-center rounded-[18px] transition-transform duration-200 group-hover:scale-110 group-hover:-rotate-6"
-          style={{ backgroundColor: on ? accent : `color-mix(in srgb, ${accent} 14%, white)`, color: on ? onAccent : accent }}
+          className={`relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150 ${
+            on ? "" : "border-slate-300 group-hover:border-[var(--accent)]"
+          }`}
+          style={on ? { borderColor: accent, backgroundColor: accent, color: onAccent } : undefined}
         >
-          {on ? <Check size={26} strokeWidth={3} className="animate-om-check" /> : <Icon size={26} strokeWidth={2.4} />}
+          {on ? (
+            <>
+              <Burst colors={sparks} count={12} reach={44} />
+              <Check size={15} strokeWidth={3.5} className="animate-om-check" />
+            </>
+          ) : null}
         </span>
-        <span className="text-[25px] font-bold leading-[1.2] tracking-[-0.6px] text-ink">{sentence}</span>
+        <span className="flex-1 text-[19px] font-semibold leading-[1.35] tracking-[-0.3px] text-ink">{sentence}</span>
+        <kbd className="hidden h-7 min-w-7 items-center justify-center rounded-[8px] border border-line bg-[#fbfbfc] px-2 font-ops text-[12.5px] font-bold text-slate-400 sm:inline-flex">
+          {key}
+        </kbd>
+        <ArrowRight
+          size={20}
+          strokeWidth={2.4}
+          className="shrink-0 text-slate-300 transition-[transform,color] duration-150 group-hover:translate-x-1 group-hover:text-[var(--accent)]"
+        />
       </button>
     );
   };
@@ -165,12 +194,12 @@ export function StartFlow({
       <main key={step} className="mx-auto flex w-full max-w-[1080px] flex-1 flex-col items-center justify-center gap-9 px-5 pb-20 text-center animate-om-rise">
         {step === "choose" ? (
           <>
-            <h1 className="display m-0 text-[48px] font-bold leading-[1.05] tracking-[-1.6px] text-ink">
+            <h1 className="display m-0 text-[44px] font-bold leading-[1.08] tracking-[-1.4px] text-ink">
               What are you looking for?
             </h1>
-            <div className="flex w-full flex-col items-stretch justify-center gap-5 sm:flex-row sm:items-stretch">
-              {card("diy", Wrench, "I want to run our UGC campaigns on Noni")}
-              {card("dfy", Sparkles, "I want the Noni team to run my UGC")}
+            <div className="flex w-full max-w-[620px] flex-col gap-3">
+              {option("diy", "1", "I want to run our UGC campaigns on Noni")}
+              {option("dfy", "2", "I want the Noni team to run my UGC")}
             </div>
           </>
         ) : null}
