@@ -15,9 +15,9 @@ import { Navbar } from "@/components/Navbar";
 import { WaitlistModal, type LeadModalKind } from "@/components/WaitlistModal";
 import { FOUNDERS, FOUNDERS_NOTE } from "@/lib/founders";
 import { SELF_SERVE_PLANS } from "@/lib/plans";
-import { BOOKING_URL, IOS_APP_AVAILABILITY } from "@/lib/site-config";
+import { BOOKING_URL } from "@/lib/site-config";
 
-import { HeroDemo } from "./HeroDemo";
+import { HERO_NOTES, HeroNoteStyles, NoteCard } from "./HeroNotifications";
 import { Phone } from "./Phone";
 
 const FROM_PRICE = Math.min(...SELF_SERVE_PLANS.map((p) => p.annual));
@@ -153,56 +153,54 @@ export function LandingPage() {
       <main>
         {/* ── Hero ── */}
         <section className="relative overflow-hidden">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-[-180px] mx-auto h-[620px] max-w-[1100px] rounded-full bg-[radial-gradient(closest-side,rgba(79,186,242,0.22),transparent)]"
-          />
-          <div className="relative mx-auto max-w-[1180px] px-5 pb-16 pt-10 md:px-8 md:pt-16 lg:grid lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-10 lg:pb-24 lg:pt-20">
-            <div className="mx-auto max-w-[620px] text-center lg:mx-0 lg:text-left">
-              <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }}>
-                <span className="inline-flex items-center gap-2 rounded-full border border-line bg-white px-3.5 py-1.5 text-[12.5px] font-bold text-ink-soft">
-                  <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                  {IOS_APP_AVAILABILITY === "app_store" ? "Available on the App Store" : "Now in private beta on iPhone"}
-                </span>
-                <h1 className="display mt-5 text-[42px] font-extrabold leading-[1.04] text-ink sm:text-[56px] lg:text-[64px]">
-                  Your entire UGC Campaigns all in one place
-                </h1>
-                <p className="mx-auto mt-5 max-w-[36ch] text-[18px] leading-[1.5] text-muted md:text-[20px] lg:mx-0">
-                  Run your creators on Noni, or let the Noni team run it all for you.
-                </p>
-                <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
-                  <Link
-                    href="/apply?as=company"
-                    className="group inline-flex items-center justify-center gap-2 rounded-full bg-ink px-8 py-4 text-[16px] font-bold text-white no-underline transition hover:bg-ink-soft"
-                  >
-                    Get started
-                    <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-1" />
-                  </Link>
-                  <Link
-                    href="#pricing"
-                    className="inline-flex items-center justify-center rounded-full border border-line-strong bg-white px-8 py-4 text-[16px] font-bold text-ink no-underline transition hover:bg-soft"
-                  >
-                    See pricing
-                  </Link>
-                </div>
-                <Link
-                  href="/apply?as=creator"
-                  className="group mt-6 inline-flex items-center gap-1.5 text-[15px] font-semibold text-accent-deep no-underline transition hover:text-accent"
-                >
-                  Creator? Get paid to post for brands
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-1" />
-                </Link>
-              </motion.div>
+          <HeroNoteStyles />
+          <div className="relative mx-auto max-w-[1240px] px-5 pb-20 pt-14 md:px-8 md:pt-20 lg:pb-28">
+            {/* Notifications around the headline (wide screens) */}
+            <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
+              <NoteCard note={HERO_NOTES[0]} delay={500} drift={0} className="absolute left-0 top-[262px]" />
+              <NoteCard note={HERO_NOTES[1]} delay={750} drift={1500} className="absolute right-0 top-[250px]" />
+              <NoteCard note={HERO_NOTES[2]} delay={1000} drift={800} className="absolute left-[56px] top-[392px]" />
+              <NoteCard note={HERO_NOTES[3]} delay={1250} drift={2200} className="absolute right-[48px] top-[380px]" />
             </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 28 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease, delay: 0.12 }}
-              className="mt-12 flex justify-center lg:mt-0"
-            >
-              <HeroDemo />
-            </motion.div>
+            <div className="relative mx-auto max-w-[880px] text-center animate-om-rise">
+              <h1 className="display text-balance text-[44px] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink sm:text-[56px] lg:text-[62px]">
+                Your entire <span className="text-accent-deep">UGC campaigns</span>
+                <br className="hidden lg:block" /> all in one place
+              </h1>
+              <p className="mx-auto mt-6 max-w-[640px] text-balance text-[18px] leading-[1.5] text-muted md:text-[20px]">
+                Run your creators on Noni, or let the Noni team run it all for you.
+                <span className="mt-1 block font-semibold text-ink">Work better, work faster.</span>
+              </p>
+              <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+                <Link
+                  href="/apply?as=company"
+                  className="group inline-flex items-center justify-center gap-2 rounded-[14px] bg-ink px-8 py-4 text-[16px] font-bold text-white no-underline transition hover:bg-ink-soft"
+                >
+                  Get started
+                  <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-1" />
+                </Link>
+                <Link
+                  href="#pricing"
+                  className="inline-flex items-center justify-center rounded-[14px] border border-line-strong bg-white px-8 py-4 text-[16px] font-bold text-ink no-underline transition hover:bg-soft"
+                >
+                  See pricing
+                </Link>
+              </div>
+              <Link
+                href="/apply?as=creator"
+                className="group mt-6 inline-flex items-center gap-1.5 text-[14.5px] font-semibold text-muted no-underline transition hover:text-ink"
+              >
+                Creator? <span className="text-accent-deep">Get paid to post for brands</span>
+                <ArrowRight className="h-3.5 w-3.5 text-accent-deep transition-transform duration-150 group-hover:translate-x-1" />
+              </Link>
+            </div>
+
+            {/* Notifications under the buttons (small screens) */}
+            <div aria-hidden className="mt-10 flex flex-col items-center gap-3 lg:hidden">
+              <NoteCard note={HERO_NOTES[0]} delay={400} />
+              <NoteCard note={HERO_NOTES[1]} delay={600} drift={1500} />
+            </div>
           </div>
         </section>
 
