@@ -7,8 +7,9 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
    landing does it: the stage opens empty, cards land one at a time a second
    or so apart until four are up, then every few seconds the oldest one pops
    out and the next one lands somewhere else. Each spot is measured from the
-   hero, so a card never covers the headline, the subtitle or the buttons,
-   and never stacks on another card. Phones get the same notifications one
+   hero, so a card sits only to the left or right of the headline, the
+   subtitle or the buttons, never above or below them, and never stacks on
+   another card. Phones get the same notifications one
    at a time under the buttons. Everything Noni does, for both sides, with
    the whole line always showing. */
 
@@ -96,19 +97,19 @@ function measureZones(hero: HTMLElement): Zone[] {
     const bandH = (b.bottom - b.top) / bands;
     for (let i = 0; i < bands; i++) tops.push(b.top + i * bandH + (bandH - CARD_H) / 2);
   }
-  // And one band above and below the content, beside nothing.
-  if (obstacles.length > 0) {
-    tops.push(Math.min(...obstacles.map((o) => o.top)) - CARD_H - GAP_PX);
-    tops.push(Math.max(...obstacles.map((o) => o.bottom)) + GAP_PX);
-  }
 
+  const contentTop = Math.min(...obstacles.map((o) => o.top));
+  const contentBottom = Math.max(...obstacles.map((o) => o.bottom));
   const zones: Zone[] = [];
   for (const raw of tops) {
     const top = Math.round(raw);
     if (top < EDGE_PX || top + CARD_H > origin.height - EDGE_PX) continue;
+    // Only beside the content: never above the headline or below the last line.
+    if (top < contentTop - CARD_H / 2 || top + CARD_H > contentBottom + CARD_H / 2) continue;
     const hit = obstacles.filter((o) => o.bottom > top - EDGE_PX && o.top < top + CARD_H + EDGE_PX);
-    const gutterL = hit.length ? Math.min(...hit.map((o) => o.left)) : width / 2;
-    const gutterR = hit.length ? Math.min(...hit.map((o) => width - o.right)) : width / 2;
+    if (hit.length === 0) continue;
+    const gutterL = Math.min(...hit.map((o) => o.left));
+    const gutterR = Math.min(...hit.map((o) => width - o.right));
     if (gutterL >= CARD_W + EDGE_PX + GAP_PX) {
       zones.push({ side: "l", top, left: Math.round(gutterL - GAP_PX - CARD_W), span: gutterL - EDGE_PX - GAP_PX - CARD_W });
     }

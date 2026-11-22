@@ -27,7 +27,7 @@ const display = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "Noni: UGC, fully automated",
+    default: "Noni: UGC Campaigns made easy",
     template: "%s · Noni",
   },
   icons: {

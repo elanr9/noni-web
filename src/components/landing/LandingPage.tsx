@@ -5,7 +5,7 @@
    campaign managers, creators, pricing, founders, FAQ. */
 
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -18,6 +18,7 @@ import { SELF_SERVE_PLANS } from "@/lib/plans";
 import { BOOKING_URL } from "@/lib/site-config";
 
 import { HeroNoteStyles, HeroPingDock, HeroPings } from "./HeroNotifications";
+import { HowItWorks } from "./HowItWorks";
 import { Phone } from "./Phone";
 
 const FROM_PRICE = Math.min(...SELF_SERVE_PLANS.map((p) => p.annual));
@@ -212,7 +213,7 @@ export function LandingPage() {
           <div className="relative mx-auto w-full max-w-[1240px] px-5 py-8 md:px-8">
             <div className="relative mx-auto max-w-[880px] text-center animate-om-rise">
               <h1 data-hero-text className="display text-balance text-[clamp(38px,6.6svh,62px)] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink">
-                <span className="text-accent-deep">UGC,</span> fully automated
+                <span className="text-accent-deep">UGC Campaigns</span> made easy
               </h1>
               <p data-hero-text className="mx-auto mt-[clamp(14px,2.6svh,24px)] max-w-[640px] text-balance text-[clamp(16px,2.2svh,20px)] leading-[1.5] text-muted">
                 Everything you need to run UGC Campaigns, all in one place.
@@ -226,10 +227,11 @@ export function LandingPage() {
                   <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-1" />
                 </Link>
                 <Link
-                  href="#pricing"
-                  className="inline-flex items-center justify-center rounded-[14px] border border-line-strong bg-white px-8 py-4 text-[16px] font-bold text-ink no-underline transition hover:bg-soft active:scale-[0.97]"
+                  href="#how"
+                  className="group inline-flex items-center justify-center gap-2 rounded-[14px] border border-line-strong bg-white px-8 py-4 text-[16px] font-bold text-ink no-underline transition hover:bg-soft active:scale-[0.97]"
                 >
-                  See pricing
+                  Learn more
+                  <ChevronDown className="h-4 w-4 transition-transform duration-150 group-hover:translate-y-0.5" />
                 </Link>
               </div>
               <Link
@@ -249,6 +251,9 @@ export function LandingPage() {
           </div>
           <HeroPings />
         </section>
+
+        {/* ── How it works: brief to payout, one screen ── */}
+        <HowItWorks />
 
         {/* ── What Noni does, one screen: a tab for each side ── */}
         <section id="features" className="landing-screen-fixed relative px-5 md:px-8">

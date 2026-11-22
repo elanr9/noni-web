@@ -1,0 +1,593 @@
+"use client";
+
+import { AnimatePresence, motion, useInView } from "framer-motion";
+import { Check, Music, Play, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+/* How it works, one screen: the whole flow from brief to payout. A list of
+   the steps on the left (who does it, and what), one phone on the right
+   acting each step out. It walks through on its own once the section is in
+   view, and any step can be clicked. Phones get the phone and the current
+   step under it. Every screen is drawn here, sized in container units so
+   it scales with the phone. */
+
+type Who = "company" | "creator" | "noni";
+
+const WHO: Record<Who, { label: string; cls: string }> = {
+  company: { label: "Company", cls: "bg-ink text-white" },
+  creator: { label: "Creator", cls: "bg-accent-soft text-accent-deep" },
+  noni: { label: "Noni", cls: "bg-green-soft text-green" },
+};
+
+const STEP_MS = 3600;
+
+const ease = [0.22, 0.61, 0.36, 1] as const;
+
+/** A child that pops in after `d` seconds each time its step shows. */
+function Pop({ d = 0, className = "", children }: { d?: number; className?: string; children: ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: d, type: "spring", stiffness: 380, damping: 26 }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Counts from 0 to `to` once, after `d` seconds. */
+function CountUp({ to, d = 0, format }: { to: number; d?: number; format: (n: number) => string }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now() + d * 1000;
+    const tick = (now: number) => {
+      const t = Math.min(1, Math.max(0, (now - start) / 1300));
+      setN(to * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [to, d]);
+  return <>{format(n)}</>;
+}
+
+/** Turns true after `d` seconds, for a button that changes state mid step. */
+function useAfter(d: number) {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setOn(true), d * 1000);
+    return () => clearTimeout(t);
+  }, [d]);
+  return on;
+}
+
+function TikTokIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden>
+      <path
+        fill="currentColor"
+        d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 0 1-2.59 2.5c-1.42 0-2.6-1.16-2.6-2.6 0-1.72 1.66-3.01 3.37-2.48V9.66c-3.45-.46-6.47 2.22-6.47 5.64 0 3.33 2.76 5.7 5.69 5.7 3.14 0 5.69-2.55 5.69-5.7V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3s-1.88.09-3.24-1.48z"
+      />
+    </svg>
+  );
+}
+
+function InstagramIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/* ── The screens ── */
+
+/** The finished video, whole: a blurred copy fills the box, the full frame sits on top so no caption is cut. */
+function Video({ zoomFrom, className = "" }: { zoomFrom?: number; className?: string }) {
+  return (
+    <div className={`relative overflow-hidden bg-black ${className}`}>
+      <Image src="/brand/post-fabri.png" alt="" fill sizes="200px" className="scale-110 object-cover opacity-70 blur-[6px]" />
+      <motion.div
+        className="absolute inset-0 origin-bottom"
+        initial={zoomFrom ? { scale: zoomFrom } : false}
+        animate={{ scale: 1 }}
+        transition={{ delay: 0.5, duration: 0.9, ease }}
+      >
+        <Image src="/brand/post-fabri.png" alt="" fill sizes="300px" className="object-contain" />
+      </motion.div>
+    </div>
+  );
+}
+
+function Screen({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
+  return (
+    <div className={`absolute inset-0 flex flex-col ${dark ? "bg-black text-white" : "bg-[#f4f6f9] text-ink"}`}>{children}</div>
+  );
+}
+
+function Title({ children }: { children: ReactNode }) {
+  return <p className="m-0 text-[9.1cqw] font-extrabold tracking-[-0.02em]">{children}</p>;
+}
+
+function BriefScreen() {
+  const sent = useAfter(2.2);
+  return (
+    <Screen>
+      <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
+        <Title>New brief</Title>
+        <Pop d={0.15} className="mt-[3cqw] inline-flex w-fit items-center gap-[1.4cqw] rounded-full bg-accent-soft px-[2.8cqw] py-[1.2cqw] text-[4.3cqw] font-bold text-accent-deep">
+          <Sparkles className="h-[3.4cqw] w-[3.4cqw]" /> Written by Noni from your brand
+        </Pop>
+        <Pop d={0.35} className="mt-[3.5cqw] rounded-[4.5cqw] bg-white p-[4.5cqw] shadow-[0_1px_2px_rgba(15,23,32,0.06)]">
+          <span className="inline-block rounded-[1.6cqw] bg-accent-soft px-[2cqw] py-[0.6cqw] text-[3.8cqw] font-bold text-accent-deep">Talking Head</span>
+          <p className="m-0 mt-[2.2cqw] text-[6.2cqw] font-extrabold leading-[1.2]">5 things athletes should know before freshman year</p>
+          {[
+            ["Hook", "What nobody tells you before college"],
+            ["Middle", "Five quick tips, one line each"],
+            ["Close", "Follow for part two"],
+          ].map(([label, text], i) => (
+            <Pop key={label} d={0.7 + i * 0.35} className="mt-[3cqw] border-l-[0.8cqw] border-accent pl-[2.6cqw]">
+              <p className="m-0 text-[3.8cqw] font-bold uppercase tracking-[0.08em] text-muted">{label}</p>
+              <p className="m-0 mt-[0.4cqw] text-[4.8cqw] font-semibold leading-[1.35] text-ink-soft">{text}</p>
+            </Pop>
+          ))}
+        </Pop>
+        <div className="mt-auto pb-[9cqw]">
+          <Pop d={1.8}>
+            <div
+              className={`flex items-center justify-center gap-[1.6cqw] rounded-full py-[3.6cqw] text-[5.5cqw] font-bold text-white transition-colors duration-300 ${
+                sent ? "bg-green" : "bg-accent-deep"
+              }`}
+            >
+              {sent ? (
+                <>
+                  <Check className="h-[4.4cqw] w-[4.4cqw]" strokeWidth={3} /> Sent to 6 creators
+                </>
+              ) : (
+                "Send to creators"
+              )}
+            </div>
+          </Pop>
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function PickScreen() {
+  const picked = useAfter(1.3);
+  const briefs = [
+    { title: "5 things athletes should know before freshman year", tag: "Talking Head", tone: "from-sky-400 to-blue-500" },
+    { title: "Reacting to my own heat map", tag: "Greenscreen", tone: "from-emerald-400 to-teal-500" },
+    { title: "How to film a full match on a phone", tag: "Slideshow", tone: "from-pink-400 to-rose-500" },
+  ];
+  return (
+    <Screen>
+      <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
+        <Title>Hi Maya</Title>
+        <p className="m-0 mt-[4cqw] text-[4.7cqw] font-bold text-muted">New briefs for you</p>
+        <div className="mt-[2.4cqw] flex flex-col gap-[2.6cqw]">
+          {briefs.map((b, i) => (
+            <Pop key={b.title} d={0.2 + i * 0.18}>
+              <div
+                className={`relative rounded-[4cqw] bg-white p-[3.4cqw] transition-shadow duration-300 ${
+                  i === 0 && picked ? "shadow-[0_0_0_0.8cqw_var(--accent)]" : "shadow-[0_1px_2px_rgba(15,23,32,0.06)]"
+                }`}
+              >
+                <div className="flex items-center gap-[3cqw]">
+                  <span className={`h-[11cqw] w-[11cqw] shrink-0 rounded-[2.6cqw] bg-gradient-to-br ${b.tone}`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[4.9cqw] font-bold leading-[1.25]">{b.title}</span>
+                    <span className="mt-[0.8cqw] block text-[3.9cqw] font-semibold text-muted">{b.tag}</span>
+                  </span>
+                </div>
+                {i === 0 && picked ? (
+                  <Pop className="mt-[3cqw]">
+                    <div className="flex items-center justify-center gap-[1.4cqw] rounded-full bg-accent-deep py-[2.6cqw] text-[4.9cqw] font-bold text-white">
+                      <Play className="h-[3.6cqw] w-[3.6cqw]" fill="currentColor" /> Film this
+                    </div>
+                  </Pop>
+                ) : null}
+                {i === 0 && picked ? (
+                  <motion.span
+                    className="pointer-events-none absolute left-1/2 top-1/2 h-[14cqw] w-[14cqw] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/30"
+                    initial={{ scale: 0.2, opacity: 0.9 }}
+                    animate={{ scale: 2.4, opacity: 0 }}
+                    transition={{ duration: 0.7, ease }}
+                  />
+                ) : null}
+              </div>
+            </Pop>
+          ))}
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function RecordScreen() {
+  const [secs, setSecs] = useState(3);
+  useEffect(() => {
+    const t = setInterval(() => setSecs((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <Screen dark>
+      <Image src="/brand/post-fabri.png" alt="" fill sizes="300px" className="origin-bottom scale-[1.5] object-cover" />
+      <div className="absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-black/60 to-transparent" />
+      <div className="relative flex flex-1 flex-col px-[5cqw] pt-[14cqw]">
+        <div className="flex items-center justify-center">
+          <span className="inline-flex items-center gap-[1.6cqw] rounded-full bg-black/45 px-[3cqw] py-[1.2cqw] text-[4.4cqw] font-bold tabular-nums">
+            <span className="h-[2.4cqw] w-[2.4cqw] animate-pulse rounded-full bg-red-500" /> 0:{String(secs).padStart(2, "0")}
+          </span>
+        </div>
+        <Pop d={0.2} className="mt-[4cqw] rounded-[4cqw] bg-black/45 p-[3.6cqw] backdrop-blur">
+          <p className="m-0 text-[3.8cqw] font-bold uppercase tracking-[0.08em] text-white/60">Hook</p>
+          <p className="m-0 mt-[0.6cqw] text-[5.7cqw] font-bold leading-[1.3]">5 things to know before your freshman season</p>
+        </Pop>
+        <div className="mt-auto flex justify-center pb-[10cqw]">
+          <span className="flex h-[18cqw] w-[18cqw] items-center justify-center rounded-full border-[1.2cqw] border-white">
+            <span className="h-[7.5cqw] w-[7.5cqw] rounded-[1.8cqw] bg-red-500" />
+          </span>
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function EditScreen() {
+  const steps = ["Captions added", "Cut to the best takes", "Music on"];
+  return (
+    <Screen dark>
+      <Video zoomFrom={1.5} className="min-h-0 flex-1" />
+      <div className="relative -mt-[6cqw] rounded-t-[6cqw] bg-white px-[5cqw] pb-[9cqw] pt-[4.4cqw] text-ink">
+        <p className="m-0 flex items-center gap-[1.6cqw] text-[5.7cqw] font-extrabold">
+          <Sparkles className="h-[5.4cqw] w-[5.4cqw] text-accent-deep" /> Noni edited it
+        </p>
+        <div className="mt-[2.6cqw] flex flex-col gap-[2.2cqw]">
+          {steps.map((s, i) => (
+            <Pop key={s} d={0.5 + i * 0.4} className="flex items-center gap-[2.4cqw] text-[4.9cqw] font-semibold text-ink-soft">
+              <span className="flex h-[6.4cqw] w-[6.4cqw] items-center justify-center rounded-full bg-green text-white">
+                {i === 2 ? <Music className="h-[3.6cqw] w-[3.6cqw]" /> : <Check className="h-[3.8cqw] w-[3.8cqw]" strokeWidth={3} />}
+              </span>
+              {s}
+            </Pop>
+          ))}
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function SubmitScreen() {
+  const sent = useAfter(1.6);
+  return (
+    <Screen>
+      <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
+        <Title>Ready to send</Title>
+        <Pop d={0.2} className="mx-auto mt-[4cqw] w-[62%]">
+          <div className="relative aspect-[9/16] overflow-hidden rounded-[4cqw] bg-slate-200 shadow-[0_10px_24px_-12px_rgba(15,23,32,0.4)]">
+            <Image src="/brand/post-fabri.png" alt="" fill sizes="200px" className="object-cover" />
+            <span className="absolute left-1/2 top-1/2 flex h-[11cqw] w-[11cqw] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/85">
+              <Play className="ml-[0.6cqw] h-[4.6cqw] w-[4.6cqw] text-ink" fill="currentColor" />
+            </span>
+          </div>
+        </Pop>
+        <div className="mt-auto pb-[9cqw]">
+          <Pop d={0.6}>
+            <div
+              className={`flex items-center justify-center gap-[1.6cqw] rounded-full py-[3.6cqw] text-[5.5cqw] font-bold text-white transition-colors duration-300 ${
+                sent ? "bg-green" : "bg-accent-deep"
+              }`}
+            >
+              {sent ? (
+                <motion.span initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 18 }} className="inline-flex items-center gap-[1.6cqw]">
+                  <Check className="h-[4.4cqw] w-[4.4cqw]" strokeWidth={3} /> Sent for review
+                </motion.span>
+              ) : (
+                "Submit"
+              )}
+            </div>
+          </Pop>
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function ApproveScreen() {
+  const ok = useAfter(1.4);
+  return (
+    <Screen>
+      <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
+        <div className="flex items-center justify-between">
+          <Title>Review</Title>
+          <span className="rounded-full bg-accent-deep px-[2.4cqw] py-[0.8cqw] text-[4.2cqw] font-bold text-white">1 new</span>
+        </div>
+        <Pop d={0.15} className="mt-[4cqw] flex min-h-0 flex-1 justify-center">
+          <div className="relative h-full w-full overflow-hidden rounded-[5cqw]">
+            <Video className="h-full w-full" />
+            <span className="absolute left-[3cqw] top-[3cqw] inline-flex items-center gap-[1.6cqw] rounded-full bg-white/90 py-[1cqw] pl-[1cqw] pr-[3cqw] text-[4.4cqw] font-bold">
+            <span className="flex h-[6cqw] w-[6cqw] items-center justify-center rounded-full bg-amber-100 text-[4.2cqw] text-amber-600">M</span>
+            Maya
+          </span>
+          {ok ? (
+            <motion.span
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 420, damping: 16 }}
+              className="absolute left-1/2 top-1/2 flex h-[22cqw] w-[22cqw] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-green text-white shadow-[0_10px_30px_-8px_rgba(31,143,95,0.6)]"
+            >
+              <Check className="h-[11cqw] w-[11cqw]" strokeWidth={3} />
+            </motion.span>
+          ) : null}
+          </div>
+        </Pop>
+        <div className="flex gap-[2.6cqw] pb-[9cqw] pt-[4cqw]">
+          <span className="flex flex-1 items-center justify-center rounded-full border border-line-strong bg-white py-[3.4cqw] text-[5.1cqw] font-bold text-ink-soft">Changes</span>
+          <span
+            className={`flex flex-1 items-center justify-center gap-[1.4cqw] rounded-full py-[3.4cqw] text-[5.1cqw] font-bold text-white transition-colors duration-300 ${
+              ok ? "bg-green" : "bg-ink"
+            }`}
+          >
+            {ok ? <Check className="h-[4cqw] w-[4cqw]" strokeWidth={3} /> : null}
+            {ok ? "Approved" : "Approve"}
+          </span>
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function PostedScreen() {
+  const rows = [
+    { name: "TikTok", icon: <TikTokIcon className="h-[5cqw] w-[5cqw]" />, tile: "bg-black text-white" },
+    { name: "Instagram", icon: <InstagramIcon className="h-[5cqw] w-[5cqw]" />, tile: "bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 text-white" },
+  ];
+  return (
+    <Screen>
+      <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
+        <Title>Posting</Title>
+        <Pop d={0.1} className="mt-[4cqw] flex items-center gap-[3.4cqw] rounded-[4.5cqw] bg-white p-[3.4cqw] shadow-[0_1px_2px_rgba(15,23,32,0.06)]">
+          <span className="relative h-[20cqw] w-[13cqw] shrink-0 overflow-hidden rounded-[2.4cqw] bg-slate-200">
+            <Image src="/brand/post-fabri.png" alt="" fill sizes="80px" className="object-cover" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[5.2cqw] font-bold leading-[1.25]">5 things athletes should know before freshman year</span>
+            <span className="mt-[1cqw] block text-[4.2cqw] font-semibold text-muted">Maya · approved</span>
+          </span>
+        </Pop>
+        <div className="mt-[3.4cqw] flex flex-col gap-[2.6cqw]">
+          {rows.map((r, i) => (
+            <Pop key={r.name} d={0.5 + i * 0.6} className="flex items-center gap-[3cqw] rounded-[4cqw] bg-white p-[3.2cqw] shadow-[0_1px_2px_rgba(15,23,32,0.06)]">
+              <span className={`flex h-[10cqw] w-[10cqw] items-center justify-center rounded-[2.6cqw] ${r.tile}`}>{r.icon}</span>
+              <span className="flex-1 text-[5.2cqw] font-bold">{r.name}</span>
+              <motion.span
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.9 + i * 0.6, type: "spring", stiffness: 500, damping: 18 }}
+                className="inline-flex items-center gap-[1cqw] rounded-full bg-green-soft px-[2.6cqw] py-[1cqw] text-[4.3cqw] font-bold text-green"
+              >
+                <Check className="h-[3.4cqw] w-[3.4cqw]" strokeWidth={3} /> Posted
+              </motion.span>
+            </Pop>
+          ))}
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function PaidScreen() {
+  const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${Math.round(n)}`);
+  return (
+    <Screen>
+      <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
+        <Title>This week</Title>
+        <Pop d={0.1} className="mt-[4cqw] rounded-[5cqw] bg-gradient-to-br from-[#4fbaf2] to-[#2b8fe0] p-[5cqw] text-white">
+          <div className="grid grid-cols-2 gap-[3cqw]">
+            <div>
+              <p className="m-0 text-[10.9cqw] font-extrabold leading-none tracking-[-0.02em]">
+                <CountUp to={39200} d={0.2} format={k} />
+              </p>
+              <p className="m-0 mt-[1.2cqw] text-[4.2cqw] font-semibold text-white/80">views</p>
+            </div>
+            <div>
+              <p className="m-0 text-[10.9cqw] font-extrabold leading-none tracking-[-0.02em]">
+                $<CountUp to={98} d={0.2} format={(n) => `${Math.round(n)}`} />
+              </p>
+              <p className="m-0 mt-[1.2cqw] text-[4.2cqw] font-semibold text-white/80">sales</p>
+            </div>
+          </div>
+          <svg viewBox="0 0 200 50" className="mt-[4cqw] h-[13cqw] w-full" aria-hidden>
+            <motion.path
+              d="M2 44 C 30 40, 45 30, 70 32 S 110 22, 130 18 S 175 8, 198 4"
+              fill="none"
+              stroke="white"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ delay: 0.3, duration: 1.3, ease }}
+            />
+          </svg>
+        </Pop>
+        <Pop d={0.5} className="mt-[3cqw] flex items-center justify-between rounded-[4cqw] bg-white p-[3.6cqw] shadow-[0_1px_2px_rgba(15,23,32,0.06)]">
+          <span className="text-[4.9cqw] font-bold">Sign ups on MAYA10</span>
+          <span className="text-[5.7cqw] font-extrabold">
+            <CountUp to={4} d={0.6} format={(n) => `${Math.round(n)}`} />
+          </span>
+        </Pop>
+        <div className="mt-auto pb-[9cqw]">
+          <Pop d={1.7} className="flex items-center gap-[3cqw] rounded-[4.5cqw] bg-white p-[3.6cqw] shadow-[0_12px_28px_-12px_rgba(15,23,32,0.35)]">
+            <span className="flex h-[10cqw] w-[10cqw] items-center justify-center rounded-full bg-green text-white">
+              <Check className="h-[5.4cqw] w-[5.4cqw]" strokeWidth={3} />
+            </span>
+            <span>
+              <span className="block text-[5.2cqw] font-extrabold">Maya paid $45</span>
+              <span className="block text-[4.2cqw] font-semibold text-muted">From your creator budget</span>
+            </span>
+          </Pop>
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+const STEPS: { who: Who; title: string; Screen: () => ReactNode }[] = [
+  { who: "company", title: "Write the brief", Screen: BriefScreen },
+  { who: "creator", title: "Pick a post", Screen: PickScreen },
+  { who: "creator", title: "Record it", Screen: RecordScreen },
+  { who: "noni", title: "Edited for you", Screen: EditScreen },
+  { who: "creator", title: "Submit", Screen: SubmitScreen },
+  { who: "company", title: "Approve it", Screen: ApproveScreen },
+  { who: "noni", title: "Posted everywhere", Screen: PostedScreen },
+  { who: "noni", title: "Tracked and paid", Screen: PaidScreen },
+];
+
+/** The iPhone the steps play in: metal edge, black bezel, Dynamic Island. Height driven. */
+function StagePhone({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="relative h-full max-w-full shrink-0 rounded-[15%/7%] bg-[#2b2d31] p-[1.1%] shadow-[0_30px_60px_-22px_rgba(15,23,32,0.45),0_10px_24px_-10px_rgba(15,23,32,0.25),inset_0_0_0_1px_rgba(255,255,255,0.14)]"
+      style={{ aspectRatio: 0.4754 }}
+    >
+      <span className="absolute -left-[1.3%] top-[24%] h-[7.5%] w-[1.3%] rounded-l-[3px] bg-[#2b2d31]" />
+      <span className="absolute -left-[1.3%] top-[33%] h-[7.5%] w-[1.3%] rounded-l-[3px] bg-[#2b2d31]" />
+      <span className="absolute -right-[1.3%] top-[27%] h-[11%] w-[1.3%] rounded-r-[3px] bg-[#2b2d31]" />
+      <div className="h-full w-full rounded-[14%/6.5%] bg-black p-[2.3%]">
+        <div className="relative h-full w-full overflow-hidden rounded-[12%/5.6%]" style={{ containerType: "size" }}>
+          {children}
+          {/* Dynamic Island and home bar over every screen */}
+          <span className="pointer-events-none absolute left-1/2 top-[1.6%] z-10 h-[3.6%] w-[30%] -translate-x-1/2 rounded-full bg-black" />
+          <span className="pointer-events-none absolute bottom-[1.2%] left-1/2 z-10 h-[0.55%] w-[34%] -translate-x-1/2 rounded-full bg-black/70" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WhoChip({ who, className = "" }: { who: Who; className?: string }) {
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-[3px] text-[12px] font-bold ${WHO[who].cls} ${className}`}>
+      {WHO[who].label}
+    </span>
+  );
+}
+
+export function HowItWorks() {
+  const ref = useRef<HTMLElement>(null);
+  const inView = useInView(ref, { amount: 0.5 });
+  const [step, setStep] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const running = inView && !paused;
+
+  useEffect(() => {
+    if (!running) return;
+    const t = setTimeout(() => setStep((s) => (s + 1) % STEPS.length), STEP_MS);
+    return () => clearTimeout(t);
+  }, [step, running]);
+
+  const Current = STEPS[step].Screen;
+
+  return (
+    <section id="how" ref={ref} className="landing-screen-fixed px-5 md:px-8">
+      <style>{`@keyframes hiw-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }`}</style>
+      <div className="mx-auto flex h-full max-w-[1080px] flex-col py-[clamp(16px,3.4svh,40px)]">
+        <h2 className="display m-0 text-center text-[clamp(28px,4.8svh,46px)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">How it works</h2>
+
+        <div className="mt-[clamp(14px,3svh,32px)] flex min-h-0 flex-1 items-stretch justify-center gap-[clamp(28px,6vw,96px)]">
+          {/* Steps (wide screens) */}
+          <ol
+            className="m-0 hidden w-[330px] list-none flex-col justify-center p-0 md:flex"
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+          >
+            {STEPS.map((s, i) => {
+              const active = i === step;
+              const done = i < step;
+              return (
+                <li key={s.title} className="relative">
+                  {i < STEPS.length - 1 ? (
+                    <span className={`absolute left-[27px] top-[calc(50%+16px)] h-[calc(100%-32px)] w-[2px] ${done ? "bg-accent" : "bg-line"}`} />
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setStep(i)}
+                    className={`relative flex w-full cursor-pointer items-center gap-3.5 rounded-[16px] border-none px-3 py-[clamp(5px,1.05svh,10px)] text-left transition-colors duration-200 ${
+                      active ? "bg-soft" : "bg-transparent hover:bg-soft/60"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full text-[14px] font-extrabold transition-colors duration-200 ${
+                        active ? "bg-ink text-white" : done ? "bg-accent text-white" : "bg-white text-muted shadow-[inset_0_0_0_1.5px_var(--line)]"
+                      }`}
+                    >
+                      {done ? <Check className="h-4 w-4" strokeWidth={3} /> : i + 1}
+                    </span>
+                    <span className={`flex-1 text-[clamp(15px,2.1svh,18px)] font-extrabold ${active ? "text-ink" : done ? "text-ink-soft" : "text-muted"}`}>
+                      {s.title}
+                    </span>
+                    <WhoChip who={s.who} className={active ? "" : "opacity-60"} />
+                    {active ? (
+                      <span className="absolute inset-x-3 bottom-[3px] h-[3px] overflow-hidden rounded-full bg-line">
+                        <span
+                          key={step}
+                          className="block h-full origin-left rounded-full bg-accent"
+                          style={{ animation: `hiw-fill ${STEP_MS}ms linear both`, animationPlayState: running ? "running" : "paused" }}
+                        />
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+
+          {/* The phone acting each step out */}
+          <div className="flex min-h-0 flex-1 justify-center md:flex-none" onClick={() => setStep((s) => (s + 1) % STEPS.length)}>
+            <StagePhone>
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key={step}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -24 }}
+                  transition={{ duration: 0.35, ease }}
+                >
+                  <Current />
+                </motion.div>
+              </AnimatePresence>
+            </StagePhone>
+          </div>
+        </div>
+
+        {/* Current step (small screens) */}
+        <div className="mt-[clamp(12px,2.4svh,20px)] flex flex-col items-center md:hidden">
+          <div className="flex items-center gap-2">
+            <WhoChip who={STEPS[step].who} />
+            <span className="text-[18px] font-extrabold text-ink">{STEPS[step].title}</span>
+          </div>
+          <div className="mt-3 flex gap-1.5">
+            {STEPS.map((s, i) => (
+              <button
+                key={s.title}
+                type="button"
+                aria-label={s.title}
+                onClick={() => setStep(i)}
+                className={`h-2 cursor-pointer rounded-full border-none p-0 transition-all duration-200 ${i === step ? "w-6 bg-ink" : i < step ? "w-2 bg-accent" : "w-2 bg-line"}`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
