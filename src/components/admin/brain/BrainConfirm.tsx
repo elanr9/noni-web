@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import {
   getBrainSnapshot,
+  saveTopFeatures,
   settleBrainSnapshot,
   startBrainIngest,
 } from "@/app/admin/brain/knowledge-actions";
@@ -62,10 +63,24 @@ export function Burst({ colors, count = 12, reach = 46 }: { colors: string[]; co
 
 type Ask =
   | { kind: "line"; part: Exclude<SnapshotPart, "features">; item: SnapshotItem }
-  | { kind: "features"; items: Array<{ index: number; item: SnapshotItem }> };
+  | { kind: "features"; items: Array<{ index: number; item: SnapshotItem }> }
+  /* The company taps its three most important features; the screenshot step asks for one of each. */
+  | { kind: "top" };
+
+const TOP_PICKS = 3;
+
+/** The feature names the company can pick its top ones from. */
+function featureNames(snapshot: CompanySnapshot | null): string[] {
+  if (!snapshot) return [];
+  const names = snapshot.features
+    .filter((f) => f.status !== "dismissed")
+    .map((f) => bulletOf(f, "features"))
+    .filter(Boolean);
+  return [...new Set(names)];
+}
 
 /** The questions still open, in order. Lines already confirmed are not asked again. */
-function asksOf(snapshot: CompanySnapshot): Ask[] {
+function asksOf(snapshot: CompanySnapshot, topPicked: boolean): Ask[] {
   const out: Ask[] = [];
   for (const part of ["sells", "audience", "viral"] as const) {
     const item = snapshot[part];
@@ -75,6 +90,8 @@ function asksOf(snapshot: CompanySnapshot): Ask[] {
     .map((item, index) => ({ item, index }))
     .filter((f) => f.item.status !== "dismissed");
   if (features.some((f) => f.item.status === "open")) out.push({ kind: "features", items: features });
+  /* With three or fewer there is nothing to choose: those are the three. */
+  if (!topPicked && featureNames(snapshot).length > TOP_PICKS) out.push({ kind: "top" });
   return out;
 }
 
@@ -82,6 +99,7 @@ const lower = (text: string) => (/^[A-Z][a-z]/.test(text) ? text[0].toLowerCase(
 
 /** What Noni says for one question. Short when the summary has a bullet for it. */
 function sayOf(ask: Ask): string {
+  if (ask.kind === "top") return `Pick your top ${TOP_PICKS}.`;
   if (ask.kind === "features") {
     return `It does this:\n${ask.items.map((f) => `•  ${bulletOf(f.item, "features")}`).join("\n")}\n\nAll good?`;
   }
@@ -164,6 +182,7 @@ export function BrainConfirm({
   logoPath,
   themeColor,
   snapshot: initial,
+  topPicked = false,
 }: {
   companyName: string;
   /** Who is answering, for the thank you at the end. */
@@ -172,6 +191,8 @@ export function BrainConfirm({
   /** The company's own color; Noni blue when it has none. */
   themeColor: string | null;
   snapshot: CompanySnapshot | null;
+  /** The top features were already picked, so that question is not asked again. */
+  topPicked?: boolean;
 }) {
   const accent = themeColor ?? NONI_BLUE;
   const onAccent = themeTextColor(accent);
@@ -182,7 +203,9 @@ export function BrainConfirm({
   const [snapshot, setSnapshot] = useState(initial);
   const [started, setStarted] = useState(false);
   /* The questions are fixed when the chat starts, so answering one does not reshuffle the rest. */
-  const [asks, setAsks] = useState<Ask[]>(() => (initial ? asksOf(initial) : []));
+  const [asks, setAsks] = useState<Ask[]>(() => (initial ? asksOf(initial, topPicked) : []));
+  /* The features tapped on the top pick question, in the order tapped. */
+  const [picks, setPicks] = useState<string[]>([]);
   const [at, setAt] = useState(0);
   const [turns, setTurns] = useState<Turn[]>([]);
   /* True once the newest Noni message has finished typing; the answer box waits for it. */
@@ -207,9 +230,9 @@ export function BrainConfirm({
       if (!result.ok || !result.data) return;
       const fresh = result.data;
       setSnapshot(fresh);
-      setAsks((prev) => (prev.length ? asksOf(fresh) : prev));
+      setAsks((prev) => (prev.length ? asksOf(fresh, topPicked) : prev));
     });
-  }, [initial]);
+  }, [initial, topPicked]);
 
   /* The thread stays pinned to the bottom: as a line types out, when an
      answer lands, and when the answer row or the Done button appears. */
@@ -265,6 +288,7 @@ export function BrainConfirm({
 
   /* Confirms every open line of this question as written. */
   const confirm = async (current: Ask): Promise<string | null> => {
+    if (current.kind === "top") return null;
     const slots =
       current.kind === "line"
         ? [{ part: current.part as SnapshotPart }]
@@ -290,12 +314,39 @@ export function BrainConfirm({
     });
   };
 
+  const options = featureNames(snapshot);
+  const pickTotal = Math.min(TOP_PICKS, options.length);
+
+  /* Tapping a feature picks it; tapping it again lets it go. A fourth tap
+     swaps out the first one picked, so it never just does nothing. */
+  const toggle = (name: string) => {
+    if (busy) return;
+    setPicks((prev) =>
+      prev.includes(name)
+        ? prev.filter((p) => p !== name)
+        : prev.length >= TOP_PICKS
+          ? [...prev.slice(1), name]
+          : [...prev, name],
+    );
+  };
+
+  const savePicks = () => {
+    if (!ask || ask.kind !== "top" || busy || !settled || picks.length < pickTotal) return;
+    setBusy(true);
+    setError(null);
+    void saveTopFeatures(picks).then((result) => {
+      setBusy(false);
+      if (!result.ok) setError(result.error);
+      else advance(picks.join(", "), null);
+    });
+  };
+
   /* A typed answer is a correction: the line is rewritten to take it in
      (never replaced by the reply itself). A note on the feature list goes
      to Noni to read, and the list is confirmed. */
   const send = () => {
     const words = draft.trim();
-    if (!ask || !words || busy || !settled) return;
+    if (!ask || ask.kind === "top" || !words || busy || !settled) return;
     setBusy(true);
     setError(null);
     const work =
@@ -409,7 +460,7 @@ export function BrainConfirm({
         <main
           ref={thread}
           className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-7 px-5 pt-6"
-          style={{ paddingBottom: ask ? 230 : 64 }}
+          style={{ paddingBottom: ask?.kind === "top" ? 300 : ask ? 230 : 64 }}
         >
           {turns.map((turn, i) =>
             turn.from === "me" ? (
@@ -458,7 +509,50 @@ export function BrainConfirm({
         </main>
       )}
 
-      {ask ? (
+      {ask?.kind === "top" ? (
+        <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-[#fbfbfc] via-[#fbfbfc] to-transparent pb-6 pt-10">
+          {answering ? (
+            <div className="mx-auto flex w-full max-w-[720px] flex-col items-start gap-4 px-5 animate-om-rise">
+              <div className="flex flex-wrap gap-2">
+                {options.map((name) => {
+                  const on = picks.includes(name);
+                  return (
+                    <button
+                      key={on ? `${name}-on` : name}
+                      type="button"
+                      aria-pressed={on}
+                      disabled={busy}
+                      onClick={() => toggle(name)}
+                      className={`relative inline-flex cursor-pointer items-center gap-1.5 rounded-full border-[1.5px] px-5 py-2.5 text-[15.5px] font-bold transition-[transform,background-color,border-color] duration-150 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.94] disabled:cursor-default ${
+                        on ? "animate-om-bounce" : "border-slate-300 bg-white text-ink hover:border-slate-400"
+                      }`}
+                      style={on ? { backgroundColor: accent, borderColor: accent, color: onAccent } : undefined}
+                    >
+                      {on ? <Burst colors={sparks} count={8} reach={30} /> : null}
+                      {on ? <Check size={15} strokeWidth={3.5} className="animate-om-check" /> : null}
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                disabled={busy || picks.length < pickTotal}
+                onClick={savePicks}
+                className="group inline-flex cursor-pointer items-center gap-1.5 rounded-full border-none px-7 py-3 text-[16px] font-bold transition-[transform,filter,opacity] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.94] disabled:cursor-default disabled:opacity-35 disabled:hover:translate-y-0"
+                style={{
+                  backgroundColor: accent,
+                  color: onAccent,
+                  boxShadow: `0 8px 20px color-mix(in srgb, ${accent} 32%, transparent)`,
+                }}
+              >
+                {busy ? <span className="om-spinner" /> : <Check size={16} strokeWidth={3.5} />}
+                {picks.length < pickTotal ? `${picks.length} of ${pickTotal}` : "Done"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : ask ? (
         <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-[#fbfbfc] via-[#fbfbfc] to-transparent pb-5 pt-10">
           <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3 px-5">
             {answering ? (

@@ -33,12 +33,16 @@ const ACCEPT: Record<MediaKind, string> = {
   recording: "video/mp4,video/quicktime",
 };
 
-type Slot = { url: string; busy: boolean };
+/** A file in a slot. `title` is the feature a screenshot was asked for. */
+type Slot = { url: string; busy: boolean; title?: string | null };
+
+const same = (a: string | null | undefined, b: string) => (a ?? "").trim().toLowerCase() === b.trim().toLowerCase();
 
 export function MediaSetup({
   companyId,
   name,
   themeColor,
+  features = [],
   shots: initialShots,
   recordings: initialRecordings,
   start = "shots",
@@ -47,21 +51,25 @@ export function MediaSetup({
   /** What people call the product, e.g. "Inkbound". */
   name: string;
   themeColor: string | null;
-  /** Preview URLs of what is already in the library. */
-  shots: string[];
+  /** The company's top features, one screenshot each, named under its card. Empty: three plain cards. */
+  features?: string[];
+  /** What is already in the library: preview URLs, and a screenshot's name. */
+  shots: Array<{ url: string; title: string | null }>;
   recordings: string[];
   /** Open on the color screen, for the "Pick your color" step on its own. */
   start?: "shots" | "color";
 }) {
   const { go, pending: leaving } = useNavigate();
   const [step, setStep] = useState<Step>(start);
-  const [shots, setShots] = useState<Slot[]>(initialShots.map((url) => ({ url, busy: false })));
+  const [shots, setShots] = useState<Slot[]>(initialShots.map((s) => ({ ...s, busy: false })));
   const [recs, setRecs] = useState<Slot[]>(initialRecordings.map((url) => ({ url, busy: false })));
   const [color, setColor] = useState(themeColor ?? NONI_BLUE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  /* The feature card that opened the file picker, so its file is saved under that name. */
+  const target = useRef<string | null>(null);
   /* Uploads run one after another: the library names files by the clock. */
   const queue = useRef<Promise<void>>(Promise.resolve());
 
@@ -71,10 +79,20 @@ export function MediaSetup({
   const kind: MediaKind = step === "recording" ? "recording" : "screenshot";
   const at = STEPS.indexOf(step);
 
-  /* Each file shows at once from the device and uploads behind it. */
-  const add = (files: FileList | File[]) => {
+  /* With features, each card holds the screenshot named for it. */
+  const shotFor = (feature: string) => shots.find((s) => same(s.title, feature));
+
+  /* Each file shows at once from the device and uploads behind it. A
+     screenshot for a feature card is named for that feature; dropped files
+     fill the empty feature cards in order. */
+  const add = (files: FileList | File[], forFeature: string | null = null) => {
     setError(null);
-    for (const file of Array.from(files)) {
+    const open = features.filter((f) => !shotFor(f) && f !== forFeature);
+    const names = forFeature ? [forFeature, ...open] : open;
+    let list = Array.from(files);
+    if (kind === "screenshot" && features.length > 0) list = list.slice(0, names.length);
+    for (const [n, file] of list.entries()) {
+      const title = kind === "screenshot" && features.length > 0 ? names[n] : null;
       const check = checkMediaFile(file);
       if (!check.ok) {
         setError(check.error);
@@ -86,7 +104,7 @@ export function MediaSetup({
       }
       const url = URL.createObjectURL(file);
       const set = kind === "screenshot" ? setShots : setRecs;
-      set((prev) => [...prev, { url, busy: true }]);
+      set((prev) => [...prev.filter((s) => !(title && same(s.title, title))), { url, busy: true, title }]);
       const settle = (ok: boolean) =>
         set((prev) =>
           ok ? prev.map((s) => (s.url === url ? { ...s, busy: false } : s)) : prev.filter((s) => s.url !== url),
@@ -97,7 +115,7 @@ export function MediaSetup({
           const uploaded = await uploadToLibrary(companyId, prepared, () => undefined);
           const result = await addMediaLibraryItem({
             kind: prepared.kind,
-            title: null,
+            title,
             description: null,
             path: uploaded.path,
             thumbPath: uploaded.thumbPath,
@@ -142,11 +160,16 @@ export function MediaSetup({
   };
 
   /* A slot: empty with a plus, or filled with the file and a popped check. */
-  const slot = (s: Slot | undefined, i: number, wide: boolean) => (
+  const slot = (s: Slot | undefined, i: number, wide: boolean, feature: string | null = null) => (
     <button
       key={s?.url ?? `empty-${i}`}
       type="button"
-      onClick={() => (s ? undefined : input.current?.click())}
+      aria-label={feature ?? undefined}
+      onClick={() => {
+        if (s) return;
+        target.current = feature;
+        input.current?.click();
+      }}
       className={`relative flex items-center justify-center overflow-hidden rounded-[22px] transition-transform duration-150 ${
         wide ? "h-[300px] w-[169px]" : "h-[260px] w-[146px]"
       } ${
@@ -227,10 +250,11 @@ export function MediaSetup({
         ref={input}
         type="file"
         accept={ACCEPT[kind]}
-        multiple={kind === "screenshot"}
+        multiple={kind === "screenshot" && features.length === 0}
         className="hidden"
         onChange={(e) => {
-          if (e.target.files) add(e.target.files);
+          if (e.target.files) add(e.target.files, target.current);
+          target.current = null;
           e.target.value = "";
         }}
       />
@@ -242,14 +266,27 @@ export function MediaSetup({
         {step === "shots" ? (
           <>
             <h1 className="display m-0 text-[44px] font-bold leading-[1.05] tracking-[-1.4px] text-ink">
-              Add 3 screenshots of <span style={{ color: accent }}>{name}</span>
+              Add {features.length || SHOT_SLOTS} screenshots of <span style={{ color: accent }}>{name}</span>
             </h1>
-            <div className="flex flex-wrap justify-center gap-4">
-              {Array.from({ length: Math.max(SHOT_SLOTS, shots.length) }, (_, i) => slot(shots[i], i, false))}
-            </div>
+            {features.length > 0 ? (
+              <div className="flex flex-wrap justify-center gap-4">
+                {features.map((feature, i) => (
+                  <div key={feature} className="flex w-[146px] flex-col items-center gap-2.5">
+                    {slot(shotFor(feature), i, false, feature)}
+                    <span className="text-[15px] font-bold leading-[1.3] tracking-[-0.2px] text-ink">{feature}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap justify-center gap-4">
+                {Array.from({ length: Math.max(SHOT_SLOTS, shots.length) }, (_, i) => slot(shots[i], i, false))}
+              </div>
+            )}
             <button
               type="button"
-              disabled={shots.length === 0 || uploading}
+              disabled={
+                (features.length > 0 ? !features.every((f) => shotFor(f)) : shots.length === 0) || uploading
+              }
               onClick={() => setStep("recording")}
               className={primary}
               style={primaryStyle}

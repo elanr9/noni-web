@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { peekBrainSnapshot } from "@/app/admin/brain/knowledge-actions";
+import { peekBrainSnapshot, peekTopFeatures } from "@/app/admin/brain/knowledge-actions";
 import { BrainConfirm } from "@/components/admin/brain/BrainConfirm";
 import { getAdminData } from "@/lib/admin/data";
 import { getSessionProfile } from "@/lib/auth";
@@ -16,10 +16,11 @@ export default async function CompanyChatPage() {
   const { userId, profile } = await getSessionProfile();
   if (!userId) redirect("/login?next=/onboarding/company");
   if (!profile?.active_company_id) redirect("/admin");
-  const [data, snapshot, themeColor] = await Promise.all([
+  const [data, snapshot, themeColor, top] = await Promise.all([
     getAdminData(profile.active_company_id),
     peekBrainSnapshot(),
     getThemeColor(profile.active_company_id),
+    peekTopFeatures(),
   ]);
   return (
     <BrainConfirm
@@ -28,6 +29,7 @@ export default async function CompanyChatPage() {
       logoPath={data.company.logoPath}
       themeColor={themeColor}
       snapshot={snapshot}
+      topPicked={top.length > 0}
     />
   );
 }

@@ -238,6 +238,46 @@ export async function settleBrainSnapshot(input: {
   return out.ok ? { ok: true, data: out.data.snapshot } : out;
 }
 
+/* ── Top features ──────────────────────────────────────────────────────── */
+
+/** The three features the company picked as most important, by name, in the
+    order picked. Kept in companies.intake.top_features (merged, so the
+    onboarding chat's answers stay). The screenshot step asks for one of each. */
+export async function saveTopFeatures(names: string[]): Promise<BrainResult<string[]>> {
+  const gate = await requireBrainAccess();
+  if (!gate.ok) return gate;
+  const picked = [...new Set(names.map((n) => clean(n, 80)).filter(Boolean))].slice(0, 3);
+  if (picked.length === 0) return { ok: false, error: "Pick your top features." };
+  if (gate.mock) return { ok: true, data: picked };
+  const supabase = createServiceClient();
+  const { data: row, error: readError } = await supabase
+    .from("companies")
+    .select("intake")
+    .eq("id", gate.companyId)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  const current = (row?.intake as Record<string, unknown> | null) ?? {};
+  const { error } = await supabase
+    .from("companies")
+    .update({ intake: { ...current, top_features: picked } })
+    .eq("id", gate.companyId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: picked };
+}
+
+/** The picked top features by name, or [] when none were picked yet. */
+export async function peekTopFeatures(): Promise<string[]> {
+  const gate = await requireBrainAccess();
+  if (!gate.ok || gate.mock) return [];
+  const { data } = await createServiceClient()
+    .from("companies")
+    .select("intake")
+    .eq("id", gate.companyId)
+    .maybeSingle();
+  const top = (data?.intake as { top_features?: unknown } | null)?.top_features;
+  return Array.isArray(top) ? top.filter((t): t is string => typeof t === "string" && t.trim() !== "") : [];
+}
+
 /* ── Records ───────────────────────────────────────────────────────────── */
 
 export async function listBrainFacts(): Promise<BrainResult<FactsList>> {
