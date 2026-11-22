@@ -45,13 +45,14 @@ export default async function AdminLayout({
       />
     );
   }
-  /* Nothing opens before the company picks how it runs: do it yourself
-     (a plan) or done for you (a call; the workspace opens when ops puts it on
-     Done for you). A failed renewal stays in, behind the payment banner. */
+  /* The onboarding chat comes first: it learns the company and asks what it
+     is looking for (run it on Noni, or have the Noni team run it). */
+  if (isCompanyAdmin(profile) && !profile?.onboarded) redirect("/onboarding");
+  /* Then nothing opens without a plan: the plans (on Noni) or the call with
+     the founders (Noni team; the workspace opens once ops puts the company
+     on Done for you). A failed renewal stays in, behind the payment banner. */
   const access = await companyPlanAccess(profile?.active_company_id ?? "");
   if (!access.entitled && access.status !== "past_due" && access.status !== "unpaid") redirect("/start");
-  /* Then the onboarding chat, for whoever has not done it yet. */
-  if (isCompanyAdmin(profile) && !profile?.onboarded) redirect("/onboarding");
 
   const data = await getAdminData(profile?.active_company_id ?? "");
   const setup = deriveSetupStatus(data);

@@ -464,7 +464,7 @@ export function ChatOnboarding({
               disabled={finishing}
               className="w-full cursor-pointer rounded-full border-none bg-ink px-6 py-4 text-[16px] font-bold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-60 sm:w-auto sm:self-start"
             >
-              {finishing ? "Opening Noni…" : "Open Noni"}
+              {finishing ? "One sec…" : "Next"}
             </button>
             <div className="rounded-[20px] border border-line bg-white p-5">
               <GetTheApp email={email} name={name} source="onboarding" look="ops" showOpenApp={false} onDownload={() => {}} />

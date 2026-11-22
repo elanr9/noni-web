@@ -52,21 +52,24 @@ export default async function ApplyPage({
   if (!app && state.data.has_profile && !wanted) redirect("/dash");
   if (!kind) return <ApplyChooser signedIn preselect={null} />;
 
+  /* A company is let straight in: its workspace is made now and the
+     onboarding chat (the first thing every company does) asks the rest. */
+  if (kind === "company") {
+    const joined = await callEdgeFunction<{ company_id: string | null }>("apply-chat", {
+      action: "join_company",
+      kind: "company",
+    });
+    if (joined.error !== null) return <ApplyChooser signedIn preselect="company" />;
+    redirect("/onboarding");
+  }
+
   if (!app || (app.status === "rejected" && again)) {
     const started = await callEdgeFunction<{ application: MyApplication }>("apply-chat", { action: "start", kind });
     if (started.error !== null) return <ApplyChooser signedIn preselect={kind} />;
     app = started.data.application;
   }
 
-  if (app.status === "approved") {
-    if (kind === "company") {
-      /* First visit after approval: start reading their site for the briefs. */
-      await callEdgeFunction<unknown>("apply-chat", { action: "first_scan" }).catch(() => null);
-      /* Next: do it yourself or done for you. */
-      redirect("/start");
-    }
-    return <CreatorApproved email={email} name={name} />;
-  }
+  if (app.status === "approved") return <CreatorApproved email={email} name={name} />;
   if (app.status === "pending") return <InReview kind={kind} email={email} />;
   if (app.status === "rejected") return <NotAccepted kind={kind} note={app.decision_note} />;
 

@@ -9,9 +9,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 export type RunPath = "diy" | "dfy";
 export type StartResult = { ok: true } | { ok: false; error: string };
 
-/* The answers the sign up chat already has, so the onboarding chat that
-   follows a "do it yourself" plan does not ask them twice. */
-const ASKED_AT_SIGN_UP = ["goal", "platforms", "creators_wanted", "launch"] as const;
 
 /** The one choice every new company makes before anything else: run the
     campaigns itself on Noni ("diy": plans and checkout, then the full
@@ -27,7 +24,7 @@ export async function chooseRunPath(renderedFor: string, path: RunPath): Promise
   const db = createServiceClient();
   const { data: company, error: readError } = await db
     .from("companies")
-    .select("name, website, intake, onboarding_chat")
+    .select("name, website, intake")
     .eq("id", companyId)
     .maybeSingle();
   if (readError || !company) return { ok: false, error: readError?.message ?? "Company not found." };
@@ -46,22 +43,8 @@ export async function chooseRunPath(renderedFor: string, path: RunPath): Promise
     manager_count: path === "dfy" ? 0 : 1,
     self_is_manager: path === "diy",
   };
-  /* Doing it yourself means answering everything: the onboarding chat runs
-     after checkout, picking up after what sign up already asked. */
-  const chat = (company.onboarding_chat as { messages?: unknown[] } | null) ?? {};
-  if (path === "diy" && !chat.messages?.length) {
-    const answered = [
-      ...(company.website ? ["website"] : []),
-      ...ASKED_AT_SIGN_UP.filter((k) => intake[k] !== undefined && intake[k] !== null && intake[k] !== ""),
-      "runs_campaigns",
-    ];
-    update.onboarding_chat = { messages: [], answered, followups: {} };
-  }
   const { error } = await db.from("companies").update(update).eq("id", companyId);
   if (error) return { ok: false, error: error.message };
-
-  /* Done for you has no chat; do it yourself gets the full one after paying. */
-  await db.from("profiles").update({ onboarded: path === "dfy" }).eq("id", userId);
 
   if (firstCall) {
     /* The founders hear about it the same way as every other lead (notify-lead). */
