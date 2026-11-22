@@ -42,9 +42,8 @@ export const IOS_APP_AVAILABILITY: IosAppAvailability = !IOS_APP_URL
     ? "testflight"
     : "app_store";
 
-export const CONTACT_EMAIL: string | null = cleanEmail(
-  process.env.NEXT_PUBLIC_CONTACT_EMAIL,
-);
+export const CONTACT_EMAIL: string | null =
+  cleanEmail(process.env.NEXT_PUBLIC_CONTACT_EMAIL) ?? "founders@usenoni.app";
 
 /** mailto: link to the Noni inbox, or null when no inbox is configured. */
 export function contactMailto(subject: string): string | null {
