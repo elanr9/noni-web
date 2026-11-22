@@ -27,13 +27,13 @@ export function PricingFork() {
           Pricing
         </span>
         <h1 className="display m-0 mt-[18px] text-center text-[44px] font-bold leading-[1.08] tracking-[-1.2px] text-ink">
-          Who should run it?
+          What are you looking for?
         </h1>
         <div className="mt-7 inline-flex border border-line bg-white p-1.5 shadow-[0_1px_2px_rgba(15,23,32,0.04)] rounded-pill">
           {(
             [
-              ["diy", "Do it myself"],
-              ["dfy", "Do it for me"],
+              ["diy", "Run it on Noni"],
+              ["dfy", "Noni team runs it"],
             ] as const
           ).map(([key, label]) => (
             <button

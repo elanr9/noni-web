@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Rocket, Sparkles, Wrench } from "lucide-react";
+import { Check, Rocket, Sparkles, Wrench } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -125,14 +125,16 @@ export function StartFlow({
 
   const back = step === "plans" || step === "call" ? () => setStep("choose") : null;
 
-  const card = (path: RunPath, Icon: typeof Wrench, title: string, line: string, tag?: string) => {
+  /* One option: an icon and the sentence the company would say. The whole
+     card is the button; picking it pops the icon to a check with a burst. */
+  const card = (path: RunPath, Icon: typeof Wrench, sentence: string) => {
     const on = picked === path;
     return (
       <button
         type="button"
         disabled={picked !== null}
         onClick={() => choose(path)}
-        className={`group relative flex w-full cursor-pointer flex-col items-start gap-4 rounded-[26px] border-2 bg-white p-7 text-left transition-[transform,box-shadow,border-color] duration-200 ease-om hover:-translate-y-1.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.12)] active:scale-[0.98] disabled:cursor-default sm:w-[320px] ${
+        className={`group relative flex w-full cursor-pointer flex-col items-start justify-between gap-10 rounded-[26px] border-2 bg-white p-8 text-left transition-[transform,box-shadow,border-color] duration-200 ease-om hover:-translate-y-1.5 hover:shadow-[0_18px_40px_rgba(15,23,42,0.12)] active:scale-[0.98] disabled:cursor-default sm:min-h-[260px] sm:w-[340px] ${
           on ? "animate-om-bounce" : ""
         }`}
         style={{
@@ -147,28 +149,7 @@ export function StartFlow({
         >
           {on ? <Check size={26} strokeWidth={3} className="animate-om-check" /> : <Icon size={26} strokeWidth={2.4} />}
         </span>
-        <span className="flex flex-col gap-1.5">
-          <span className="flex items-center gap-2">
-            <span className="text-[24px] font-bold tracking-[-0.6px] text-ink">{title}</span>
-            {tag ? (
-              <span
-                className="rounded-full px-2.5 py-[3px] text-[11.5px] font-bold"
-                style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, white)`, color: accent }}
-              >
-                {tag}
-              </span>
-            ) : null}
-          </span>
-          <span className="text-[15.5px] font-medium leading-[1.45] text-slate-500">{line}</span>
-        </span>
-        <span
-          className="mt-1 inline-flex items-center gap-1.5 text-[15px] font-bold transition-transform duration-150 group-hover:translate-x-1"
-          style={{ color: accent }}
-        >
-          {on ? <span className="om-spinner" /> : null}
-          Pick this
-          <ArrowRight size={16} strokeWidth={2.6} />
-        </span>
+        <span className="text-[25px] font-bold leading-[1.2] tracking-[-0.6px] text-ink">{sentence}</span>
       </button>
     );
   };
@@ -185,11 +166,11 @@ export function StartFlow({
         {step === "choose" ? (
           <>
             <h1 className="display m-0 text-[48px] font-bold leading-[1.05] tracking-[-1.6px] text-ink">
-              Who should run it?
+              What are you looking for?
             </h1>
             <div className="flex w-full flex-col items-stretch justify-center gap-5 sm:flex-row sm:items-stretch">
-              {card("diy", Wrench, "Do it myself", "Run your own creators on Noni.")}
-              {card("dfy", Sparkles, "Do it for me", `We run ${companyName}'s whole UGC campaign.`, "Hands off")}
+              {card("diy", Wrench, "I want to run our UGC campaigns on Noni")}
+              {card("dfy", Sparkles, "I want the Noni team to run my UGC")}
             </div>
           </>
         ) : null}
