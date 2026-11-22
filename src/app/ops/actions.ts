@@ -8,6 +8,7 @@ import {
   type InviteResponse,
 } from "@/lib/edge";
 import { createServiceClient } from "@/lib/supabase/service";
+import { setCompanyPlan, type OpsPlan } from "@/app/ops/companies/[id]/actions";
 
 export type OpsActionResult = { ok: true } | { ok: false; error: string };
 
@@ -37,6 +38,11 @@ export async function createCompany(input: {
   website: string | null;
   adminName: string;
   adminEmail: string;
+  /** Sold on a sales call: who runs it ("noni" Done for you, "me" they run
+      it on Noni), or null to let them pick in the onboarding chat. */
+  runBy?: "noni" | "me" | null;
+  /** A plan already agreed (set by hand, invoiced), or "none" to leave it. */
+  plan?: OpsPlan;
 }): Promise<CreateCompanyResult> {
   const denied = await requirePlatformAdmin();
   if (denied) return { ok: false, error: denied };
@@ -76,6 +82,25 @@ export async function createCompany(input: {
   }
 
   const service = createServiceClient();
+
+  /* Outbound sales: the company arrives already set up, so the onboarding
+     chat skips "What are you looking for?" and, with a plan, there is no
+     plan or call step after it. */
+  if (input.runBy) {
+    const dfy = input.runBy === "noni";
+    await service
+      .from("companies")
+      .update({
+        intake: { campaigns_run_by: input.runBy, source: "invite" },
+        manager_count: dfy ? 0 : 1,
+        self_is_manager: !dfy,
+      })
+      .eq("id", data.company.id);
+  }
+  if (input.plan && input.plan !== "none") {
+    const planned = await setCompanyPlan({ companyId: data.company.id, plan: input.plan });
+    if (!planned.ok) return { ok: false, error: `Company created, but the plan was not set: ${planned.error}` };
+  }
 
   /* The invite edge function keys on email only, so the admin's name is
      stored here; onboarding prefills the greeting from it. */
