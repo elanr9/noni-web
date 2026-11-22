@@ -1,12 +1,16 @@
 import type { CSSProperties } from "react";
 
-/* The welcome screen's opening: the Noni rocket launches once, in one
-   straight smooth line from off the bottom left corner to past the top right
-   one, and as it leaves a little confetti drifts down from the top. CSS only,
-   GPU transforms, so it runs from the first paint without waiting on
-   anything. Hidden for people who ask for reduced motion. */
+/* The welcome screen's opening, a real launch: the Noni rocket pops in near
+   the bottom left corner, rumbles on the pad for a beat, then lifts off slow
+   and keeps speeding up until it is gone past the top right. As it leaves, a
+   little confetti drifts down from the top. CSS only, GPU transforms, so it
+   runs from the first paint. Hidden for people who ask for reduced motion. */
 
-const FLY_MS = 1300;
+/** The whole launch, pop in to gone. */
+const FLY_MS = 3200;
+/** When the rocket is off screen and the confetti starts. */
+const GONE_MS = 2950;
+const ROCKET = 128;
 const CONFETTI = ["#3B82F6", "#60A5FA", "#22C55E", "#FBBF24", "#F472B6", "#A78BFA"];
 const PIECES = 34;
 
@@ -18,7 +22,7 @@ const piece = (i: number) => {
   };
   return {
     left: 2 + r(1) * 96,
-    delay: FLY_MS - 150 + r(2) * 500,
+    delay: GONE_MS + r(2) * 500,
     fall: 1700 + r(3) * 1100,
     sway: (r(4) - 0.5) * 120,
     spin: (r(5) > 0.5 ? 1 : -1) * (360 + r(6) * 360),
@@ -33,8 +37,23 @@ export function WelcomeLaunch() {
     <div aria-hidden className="welcome-launch pointer-events-none fixed inset-0 z-20 overflow-hidden">
       <style>{`
         @keyframes welcome-rocket {
-          from { transform: translate3d(-160px, calc(100vh + 40px), 0); }
-          to { transform: translate3d(calc(100vw + 60px), -220px, 0); }
+          0% { transform: translate3d(7vw, calc(100vh - 300px), 0) scale(0.5); opacity: 0;
+               animation-timing-function: cubic-bezier(.2,.9,.3,1.35); }
+          9% { transform: translate3d(7vw, calc(100vh - 300px), 0) scale(1); opacity: 1; }
+          /* On the pad, then lift off: slow at first, faster and faster. */
+          30% { transform: translate3d(7vw, calc(100vh - 300px), 0) scale(1);
+                animation-timing-function: cubic-bezier(.42,0,.78,.5); }
+          100% { transform: translate3d(calc(100vw + 160px), -360px, 0) scale(1.08); opacity: 1; }
+        }
+        @keyframes welcome-rumble {
+          0%, 100% { transform: translate3d(0, 0, 0); }
+          25% { transform: translate3d(-1.5px, 1px, 0); }
+          75% { transform: translate3d(1.5px, -1px, 0); }
+        }
+        @keyframes welcome-puff {
+          0% { transform: scale(0.3); opacity: 0; }
+          30% { opacity: 0.7; }
+          100% { transform: scale(1.5); opacity: 0; }
         }
         @keyframes welcome-confetti {
           0% { transform: translate3d(0, -24px, 0) rotate(0deg); opacity: 0; }
@@ -47,24 +66,29 @@ export function WelcomeLaunch() {
 
       <span
         className="absolute left-0 top-0 block will-change-transform"
-        style={{ animation: `welcome-rocket ${FLY_MS}ms cubic-bezier(.35,0,.65,1) both` }}
+        style={{ animation: `welcome-rocket ${FLY_MS}ms linear both` }}
       >
-        {/* A short fading trail of puffs behind the tail. */}
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="absolute rounded-full bg-blue-300"
-            style={{
-              width: 12 - i * 3,
-              height: 12 - i * 3,
-              left: -6 - i * 18,
-              top: 64 + i * 18,
-              opacity: 0.55 - i * 0.15,
-            }}
-          />
-        ))}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/noni-logo.svg" alt="" width={72} height={72} className="block" />
+        <span
+          className="relative block"
+          style={{ animation: "welcome-rumble 80ms linear 280ms 8" }}
+        >
+          {/* Exhaust puffs off the tail, puffing the whole way. */}
+          {[0, 1, 2, 3].map((i) => (
+            <span
+              key={i}
+              className="absolute rounded-full bg-blue-200"
+              style={{
+                width: 26 - i * 5,
+                height: 26 - i * 5,
+                left: -4 - i * 24,
+                top: ROCKET - 22 + i * 24,
+                animation: `welcome-puff 520ms ease-out ${300 + i * 110}ms infinite`,
+              }}
+            />
+          ))}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/noni-logo.svg" alt="" width={ROCKET} height={ROCKET} className="relative block" />
+        </span>
       </span>
 
       {Array.from({ length: PIECES }, (_, i) => {
