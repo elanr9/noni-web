@@ -78,6 +78,71 @@ function AssistantMessage({ text, streaming }: { text: string; streaming?: boole
   );
 }
 
+/* The reply being written. The words arrive from the model in uneven
+   bursts; this types them out at a steady, readable pace instead (faster
+   when it falls behind, so it never lags far), with a caret while it goes.
+   `final` means nothing more is coming: once every word is on screen it
+   calls onDone, and only then do the answer buttons appear. */
+function LiveMessage({ text, final, onDone }: { text: string; final: boolean; onDone: () => void }) {
+  const [shown, setShown] = useState(0);
+  const target = useRef(text);
+  const finished = useRef(final);
+  const done = useRef(onDone);
+  useEffect(() => {
+    target.current = text;
+    finished.current = final;
+    done.current = onDone;
+  }, [text, final, onDone]);
+
+  useEffect(() => {
+    let frame = 0;
+    let last = performance.now();
+    let at = 0;
+    let called = false;
+    const tick = (now: number) => {
+      const dt = Math.min(64, now - last);
+      last = now;
+      const total = target.current.length;
+      const behind = total - at;
+      /* About 55 characters a second, plus a share of any backlog. */
+      if (behind > 0) at = Math.min(total, at + (dt / 1000) * (55 + behind * 2.2));
+      setShown(Math.floor(at));
+      if (finished.current && Math.floor(at) >= total) {
+        if (!called) {
+          called = true;
+          done.current();
+        }
+        return;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
+  /* Keep the line being typed in view. */
+  useLayoutEffect(() => {
+    window.scrollTo({ top: document.documentElement.scrollHeight });
+  }, [shown]);
+
+  const visible = text.slice(0, shown);
+  return (
+    <div className="flex gap-3.5 animate-om-rise">
+      <Avatar />
+      <div className="min-w-0 flex-1 pt-[3px] text-[17px] font-medium leading-[1.6] tracking-[-0.1px] text-ink">
+        {visible ? (
+          <p className="m-0 whitespace-pre-wrap">
+            {visible}
+            <span className="ml-0.5 inline-block h-[18px] w-[2px] translate-y-[3px] animate-pulse bg-ink" />
+          </p>
+        ) : (
+          <Typing />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function UserMessage({ text }: { text: string }) {
   return (
     <div className="flex justify-end animate-om-rise">
@@ -202,6 +267,8 @@ export function ChatOnboarding({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pending, setPending] = useState<SlotSpec | null>(null);
   const [streaming, setStreaming] = useState<string | null>(null);
+  /* The finished reply, held until it has typed out on screen. */
+  const [queued, setQueued] = useState<{ text: string; slot: string; next: SlotSpec | null } | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
@@ -278,20 +345,35 @@ export function ChatOnboarding({
         setProgress,
         source,
       );
-      setMessages((m) => [...m, { role: "assistant", text: text.trim(), slot: next?.key ?? "end" }]);
-      setPending(next);
-      setPicked([]);
-      setDraft("");
-      setLastAnswer(null);
+      /* Shown once it has finished typing out (commit). */
+      setQueued({ text: text.trim(), slot: next?.key ?? "end", next });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Noni could not answer. Try again.");
       setLastAnswer(answer);
-    } finally {
       setStreaming(null);
       setBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source?.endpoint]);
+
+  /* The reply has typed out: it joins the thread and its answers appear. */
+  const queuedRef = useRef(queued);
+  useEffect(() => {
+    queuedRef.current = queued;
+  }, [queued]);
+  const commit = useCallback(() => {
+    const q = queuedRef.current;
+    if (!q) return;
+    queuedRef.current = null;
+    setMessages((m) => [...m, { role: "assistant", text: q.text, slot: q.slot }]);
+    setPending(q.next);
+    setQueued(null);
+    setPicked([]);
+    setDraft("");
+    setLastAnswer(null);
+    setStreaming(null);
+    setBusy(false);
+  }, []);
 
   /* Open: pick the conversation up where it was, or start it. */
   useEffect(() => {
@@ -438,7 +520,9 @@ export function ChatOnboarding({
             {i === scanAfter ? <ScanLine scan={scan} site={site || m.text} /> : null}
           </div>
         ))}
-        {streaming !== null ? <AssistantMessage text={streaming} streaming /> : null}
+        {streaming !== null ? (
+          <LiveMessage text={queued?.text ?? streaming} final={queued !== null} onDone={commit} />
+        ) : null}
 
         {pending?.kind === "summary" && !busy ? (
           <div className="pl-[46px] animate-om-rise">
