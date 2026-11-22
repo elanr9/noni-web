@@ -364,7 +364,43 @@ export function ChatOnboarding({
 
   if (welcome) {
     return (
-      <div className="flex min-h-screen flex-col bg-[#fbfbfc] font-ops">
+      <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#fbfbfc] font-ops">
+        {/* The rocket flies once across the screen, bottom left to top right, leaving a puff trail. */}
+        <style>{`
+          @keyframes rocket-fly {
+            0% { transform: translate(-12vw, 112vh) rotate(0deg) scale(0.8); opacity: 0 }
+            8% { opacity: 1 }
+            50% { transform: translate(42vw, 48vh) rotate(-4deg) scale(1.15) }
+            92% { opacity: 1 }
+            100% { transform: translate(112vw, -18vh) rotate(0deg) scale(0.9); opacity: 0 }
+          }
+          @keyframes rocket-puff {
+            0% { transform: scale(0.4); opacity: 0 }
+            15% { opacity: .55 }
+            100% { transform: scale(1.6); opacity: 0 }
+          }
+          @media (prefers-reduced-motion: reduce) { .rocket-fly { display: none } }
+        `}</style>
+        <span
+          aria-hidden
+          className="rocket-fly pointer-events-none fixed left-0 top-0 z-20"
+          style={{ animation: "rocket-fly 2.2s cubic-bezier(.45,.05,.35,1) .25s both" }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <span
+              key={i}
+              className="absolute rounded-full bg-blue-200"
+              style={{
+                width: 14 - i * 2,
+                height: 14 - i * 2,
+                left: -10 - i * 16,
+                top: 52 + i * 16,
+                animation: `rocket-puff .7s ease-out ${0.35 + i * 0.08}s infinite`,
+              }}
+            />
+          ))}
+          <Image src="/brand/noni-logo.svg" alt="" width={64} height={64} priority />
+        </span>
         <header className="flex items-center gap-[9px] px-5 py-4 sm:px-7">
           <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
           <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
@@ -372,9 +408,6 @@ export function ChatOnboarding({
           {canRestart ? <RestartOnboardingButton variant="pill" /> : null}
         </header>
         <main className="mx-auto flex w-full max-w-[760px] flex-1 flex-col items-center justify-center gap-7 px-5 pb-24 text-center">
-          <span className="inline-flex h-[84px] w-[84px] items-center justify-center rounded-[24px] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.12)] animate-om-check">
-            <Image src="/brand/noni-logo.svg" alt="" width={46} height={46} />
-          </span>
           <h1 className="display m-0 text-[52px] font-bold leading-[1.05] tracking-[-1.8px] text-ink animate-om-rise">
             Hey{name ? ` ${name}` : ""}, welcome to <span className="text-blue-500">Noni</span>!
           </h1>
