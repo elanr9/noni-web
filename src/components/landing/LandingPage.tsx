@@ -166,25 +166,31 @@ export function LandingPage() {
                 <h1 className="display mt-5 text-[42px] font-extrabold leading-[1.04] text-ink sm:text-[56px] lg:text-[64px]">
                   Your entire UGC Campaigns all in one place
                 </h1>
-                <p className="mx-auto mt-5 max-w-[34ch] text-[18px] leading-[1.5] text-muted md:text-[20px] lg:mx-0">
-                  Write briefs, film, edit with AI, post, track results and pay your creators.
+                <p className="mx-auto mt-5 max-w-[36ch] text-[18px] leading-[1.5] text-muted md:text-[20px] lg:mx-0">
+                  Run your creators on Noni, or let the Noni team run it all for you.
                 </p>
                 <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center lg:justify-start">
                   <Link
-                    href="#for-businesses"
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[15.5px] font-bold text-white transition hover:bg-ink-soft"
+                    href="/apply?as=company"
+                    className="group inline-flex items-center justify-center gap-2 rounded-full bg-ink px-8 py-4 text-[16px] font-bold text-white no-underline transition hover:bg-ink-soft"
                   >
-                    For Businesses
-                    <ArrowRight className="h-4 w-4" />
+                    Get started
+                    <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-1" />
                   </Link>
                   <Link
-                    href="#for-creators"
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-[15.5px] font-bold text-white shadow-[0_10px_24px_-10px_var(--glow)] transition hover:bg-accent-deep"
+                    href="#pricing"
+                    className="inline-flex items-center justify-center rounded-full border border-line-strong bg-white px-8 py-4 text-[16px] font-bold text-ink no-underline transition hover:bg-soft"
                   >
-                    For Creators
-                    <ArrowRight className="h-4 w-4" />
+                    See pricing
                   </Link>
                 </div>
+                <Link
+                  href="/apply?as=creator"
+                  className="group mt-6 inline-flex items-center gap-1.5 text-[15px] font-semibold text-accent-deep no-underline transition hover:text-accent"
+                >
+                  Creator? Get paid to post for brands
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-1" />
+                </Link>
               </motion.div>
             </div>
 
@@ -221,7 +227,7 @@ export function LandingPage() {
                   href="/apply?as=company"
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-accent-deep"
                 >
-                  Get started as a brand
+                  Get started
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
@@ -361,7 +367,7 @@ export function LandingPage() {
                   href="/apply?as=company"
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-ink-soft"
                 >
-                  Get started as a brand
+                  Get started
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link

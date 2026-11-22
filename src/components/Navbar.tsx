@@ -38,7 +38,7 @@ export function Navbar() {
           {[
             { href: "/#features", label: "Features" },
             { href: "/#pricing", label: "Pricing" },
-            { href: "/#founders", label: "Founders" },
+            { href: "/#for-creators", label: "Creators" },
             { href: "/#faq", label: "FAQ" },
           ].map((item) => (
             <Link
@@ -57,9 +57,15 @@ export function Navbar() {
           </Link>
           <Link
             href="/login"
-            className="ml-1 rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:ml-2 md:px-5 md:py-2.5 md:text-[14px]"
+            className="whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-semibold text-ink-soft transition hover:text-ink md:px-3.5 md:text-[14px]"
           >
-            Login
+            Log in
+          </Link>
+          <Link
+            href="/apply?as=company"
+            className="ml-1 whitespace-nowrap rounded-full bg-ink px-3.5 py-2 text-[13px] font-semibold text-white transition hover:bg-ink-soft md:ml-2 md:px-5 md:py-2.5 md:text-[14px]"
+          >
+            Get started
           </Link>
         </nav>
       </div>
