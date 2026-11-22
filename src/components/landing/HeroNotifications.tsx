@@ -16,10 +16,11 @@ export type HeroNote = {
 };
 
 export const HERO_NOTES: HeroNote[] = [
-  { img: "/brand/post-jake2.png", who: "Jake M.", what: "New post ready for review", where: "TikTok", tag: "Reel" },
-  { img: "/brand/post-sebastian.png", who: "Sofia R.", what: "Your post just hit 10k views", where: "Instagram", tag: "10k" },
-  { img: "/brand/post-fabri.png", who: "Fabri", what: "Brought in 3 new sign-ups", where: "TikTok", tag: "+3" },
-  { img: "/brand/post-tona.png", who: "Tona", what: "Got paid $45 for 2 posts", where: "Payout", tag: "Paid" },
+  { img: "/brand/post-jake2.png", who: "Jake", what: "New post ready for review", where: "TikTok", tag: "Reel" },
+  { img: "/brand/post-sebastian.png", who: "Elan", what: "Your post just hit 10k views", where: "Instagram", tag: "10k" },
+  { img: "/brand/post-fabri.png", who: "Trav", what: "Brought in 3 new sign-ups", where: "TikTok", tag: "+3" },
+  { img: "/brand/post-tona.png", who: "Alex", what: "Got paid $45 for 2 posts", where: "Payout", tag: "Paid" },
+  { img: "/brand/post-frame.png", who: "Hoku", what: "Started filming your new brief", where: "Brief", tag: "Due Fri" },
 ];
 
 export function NoteCard({ note, delay = 0, drift = 0, className = "" }: { note: HeroNote; delay?: number; drift?: number; className?: string }) {
