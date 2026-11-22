@@ -45,7 +45,12 @@ export default async function AdminLayout({
       />
     );
   }
-  /* Agent B owns the onboarding question flow. */
+  /* Nothing opens before the company picks how it runs: do it yourself
+     (a plan) or done for you (a call; the workspace opens when ops puts it on
+     Done for you). A failed renewal stays in, behind the payment banner. */
+  const access = await companyPlanAccess(profile?.active_company_id ?? "");
+  if (!access.entitled && access.status !== "past_due" && access.status !== "unpaid") redirect("/start");
+  /* Then the onboarding chat, for whoever has not done it yet. */
   if (isCompanyAdmin(profile) && !profile?.onboarded) redirect("/onboarding");
 
   const data = await getAdminData(profile?.active_company_id ?? "");

@@ -9,7 +9,7 @@ import { ArrowRight, BadgeDollarSign, BarChart3, Send, Sparkles, Video } from "l
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
-import { PlanPicker } from "@/components/admin/billing/PlanPicker";
+import { PricingFork } from "@/components/PricingFork";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { WaitlistModal, type LeadModalKind } from "@/components/WaitlistModal";
@@ -221,7 +221,7 @@ export function LandingPage() {
                   href="/apply?as=company"
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-accent-deep"
                 >
-                  Apply as a brand
+                  Get started as a brand
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
@@ -271,11 +271,7 @@ export function LandingPage() {
         {/* ── Pricing ── */}
         <section id="pricing" className="scroll-mt-20 pt-16 lg:pt-24">
           <div className="font-ops mx-auto max-w-[1080px] px-4 md:px-8">
-            <PlanPicker
-              eyebrow="Pricing"
-              heading="Simple plans for your creator program"
-              publicCta={{ label: "Book a call", onClick: bookCall }}
-            />
+            <PricingFork />
           </div>
         </section>
 
@@ -365,7 +361,7 @@ export function LandingPage() {
                   href="/apply?as=company"
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-7 py-4 text-[15.5px] font-bold text-white no-underline transition hover:bg-ink-soft"
                 >
-                  Apply as a brand
+                  Get started as a brand
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link

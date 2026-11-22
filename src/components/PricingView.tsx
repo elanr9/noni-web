@@ -2,40 +2,43 @@
 
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 
-import { PlanPicker } from "@/components/admin/billing/PlanPicker";
-import { WaitlistModal } from "@/components/WaitlistModal";
+import { PricingFork, SIGN_UP } from "@/components/PricingFork";
 import { PLAN_CREATOR_CAP } from "@/lib/plans";
 
-/* Public /pricing (design_handoff_pricing_plans). Renders the exact plan
-   cards the Billing tab uses (one catalog in @/lib/plans). Companies are set
-   up by Noni, so every self-serve CTA opens the business form; the plan is
-   bought from Billing after onboarding. */
+/* Public /pricing (design_handoff_pricing_plans). The same question the
+   product asks right after sign up comes first: run it yourself, or have Noni
+   do it for you. Do it myself shows the self serve plans (one catalog in
+   @/lib/plans); do it for me is a call. Either way the next step is signing
+   up: a few quick questions, then the same choice inside the product. */
 
 const STEPS = [
   {
-    title: "Tell us about your company",
-    body: "Send the form. We set up your workspace and email you a sign-in link, usually within a business day.",
+    title: "Sign up",
+    body: "Sign in with Google and answer a few quick questions. Noni reads your website while you do.",
   },
   {
-    title: "Onboard in a few minutes",
-    body: "Sign in with Google, answer a few questions, and Noni reads your website to learn your brand.",
+    title: "Pick who runs it",
+    body: "Run your creators yourself on Noni, or have our team run the whole campaign for you.",
   },
   {
-    title: "Pick your plan and invite creators",
-    body: `Choose Starter or Premium in Billing with Stripe Checkout, then invite up to ${PLAN_CREATOR_CAP.starter} or ${PLAN_CREATOR_CAP.premium} creators per campaign.`,
+    title: "Go live",
+    body: `Do it yourself: pick a plan and invite up to ${PLAN_CREATOR_CAP.starter} or ${PLAN_CREATOR_CAP.premium} creators per campaign. Done for you: book a call and we take it from there.`,
   },
 ];
 
 const FAQ = [
+  {
+    q: "What does done for you include?",
+    a: "Everything. We find the creators, write the briefs, approve every post, pay the creators and send you the results. You do not touch the software unless you want to.",
+  },
   {
     q: "What counts toward the creator cap?",
     a: "Every creator on your team, including pending invites. Each campaign goes to all of your approved creators, so the cap is how many creators run on a campaign.",
   },
   {
     q: "What happens to the creator budget?",
-    a: "Separate from your plan. You set a monthly budget that is charged to the same card and added to your balance as credits. Noni pays your creators from that balance.",
+    a: "Separate from your plan. We set it with you on a call and invoice it. Noni pays your creators from it.",
   },
   {
     q: "Can I switch or cancel?",
@@ -48,17 +51,9 @@ const FAQ = [
 ];
 
 export function PricingView() {
-  const [formOpen, setFormOpen] = useState(false);
-
   return (
     <main className="font-ops">
-      <div className="mx-auto max-w-[1080px] px-4 md:px-8">
-        <PlanPicker
-          eyebrow="Pricing"
-          heading="Simple plans for your creator program"
-          publicCta={{ label: "Get started", onClick: () => setFormOpen(true) }}
-        />
-      </div>
+      <PricingFork />
 
       <section className="mx-auto max-w-[1000px] px-4 pb-6 pt-6 md:px-8">
         <h2 className="m-0 text-center text-[26px] font-bold tracking-[-0.6px] text-ink">
@@ -81,18 +76,17 @@ export function PricingView() {
           ))}
         </ol>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => setFormOpen(true)}
-            className="inline-flex cursor-pointer items-center gap-2 whitespace-nowrap border-none bg-blue-500 px-6 py-3 text-[14.5px] font-bold text-white shadow-accent rounded-pill transition-colors hover:bg-blue-400"
+          <Link
+            href={SIGN_UP}
+            className="inline-flex items-center gap-2 whitespace-nowrap border-none bg-blue-500 px-6 py-3 text-[14.5px] font-bold text-white no-underline shadow-accent rounded-pill transition-colors hover:bg-blue-400"
           >
             Get started <ArrowRight size={16} />
-          </button>
+          </Link>
           <Link
             href="/login"
             className="inline-flex whitespace-nowrap border border-line-strong bg-white px-6 py-3 text-[14.5px] font-bold text-ink no-underline rounded-pill transition-colors hover:bg-fill-quiet"
           >
-            Already invited? Sign in
+            Sign in
           </Link>
         </div>
       </section>
@@ -121,12 +115,6 @@ export function PricingView() {
         </div>
       </section>
 
-      <WaitlistModal
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        kind="business"
-        source="pricing"
-      />
     </main>
   );
 }

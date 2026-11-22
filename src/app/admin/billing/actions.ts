@@ -77,6 +77,8 @@ async function siteOrigin(): Promise<string> {
 export async function startCheckout(
   renderedFor: string,
   plan: SubscriptionPlan,
+  /** "start": bought on the first run screen (/start), so Stripe returns there. */
+  from?: "start",
 ): Promise<BillingActionResult> {
   const ctx = await getBillingContext();
   if (!ctx) return { ok: false, error: NOT_ALLOWED };
@@ -127,8 +129,8 @@ export async function startCheckout(
     line_items: [{ price: priceId, quantity: 1 }],
     allow_promotion_codes: true,
     payment_method_collection: "if_required",
-    success_url: `${origin}/admin/billing?checkout=success`,
-    cancel_url: `${origin}/admin/billing?checkout=cancelled`,
+    success_url: from === "start" ? `${origin}/start?checkout=success` : `${origin}/admin/billing?checkout=success`,
+    cancel_url: from === "start" ? `${origin}/start?step=plans` : `${origin}/admin/billing?checkout=cancelled`,
     metadata: { company_id: ctx.companyId },
     subscription_data: { metadata: { company_id: ctx.companyId, plan } },
     ...(typeof customerId === "string" && customerId.startsWith("cus_")

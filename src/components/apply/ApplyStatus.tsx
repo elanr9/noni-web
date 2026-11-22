@@ -1,4 +1,4 @@
-import { Check, Clock } from "lucide-react";
+import { ArrowRight, Check, Clock } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -90,13 +90,19 @@ export function NotAccepted({ kind, note }: { kind: ApplyKind; note: string | nu
 
 /** The end of the chat: the application just went in. */
 export function ChatDone({ kind }: { kind: ApplyKind }) {
+  /* A company is let straight in; the next screen asks who runs it. */
   return (
     <div className="flex flex-col gap-3">
       <Link
         href={`/apply?as=${kind}`}
-        className="inline-flex self-start rounded-full bg-ink px-6 py-4 text-[16px] font-bold text-white no-underline"
+        className={`group inline-flex items-center gap-2 self-start rounded-full px-7 py-4 text-[16px] font-bold text-white no-underline transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.96] ${
+          kind === "company" ? "bg-blue-500 shadow-[0_10px_24px_rgba(59,130,246,0.3)]" : "bg-ink"
+        }`}
       >
-        See my application
+        {kind === "company" ? "Next" : "See my application"}
+        {kind === "company" ? (
+          <ArrowRight size={18} className="transition-transform duration-150 group-hover:translate-x-1" />
+        ) : null}
       </Link>
     </div>
   );

@@ -16,7 +16,7 @@ const CHOICES: { kind: ApplyKind; icon: typeof Video; title: string; body: strin
     kind: "company",
     icon: Building2,
     title: "I'm a brand",
-    body: "Get creators posting about your product. Eight quick questions.",
+    body: "Get creators posting about your product. A few quick questions.",
   },
   {
     kind: "creator",

@@ -78,7 +78,10 @@ export function PlanPicker({
   eyebrow = "Subscription",
   compact = false,
   known = null,
+  selfServeOnly = false,
 }: {
+  /** Do it yourself was picked: hide the Done for you band. */
+  selfServeOnly?: boolean;
   subscription?: Subscription;
   /** Dev without Stripe keys, or a pilot company: simulated checkout. */
   simulated?: boolean;
@@ -197,9 +200,11 @@ export function PlanPicker({
             <h1 className="display m-0 text-[22px] font-bold leading-[1.2] tracking-[-0.5px] text-ink">
               Pick your plan
             </h1>
-            <p className="mb-0 mt-1 text-[13px] font-medium leading-[1.5] text-slate-500">
-              Pick how many creators you run, or have Noni run it for you.
-            </p>
+            {selfServeOnly ? null : (
+              <p className="mb-0 mt-1 text-[13px] font-medium leading-[1.5] text-slate-500">
+                Pick how many creators you run, or have Noni run it for you.
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
             {cadenceSwitch}
@@ -369,6 +374,7 @@ export function PlanPicker({
       </div>
 
       {/* Done for you: the last option, a full-width band under the cards. */}
+      {selfServeOnly ? null : (
       <div
         className={`flex w-full flex-col gap-x-6 gap-y-4 rounded-[20px] border border-line bg-white shadow-[0_1px_3px_rgba(15,23,32,0.04)] transition-[translate,box-shadow] duration-200 ease-om hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(15,23,32,0.08)] md:flex-row md:items-center ${
           compact ? "mt-3.5 px-5 py-4" : "mt-5 max-w-[1000px] px-7 py-6"
@@ -406,6 +412,7 @@ export function PlanPicker({
           {managedCta}
         </button>
       </div>
+      )}
 
       <p
         className={`mb-0 text-center text-[12.5px] font-semibold text-slate-400 ${

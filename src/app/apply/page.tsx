@@ -62,7 +62,8 @@ export default async function ApplyPage({
     if (kind === "company") {
       /* First visit after approval: start reading their site for the briefs. */
       await callEdgeFunction<unknown>("apply-chat", { action: "first_scan" }).catch(() => null);
-      redirect("/dash");
+      /* Next: do it yourself or done for you. */
+      redirect("/start");
     }
     return <CreatorApproved email={email} name={name} />;
   }

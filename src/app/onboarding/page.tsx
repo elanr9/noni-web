@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { peekBrainIngest } from "@/app/admin/brain/knowledge-actions";
 import { ChatOnboarding } from "@/components/admin/onboarding/ChatOnboarding";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
+import { companyPlanAccess } from "@/lib/admin/billing";
 import { isOnboardingTester } from "@/lib/onboarding-tester";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -17,6 +18,8 @@ export default async function OnboardingPage() {
   if (!userId) redirect("/login?next=/onboarding");
   if (!isCompanyAdmin(profile)) redirect("/admin");
   if (profile?.onboarded) redirect("/admin");
+  /* The plan comes first (/start); the chat follows it. */
+  if (!(await companyPlanAccess(profile!.active_company_id!)).entitled) redirect("/start");
 
   const supabase = await createClient();
   const { data: userRes } = await supabase.auth.getUser();
