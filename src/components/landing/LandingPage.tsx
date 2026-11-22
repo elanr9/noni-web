@@ -5,9 +5,9 @@
    campaign managers, creators, pricing, founders, FAQ. */
 
 import { motion } from "framer-motion";
-import { ArrowRight, BadgeDollarSign, BarChart3, Send, Sparkles, Video } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { PricingFork } from "@/components/PricingFork";
 import { Footer } from "@/components/Footer";
@@ -17,7 +17,7 @@ import { FOUNDERS, FOUNDERS_NOTE } from "@/lib/founders";
 import { SELF_SERVE_PLANS } from "@/lib/plans";
 import { BOOKING_URL } from "@/lib/site-config";
 
-import { HERO_NOTES, HeroNoteStyles, NoteCard } from "./HeroNotifications";
+import { HeroNoteStyles, HeroPingDock, HeroPings } from "./HeroNotifications";
 import { Phone } from "./Phone";
 
 const FROM_PRICE = Math.min(...SELF_SERVE_PLANS.map((p) => p.annual));
@@ -92,13 +92,13 @@ const CREATOR_SHOTS: Shot[] = [
   },
 ];
 
-const CREATOR_STEPS = [
-  { icon: Video, label: "Make" },
-  { icon: Sparkles, label: "Edit with AI" },
-  { icon: Send, label: "Post" },
-  { icon: BarChart3, label: "Track" },
-  { icon: BadgeDollarSign, label: "Get paid" },
+type Side = "companies" | "creators";
+
+const SIDES: { key: Side; label: string }[] = [
+  { key: "companies", label: "For companies" },
+  { key: "creators", label: "For creators" },
 ];
+
 
 /* One row of real screens, sized from the screen height so every phone
    shows whole. Wide: three side by side. Narrow: swipe one at a time with
@@ -175,6 +175,24 @@ const FAQ = [
 
 export function LandingPage() {
   const [form, setForm] = useState<LeadModalKind | null>(null);
+  const [side, setSide] = useState<Side>("companies");
+
+  /* The Creators link (navbar, footer, or a shared /#for-creators) opens the creators tab. */
+  useEffect(() => {
+    const pick = (hash: string) => {
+      if (hash === "#for-creators") setSide("creators");
+      else if (hash === "#for-businesses") setSide("companies");
+    };
+    const onClick = (e: MouseEvent) => {
+      const link = (e.target as Element | null)?.closest?.("a[href]");
+      const href = link?.getAttribute("href") ?? "";
+      const at = href.indexOf("#");
+      if (at >= 0 && (href.startsWith("#") || href.startsWith("/#"))) pick(href.slice(at));
+    };
+    pick(window.location.hash);
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
 
   /** Book a call: the scheduling link when one is configured, else the request form. */
   const bookCall = () => {
@@ -192,23 +210,14 @@ export function LandingPage() {
         <section className="landing-screen relative flex flex-col justify-center overflow-hidden">
           <HeroNoteStyles />
           <div className="relative mx-auto w-full max-w-[1240px] px-5 py-8 md:px-8">
-            {/* Notifications around the headline (wide screens) */}
-            <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
-              <NoteCard note={HERO_NOTES[0]} delay={500} drift={0} className="absolute left-0 top-[34%]" />
-              <NoteCard note={HERO_NOTES[1]} delay={750} drift={1500} className="absolute right-0 top-[31%]" />
-              <NoteCard note={HERO_NOTES[2]} delay={1000} drift={800} className="absolute left-[56px] top-[62%]" />
-              <NoteCard note={HERO_NOTES[3]} delay={1250} drift={2200} className="absolute right-[48px] top-[59%]" />
-              <NoteCard note={HERO_NOTES[4]} delay={1500} drift={3000} className="absolute left-[150px] top-[86%]" />
-            </div>
-
             <div className="relative mx-auto max-w-[880px] text-center animate-om-rise">
-              <h1 className="display text-balance text-[clamp(38px,6.6svh,62px)] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink">
+              <h1 data-hero-text className="display text-balance text-[clamp(38px,6.6svh,62px)] font-extrabold leading-[1.02] tracking-[-0.03em] text-ink">
                 <span className="text-accent-deep">UGC Campaigns</span> made easy
               </h1>
-              <p className="mx-auto mt-[clamp(14px,2.6svh,24px)] max-w-[640px] text-balance text-[clamp(16px,2.2svh,20px)] leading-[1.5] text-muted">
+              <p data-hero-text className="mx-auto mt-[clamp(14px,2.6svh,24px)] max-w-[640px] text-balance text-[clamp(16px,2.2svh,20px)] leading-[1.5] text-muted">
                 Everything you need to run UGC Campaigns, all in one place.
               </p>
-              <div className="mt-[clamp(18px,3.4svh,32px)] flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <div data-hero-block className="mx-auto mt-[clamp(18px,3.4svh,32px)] flex w-fit flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
                 <Link
                   href="/apply?as=company"
                   className="group inline-flex items-center justify-center gap-2 rounded-[14px] bg-ink px-8 py-4 text-[16px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97]"
@@ -225,6 +234,7 @@ export function LandingPage() {
               </div>
               <Link
                 href="/apply?as=creator"
+                data-hero-block
                 className="group mt-[clamp(14px,2.6svh,24px)] inline-flex items-center gap-1.5 text-[14.5px] font-semibold text-muted no-underline transition hover:text-ink"
               >
                 Creator? <span className="text-accent-deep">Get paid to post for brands</span>
@@ -232,80 +242,82 @@ export function LandingPage() {
               </Link>
             </div>
 
-            {/* Notifications under the buttons (small screens) */}
-            <div aria-hidden className="mt-[clamp(20px,4svh,40px)] flex flex-col items-center gap-3 lg:hidden">
-              <NoteCard note={HERO_NOTES[0]} delay={400} />
-              <NoteCard note={HERO_NOTES[1]} delay={600} drift={1500} className="[@media(max-height:900px)]:hidden" />
+            {/* Small screens: the same notifications one at a time under the buttons */}
+            <div className="mt-[clamp(20px,4svh,40px)] lg:hidden">
+              <HeroPingDock />
             </div>
           </div>
+          <HeroPings />
         </section>
 
-        <div id="features">
-          {/* ── For campaign managers ── */}
-          <section id="for-businesses" className="landing-screen-fixed px-3 py-3 md:px-6">
-            <div className="mx-auto flex h-full max-w-[1180px] flex-col rounded-[clamp(24px,4svh,36px)] bg-ink px-5 py-[clamp(20px,4svh,44px)] md:px-12">
-              <Reveal className="text-center">
-                <p className="text-[12.5px] font-extrabold uppercase tracking-[0.14em] text-accent">For campaign managers</p>
-                <h2 className="display mt-2 text-[clamp(28px,5svh,48px)] font-bold leading-[1.04] text-white">
-                  Run every campaign from one app
-                </h2>
-              </Reveal>
-              <div className="mt-[clamp(16px,3.4svh,36px)] flex min-h-0 flex-1 flex-col">
-                <ShotRow shots={MANAGER_SHOTS} dark />
-              </div>
-              <div className="mt-[clamp(16px,3svh,32px)] flex justify-center gap-3">
-                <Link
-                  href="/apply?as=company"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-accent-deep active:scale-[0.97] md:px-7 md:py-3.5"
+        {/* ── What Noni does, one screen: a tab for each side ── */}
+        <section id="features" className="landing-screen-fixed relative px-5 md:px-8">
+          <span id="for-businesses" className="absolute top-0" aria-hidden />
+          <span id="for-creators" className="absolute top-0" aria-hidden />
+          <div className="mx-auto flex h-full max-w-[1180px] flex-col py-[clamp(16px,3.4svh,40px)]">
+            <div role="tablist" aria-label="Who Noni is for" className="mx-auto inline-flex rounded-full border border-line bg-white p-1.5 shadow-[0_1px_2px_rgba(15,23,32,0.04)]">
+              {SIDES.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={side === key}
+                  onClick={() => setSide(key)}
+                  className={`relative cursor-pointer whitespace-nowrap rounded-full border-none bg-transparent px-5 py-2.5 text-[15px] font-bold transition-colors duration-150 active:scale-[0.96] md:px-7 md:text-[16px] ${
+                    side === key ? "text-white" : "text-slate-500 hover:text-ink"
+                  }`}
                 >
-                  Get started
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="#pricing"
-                  className="inline-flex items-center justify-center rounded-full border border-white/20 px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-white/10 active:scale-[0.97] md:px-7 md:py-3.5"
-                >
-                  See pricing
-                </Link>
-              </div>
+                  {side === key ? (
+                    <motion.span
+                      layoutId="landing-side"
+                      className="absolute inset-0 rounded-full bg-ink"
+                      transition={{ type: "spring", stiffness: 500, damping: 36 }}
+                    />
+                  ) : null}
+                  <span className="relative">{label}</span>
+                </button>
+              ))}
             </div>
-          </section>
 
-          {/* ── For creators ── */}
-          <section id="for-creators" className="landing-screen-fixed px-3 py-3 md:px-6">
-            <div className="mx-auto flex h-full max-w-[1180px] flex-col rounded-[clamp(24px,4svh,36px)] bg-accent-soft px-5 py-[clamp(20px,4svh,44px)] md:px-12">
-              <Reveal className="text-center">
-                <Eyebrow>For creators</Eyebrow>
-                <h2 className="display mt-2 text-[clamp(28px,5svh,48px)] font-bold leading-[1.04] text-ink">
-                  Everything in one place
-                </h2>
-                <ol className="m-0 mx-auto mt-[clamp(10px,2svh,20px)] hidden max-w-[760px] list-none flex-wrap items-center justify-center gap-2 p-0 sm:flex [@media(max-height:680px)]:hidden">
-                  {CREATOR_STEPS.map(({ icon: Icon, label }) => (
-                    <li
-                      key={label}
-                      className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-[14px] font-extrabold text-ink"
-                    >
-                      <Icon className="h-4 w-4 text-accent-deep" />
-                      {label}
-                    </li>
-                  ))}
-                </ol>
-              </Reveal>
-              <div className="mt-[clamp(16px,3svh,32px)] flex min-h-0 flex-1 flex-col">
-                <ShotRow shots={CREATOR_SHOTS} />
-              </div>
-              <div className="mt-[clamp(16px,3svh,32px)] flex justify-center">
+            <motion.div
+              key={side}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease }}
+              className="mt-[clamp(16px,3.4svh,36px)] flex min-h-0 flex-1 flex-col"
+            >
+              <ShotRow shots={side === "companies" ? MANAGER_SHOTS : CREATOR_SHOTS} />
+            </motion.div>
+
+            <div className="mt-[clamp(16px,3svh,32px)] flex justify-center gap-3">
+              {side === "companies" ? (
+                <>
+                  <Link
+                    href="/apply?as=company"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97] md:px-7 md:py-3.5"
+                  >
+                    Get started
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <Link
+                    href="#pricing"
+                    className="inline-flex items-center justify-center rounded-full border border-line-strong bg-white px-6 py-3 text-[15px] font-bold text-ink no-underline transition hover:bg-soft active:scale-[0.97] md:px-7 md:py-3.5"
+                  >
+                    See pricing
+                  </Link>
+                </>
+              ) : (
                 <Link
                   href="/apply?as=creator"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97] md:px-7 md:py-3.5"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-accent-deep active:scale-[0.97] md:px-7 md:py-3.5"
                 >
                   Apply as a creator
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-              </div>
+              )}
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
 
         {/* ── Pricing ── */}
         <section id="pricing" className="landing-screen flex flex-col justify-center py-6">

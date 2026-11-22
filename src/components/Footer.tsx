@@ -19,12 +19,12 @@ export function Footer() {
         <ul className="flex flex-wrap gap-x-5 gap-y-2 text-[14px] text-ink-soft">
           <li>
             <Link href="/#for-businesses" className="hover:text-ink">
-              For Businesses
+              For companies
             </Link>
           </li>
           <li>
             <Link href="/#for-creators" className="hover:text-ink">
-              For Creators
+              For creators
             </Link>
           </li>
           <li>
