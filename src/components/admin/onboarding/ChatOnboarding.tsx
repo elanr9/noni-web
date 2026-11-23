@@ -527,6 +527,14 @@ export function ChatOnboarding({
         ))}
         {streaming !== null ? (
           <LiveMessage text={queued?.text ?? streaming} final={queued !== null} onDone={commit} />
+        ) : messages.length === 0 ? (
+          /* Loading the conversation: Noni is typing, never a blank page. */
+          <div className="flex gap-3.5">
+            <Avatar />
+            <div className="min-w-0 flex-1 pt-[3px]">
+              <Typing />
+            </div>
+          </div>
         ) : null}
 
         {pending?.kind === "summary" && !busy ? (

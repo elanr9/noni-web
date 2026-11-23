@@ -100,6 +100,8 @@ export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; presel
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* Set while the next page (the real chat) loads: Noni shows typing dots. */
+  const [leaving, setLeaving] = useState(false);
   const box = useRef<HTMLInputElement>(null);
 
   const stage: "signin" | "name" | "kind" | "going" = !signedIn ? "signin" : !name ? "name" : !kind ? "kind" : "going";
@@ -114,7 +116,9 @@ export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; presel
   }, [stage, settled]);
 
   const say = (mine: string, noni: string | null) => {
-    setSettled(false);
+    // Only a new Noni line types out; without one the last line stays put
+    // (unsettling here replayed the previous question while the page left).
+    if (noni) setSettled(false);
     setLines((prev) => [...prev, { from: "me", text: mine }, ...(noni ? [{ from: "noni" as const, text: noni }] : [])]);
   };
 
@@ -140,6 +144,7 @@ export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; presel
 
   /** On to the real chat, carrying what was said here. */
   const go = (who: string, as: ApplyKind, askedKind: boolean) => {
+    setLeaving(true);
     window.location.assign(
       `/apply?as=${as}&name=${encodeURIComponent(who)}${askedKind ? "&asked=1" : ""}${askedName ? "&named=1" : ""}`,
     );
@@ -192,6 +197,7 @@ export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; presel
             <NoniLine key={i} text={line.text} live={i === lastNoni && !settled} onDone={() => setSettled(true)} />
           ),
         )}
+        {leaving ? <NoniLine text="" live={false} onDone={() => {}} /> : null}
         {error ? <p className="m-0 pl-[46px] text-[14px] font-semibold text-danger">{error}</p> : null}
       </main>
 
