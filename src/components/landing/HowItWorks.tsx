@@ -412,15 +412,15 @@ type Step = { title: string; icon: LucideIcon; Screen: () => ReactNode; dark?: b
 /* Four steps a side, the whole idea at a glance. */
 const FLOWS: Record<Side, Step[]> = {
   companies: [
-    { title: "We write the briefs", icon: FileText, Screen: BriefScreen },
-    { title: "You approve videos", icon: BadgeCheck, Screen: ApproveScreen },
-    { title: "We post them", icon: Share2, Screen: PostedScreen },
-    { title: "Watch sales come in", icon: CircleDollarSign, Screen: PaidScreen },
+    { title: "AI writes the briefs", icon: FileText, Screen: BriefScreen },
+    { title: "Approve in one tap", icon: BadgeCheck, Screen: ApproveScreen },
+    { title: "Posted automatically", icon: Share2, Screen: PostedScreen },
+    { title: "Sales tracked live", icon: CircleDollarSign, Screen: PaidScreen },
   ],
   creators: [
     { title: "Pick a brief", icon: Hand, Screen: PickScreen },
     { title: "Film it", icon: VideoIcon, Screen: RecordScreen, dark: true },
-    { title: "We edit it", icon: Sparkles, Screen: EditScreen, dark: true },
+    { title: "AI edits it", icon: Sparkles, Screen: EditScreen, dark: true },
     { title: "Get paid", icon: CircleDollarSign, Screen: PaidScreen },
   ],
 };
