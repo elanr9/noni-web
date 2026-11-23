@@ -15,6 +15,7 @@ import {
 import { companyPlanAccess } from "@/lib/admin/billing";
 import { getAdminData } from "@/lib/admin/data";
 import { deriveSetupStatus } from "@/lib/admin/setup";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export default async function AdminLayout({
   children,
@@ -48,11 +49,19 @@ export default async function AdminLayout({
   /* The onboarding chat comes first: it learns the company and asks what it
      is looking for (run it on Noni, or have the Noni team run it). */
   if (isCompanyAdmin(profile) && !profile?.onboarded) redirect("/onboarding");
-  /* Then nothing opens without a plan: the plans (on Noni) or the call with
-     the founders (Noni team; the workspace opens once ops puts the company
-     on Done for you). A failed renewal stays in, behind the payment banner. */
+  /* Running it themselves: the dashboard opens right away so they can look
+     around; Pick your plan is a setup step there, behind the paywall strip.
+     Noni team runs it: nothing opens until the call with the founders (the
+     workspace opens once ops puts the company on Done for you). */
   const access = await companyPlanAccess(profile?.active_company_id ?? "");
-  if (!access.entitled && access.status !== "past_due" && access.status !== "unpaid") redirect("/start");
+  if (!access.entitled && access.status !== "past_due" && access.status !== "unpaid") {
+    const { data: row } = await createServiceClient()
+      .from("companies")
+      .select("intake")
+      .eq("id", profile?.active_company_id ?? "")
+      .maybeSingle();
+    if ((row?.intake as { campaigns_run_by?: unknown } | null)?.campaigns_run_by === "noni") redirect("/start");
+  }
 
   const data = await getAdminData(profile?.active_company_id ?? "");
   const setup = deriveSetupStatus(data);
