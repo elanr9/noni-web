@@ -57,7 +57,6 @@ export function SignUpWithGoogle({ preselect }: { preselect: ApplyKind | null })
 
         <div className="mt-6 rounded-3xl border border-line bg-white p-6 sm:p-8">
           <h1 className="display m-0 text-center text-[26px] font-semibold text-ink">Create your account</h1>
-          <p className="m-0 mt-1.5 text-center text-[14px] leading-relaxed text-muted">Get started with Noni in a minute.</p>
 
           <button
             type="button"

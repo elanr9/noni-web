@@ -132,14 +132,6 @@ export function LandingPage() {
                   <ChevronDown className="h-4 w-4 transition-transform duration-150 group-hover:translate-y-0.5" />
                 </Link>
               </div>
-              <Link
-                href="/apply?as=creator"
-                data-hero-block
-                className="group mt-[clamp(14px,2.6svh,24px)] inline-flex items-center gap-1.5 text-[14.5px] font-semibold text-muted no-underline transition hover:text-ink"
-              >
-                Creator? <span className="text-accent-deep">Get paid to post for brands</span>
-                <ArrowRight className="h-3.5 w-3.5 text-accent-deep transition-transform duration-150 group-hover:translate-x-1" />
-              </Link>
             </div>
 
             {/* Small screens: the same notifications one at a time under the buttons */}

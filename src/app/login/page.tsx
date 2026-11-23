@@ -72,9 +72,6 @@ function LoginForm() {
         <h1 className="display text-center text-[26px] font-semibold text-ink">
           Welcome back
         </h1>
-        <p className="mt-1.5 text-center text-[14px] leading-relaxed text-muted">
-          Sign in to your Noni account.
-        </p>
 
         <button
           type="button"
