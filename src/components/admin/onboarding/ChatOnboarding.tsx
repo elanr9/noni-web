@@ -204,16 +204,14 @@ function Chip({
         type="button"
         disabled={disabled}
         onClick={onClick}
-        className={`flex w-full cursor-pointer items-center gap-3 rounded-[18px] border-[1.5px] px-[18px] py-3.5 text-left text-[15.5px] font-bold leading-[1.4] shadow-[0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(37,99,235,0.08)] transition-[background,border-color,transform,box-shadow] duration-150 ease-om hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(37,99,235,0.16)] active:translate-y-0 active:scale-[0.99] ${
-          selected
-            ? "border-blue-900 bg-blue-900 text-white"
-            : "border-blue-500 bg-blue-500 text-white hover:border-blue-600 hover:bg-blue-600"
+        className={`flex w-full cursor-pointer items-center gap-3 rounded-[16px] border-[1.5px] px-4 py-3 text-left text-[15.5px] font-semibold leading-[1.4] text-ink transition-[background,border-color,transform] duration-150 ease-om active:scale-[0.99] ${
+          selected ? "border-accent-deep bg-accent-soft" : "border-line bg-white hover:border-accent"
         }`}
       >
         {multi ? (
           <span
-            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] ${
-              selected ? "border-white bg-white text-blue-900" : "border-white/70 bg-transparent"
+            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] transition-colors duration-150 ${
+              selected ? "border-accent-deep bg-accent-deep text-white" : "border-slate-300 bg-white"
             }`}
           >
             {selected ? <Check size={13} strokeWidth={3} /> : null}
@@ -228,13 +226,11 @@ function Chip({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`cursor-pointer rounded-full border-[1.5px] px-[18px] py-2.5 text-[15px] font-bold shadow-[0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(37,99,235,0.08)] transition-[background,border-color,transform,box-shadow] duration-150 ease-om hover:-translate-y-px hover:shadow-[0_4px_14px_rgba(37,99,235,0.16)] active:translate-y-0 active:scale-[0.97] disabled:cursor-default disabled:opacity-50 ${
-        selected
-          ? "border-blue-900 bg-blue-900 text-white"
-          : "border-blue-500 bg-blue-500 text-white hover:border-blue-600 hover:bg-blue-600"
+      className={`cursor-pointer rounded-full border-[1.5px] px-[18px] py-2.5 text-[15px] font-semibold text-ink transition-[background,border-color,transform] duration-150 ease-om active:scale-[0.97] disabled:cursor-default disabled:opacity-50 ${
+        selected ? "border-accent-deep bg-accent-soft" : "border-line bg-white hover:border-accent"
       }`}
     >
-      {selected ? <Check size={15} strokeWidth={3} className="-ml-0.5 mr-1.5 inline-block -translate-y-px" /> : null}
+      {selected ? <Check size={15} strokeWidth={3} className="-ml-0.5 mr-1.5 inline-block -translate-y-px text-accent-deep" /> : null}
       {label}
     </button>
   );
@@ -432,10 +428,16 @@ export function ChatOnboarding({
 
   const send = () => {
     let text = draft.trim();
-    if (!text || !pending) return;
+    if (!pending) return;
+    /* Pick any: what they ticked and what they typed go in together. */
+    if (pending.kind === "multi") {
+      if (!picked.length && !text) return;
+      const labels = (pending.options ?? []).filter((o) => picked.includes(o.value)).map((o) => o.label);
+      return answer([...picked, ...(text ? [text] : [])], [...labels, ...(text ? [text] : [])].join(", "));
+    }
+    if (!text) return;
     /* The box shows "www." in front; whatever they typed becomes www.domain. */
     if (pending.key === "website") text = wwwHost(text);
-    if (pending.kind === "multi") return answer(picked.length ? picked : [text], text);
     answer(text, text);
   };
 
@@ -591,6 +593,9 @@ export function ChatOnboarding({
       {composerOn ? (
         <div ref={composer} className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-[#fbfbfc] via-[#fbfbfc] to-transparent pb-5 pt-10">
           <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3 px-5">
+            {choice && pending.options && pending.kind === "multi" ? (
+              <p className="m-0 text-[13px] font-semibold text-slate-400">Pick any, or add your own</p>
+            ) : null}
             {choice && pending.options ? (
               <div
                 className={`animate-om-rise ${
@@ -612,20 +617,6 @@ export function ChatOnboarding({
                     }}
                   />
                 ))}
-                {pending.kind === "multi" && picked.length ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      answer(
-                        picked,
-                        pending.options!.filter((o) => picked.includes(o.value)).map((o) => o.label).join(", "),
-                      )
-                    }
-                    className="cursor-pointer rounded-full border-none bg-ink px-6 py-2.5 text-[15px] font-bold text-white shadow-[0_4px_14px_rgba(15,23,42,0.18)] active:scale-[0.97]"
-                  >
-                    Continue
-                  </button>
-                ) : null}
               </div>
             ) : null}
             {pending.kind === "text" && pending.draft && !busy ? (
@@ -699,20 +690,34 @@ export function ChatOnboarding({
                       ? pending.key === "website"
                         ? "yourcompany.com"
                         : pending.placeholder || "Type your answer here"
-                      : pending.placeholder || "Or type it in your own words"
+                      : pending.kind === "multi"
+                        ? "Add your own"
+                        : pending.placeholder || "Or type it in your own words"
                 }
                 rows={pending.kind === "text" && pending.key !== "website" ? 2 : 1}
                 className="max-h-[220px] min-h-[28px] flex-1 resize-none self-center border-none bg-transparent py-1.5 text-[16.5px] font-medium leading-[1.5] text-ink caret-blue-500 outline-none placeholder:text-slate-500"
               />
-              <button
-                type="button"
-                aria-label="Send"
-                onClick={send}
-                disabled={busy || !draft.trim()}
-                className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-ink text-white transition-[opacity,transform] duration-150 active:scale-90 disabled:cursor-default disabled:opacity-25"
-              >
-                <ArrowUp size={19} strokeWidth={2.5} />
-              </button>
+              {pending.kind === "multi" && picked.length ? (
+                <button
+                  type="button"
+                  onClick={send}
+                  disabled={busy}
+                  className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border-none bg-accent-deep px-4 text-[15px] font-bold text-white transition-transform duration-150 active:scale-95 disabled:opacity-40 animate-om-rise"
+                >
+                  Continue
+                  <ArrowUp size={17} strokeWidth={2.5} className="rotate-90" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Send"
+                  onClick={send}
+                  disabled={busy || !draft.trim()}
+                  className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border-none bg-ink text-white transition-[opacity,transform] duration-150 active:scale-90 disabled:cursor-default disabled:opacity-25"
+                >
+                  <ArrowUp size={19} strokeWidth={2.5} />
+                </button>
+              )}
             </div>
           </div>
         </div>
