@@ -118,45 +118,91 @@ function Title({ children }: { children: ReactNode }) {
   return <p className="m-0 text-[9.1cqw] font-extrabold tracking-[-0.02em]">{children}</p>;
 }
 
+/** `text` typed out one letter at a time, starting after `d` seconds. */
+function useTyped(text: string, d: number, perChar = 0.045) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let i = 0;
+    let t = setTimeout(function tick() {
+      i += 1;
+      setN(i);
+      if (i < text.length) t = setTimeout(tick, perChar * 1000);
+    }, d * 1000);
+    return () => clearTimeout(t);
+  }, [text, d, perChar]);
+  return text.slice(0, n);
+}
+
+const IDEA = "what nobody tells athletes about freshman year";
+
+/* The headline feature: a campaign manager types a rough post idea and
+   Noni turns it into a full draft, every part with a filming note. */
 function BriefScreen() {
-  const sent = useAfter(2.2);
+  const typed = useTyped(IDEA, 0.4);
+  const typing = typed.length < IDEA.length;
+  const drafted = useAfter(3.1);
+  const sent = useAfter(5.6);
   return (
     <Screen>
       <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
-        <Title>New brief</Title>
-        <Pop d={0.15} className="mt-[3cqw] inline-flex w-fit items-center gap-[1.4cqw] rounded-full bg-accent-soft px-[2.8cqw] py-[1.2cqw] text-[4.3cqw] font-bold text-accent-deep">
-          <Sparkles className="h-[3.4cqw] w-[3.4cqw]" /> Written by Noni from your brand
-        </Pop>
-        <Pop d={0.35} className="mt-[3.5cqw] rounded-[4.5cqw] bg-white p-[4.5cqw] shadow-[0_1px_2px_rgba(15,23,32,0.06)]">
-          <span className="inline-block rounded-[1.6cqw] bg-accent-soft px-[2cqw] py-[0.6cqw] text-[3.8cqw] font-bold text-accent-deep">Talking Head</span>
-          <p className="m-0 mt-[2.2cqw] text-[6.2cqw] font-extrabold leading-[1.2]">5 things athletes should know before freshman year</p>
-          {[
-            ["Hook", "What nobody tells you before college"],
-            ["Middle", "Five quick tips, one line each"],
-            ["Close", "Follow for part two"],
-          ].map(([label, text], i) => (
-            <Pop key={label} d={0.7 + i * 0.35} className="mt-[3cqw] border-l-[0.8cqw] border-accent pl-[2.6cqw]">
-              <p className="m-0 text-[3.8cqw] font-bold uppercase tracking-[0.08em] text-muted">{label}</p>
-              <p className="m-0 mt-[0.4cqw] text-[4.8cqw] font-semibold leading-[1.35] text-ink-soft">{text}</p>
-            </Pop>
-          ))}
-        </Pop>
-        <div className="mt-auto pb-[9cqw]">
-          <Pop d={1.8}>
-            <div
-              className={`flex items-center justify-center gap-[1.6cqw] rounded-full py-[3.6cqw] text-[5.5cqw] font-bold text-white transition-colors duration-300 ${
-                sent ? "bg-green" : "bg-accent-deep"
-              }`}
-            >
-              {sent ? (
-                <>
-                  <Check className="h-[4.4cqw] w-[4.4cqw]" strokeWidth={3} /> Sent to 6 creators
-                </>
-              ) : (
-                "Send to creators"
-              )}
-            </div>
+        <Title>New post</Title>
+
+        {/* The idea, typed in */}
+        <div className="mt-[3cqw] rounded-[4cqw] border-[0.5cqw] border-accent bg-white px-[3.8cqw] py-[3cqw] shadow-[0_0_0_1.2cqw_var(--accent-soft)]">
+          <p className="m-0 text-[3.6cqw] font-bold uppercase tracking-[0.08em] text-muted">Post idea</p>
+          <p className="m-0 mt-[0.8cqw] min-h-[6cqw] text-[5cqw] font-semibold leading-[1.3] text-ink">
+            {typed}
+            {typing ? <span className="ml-[0.4cqw] inline-block h-[4.6cqw] w-[0.6cqw] translate-y-[0.6cqw] animate-pulse bg-accent-deep" /> : null}
+          </p>
+        </div>
+
+        {/* Noni writing, then the draft */}
+        {!typing && !drafted ? (
+          <Pop className="mt-[3.5cqw] inline-flex w-fit items-center gap-[1.6cqw] rounded-full bg-accent-soft px-[3cqw] py-[1.4cqw] text-[4.3cqw] font-bold text-accent-deep">
+            <Sparkles className="h-[3.6cqw] w-[3.6cqw] animate-pulse" /> Noni is writing your draft
           </Pop>
+        ) : null}
+        {drafted ? (
+          <Pop className="mt-[3.5cqw] rounded-[4.5cqw] bg-white p-[4.2cqw] shadow-[0_1px_2px_rgba(15,23,32,0.06)]">
+            <div className="flex items-center gap-[1.6cqw]">
+              <span className="inline-block rounded-[1.6cqw] bg-accent-soft px-[2cqw] py-[0.6cqw] text-[3.6cqw] font-bold text-accent-deep">Talking head</span>
+              <span className="text-[3.6cqw] font-semibold text-muted">30s</span>
+            </div>
+            <p className="m-0 mt-[1.8cqw] text-[5.8cqw] font-extrabold leading-[1.2]">5 things nobody tells you before freshman year</p>
+            {[
+              ["Hook", "What nobody tells you before college", "Look straight at the camera"],
+              ["Middle", "Five quick tips, one line each", "Cut between every tip"],
+              ["Close", "Follow for part two", "Point at the follow button"],
+            ].map(([label, text, note], i) => (
+              <Pop key={label} d={0.25 + i * 0.35} className="mt-[2.6cqw] border-l-[0.8cqw] border-accent pl-[2.6cqw]">
+                <p className="m-0 text-[3.5cqw] font-bold uppercase tracking-[0.08em] text-muted">{label}</p>
+                <p className="m-0 mt-[0.3cqw] text-[4.6cqw] font-semibold leading-[1.3] text-ink">{text}</p>
+                <p className="m-0 mt-[0.6cqw] inline-flex items-center gap-[1.2cqw] rounded-[1.4cqw] bg-[#fff7e6] px-[1.8cqw] py-[0.5cqw] text-[3.7cqw] font-semibold text-[#a16207]">
+                  <FileText className="h-[3.2cqw] w-[3.2cqw]" /> {note}
+                </p>
+              </Pop>
+            ))}
+          </Pop>
+        ) : null}
+
+        <div className="mt-auto pb-[9cqw]">
+          {drafted ? (
+            <Pop d={1.4}>
+              <div
+                className={`flex items-center justify-center gap-[1.6cqw] rounded-full py-[3.6cqw] text-[5.5cqw] font-bold text-white transition-colors duration-300 ${
+                  sent ? "bg-green" : "bg-accent-deep"
+                }`}
+              >
+                {sent ? (
+                  <>
+                    <Check className="h-[4.4cqw] w-[4.4cqw]" strokeWidth={3} /> Sent to 6 creators
+                  </>
+                ) : (
+                  "Send to creators"
+                )}
+              </div>
+            </Pop>
+          ) : null}
         </div>
       </div>
     </Screen>
@@ -407,12 +453,12 @@ function PaidScreen() {
   );
 }
 type Side = "companies" | "creators";
-type Step = { title: string; icon: LucideIcon; Screen: () => ReactNode; dark?: boolean };
+type Step = { title: string; icon: LucideIcon; Screen: () => ReactNode; dark?: boolean; /** How long it stays up; STEP_MS if unset. */ ms?: number };
 
 /* Four steps a side, the whole idea at a glance. */
 const FLOWS: Record<Side, Step[]> = {
   companies: [
-    { title: "Easy briefs", icon: FileText, Screen: BriefScreen },
+    { title: "Type a post idea", icon: FileText, Screen: BriefScreen, ms: 7200 },
     { title: "Approve in one tap", icon: BadgeCheck, Screen: ApproveScreen },
     { title: "Posted automatically", icon: Share2, Screen: PostedScreen },
     { title: "Sales tracked live", icon: CircleDollarSign, Screen: PaidScreen },
@@ -490,9 +536,9 @@ export function HowItWorks() {
 
   useEffect(() => {
     if (!running) return;
-    const t = setTimeout(() => setStep((s) => (s + 1) % steps.length), STEP_MS);
+    const t = setTimeout(() => setStep((s) => (s + 1) % steps.length), steps[step].ms ?? STEP_MS);
     return () => clearTimeout(t);
-  }, [step, running, steps.length]);
+  }, [step, running, steps]);
 
   const Current = steps[step].Screen;
   const last = steps.length - 1;
