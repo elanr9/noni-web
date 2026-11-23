@@ -412,7 +412,7 @@ type Step = { title: string; icon: LucideIcon; Screen: () => ReactNode; dark?: b
 /* Four steps a side, the whole idea at a glance. */
 const FLOWS: Record<Side, Step[]> = {
   companies: [
-    { title: "AI writes the briefs", icon: FileText, Screen: BriefScreen },
+    { title: "Easy briefs", icon: FileText, Screen: BriefScreen },
     { title: "Approve in one tap", icon: BadgeCheck, Screen: ApproveScreen },
     { title: "Posted automatically", icon: Share2, Screen: PostedScreen },
     { title: "Sales tracked live", icon: CircleDollarSign, Screen: PaidScreen },
