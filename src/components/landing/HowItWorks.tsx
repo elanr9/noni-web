@@ -458,16 +458,16 @@ type Step = { title: string; icon: LucideIcon; Screen: () => ReactNode; dark?: b
 /* Four steps a side, the whole idea at a glance. */
 const FLOWS: Record<Side, Step[]> = {
   companies: [
-    { title: "Type a post idea", icon: FileText, Screen: BriefScreen, ms: 7200 },
-    { title: "Creators film in app", icon: VideoIcon, Screen: RecordScreen, dark: true },
-    { title: "Approve in one tap", icon: BadgeCheck, Screen: ApproveScreen },
+    { title: "Save a post idea", icon: FileText, Screen: BriefScreen, ms: 7200 },
+    { title: "Creators record in app", icon: VideoIcon, Screen: RecordScreen, dark: true },
+    { title: "Approve posts in Noni", icon: BadgeCheck, Screen: ApproveScreen },
     { title: "Posted automatically", icon: Share2, Screen: PostedScreen },
-    { title: "Sales tracked live", icon: CircleDollarSign, Screen: PaidScreen },
+    { title: "Views and sales tracked", icon: CircleDollarSign, Screen: PaidScreen },
   ],
   creators: [
-    { title: "Pick a brief", icon: Hand, Screen: PickScreen },
-    { title: "Film it", icon: VideoIcon, Screen: RecordScreen, dark: true },
-    { title: "AI edits it", icon: Sparkles, Screen: EditScreen, dark: true },
+    { title: "Pick a post", icon: Hand, Screen: PickScreen },
+    { title: "Film and edit in Noni", icon: VideoIcon, Screen: EditScreen, dark: true },
+    { title: "Auto post", icon: Share2, Screen: PostedScreen },
     { title: "Get paid", icon: CircleDollarSign, Screen: PaidScreen },
   ],
 };
@@ -599,7 +599,7 @@ export function HowItWorks() {
         <ol
           key={side}
           className="relative m-0 mt-[clamp(14px,2.6svh,28px)] hidden w-full list-none p-0 animate-om-rise md:grid"
-          style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, maxWidth: steps.length * 170 }}
+          style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, maxWidth: steps.length * 196 }}
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
