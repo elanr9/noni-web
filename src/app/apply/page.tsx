@@ -1,21 +1,24 @@
 import { redirect } from "next/navigation";
 
 import { ApplyChooser } from "@/components/apply/ApplyChooser";
+import { WelcomeChat } from "@/components/apply/WelcomeChat";
 import { ChatDone, CreatorApproved, InReview, NotAccepted } from "@/components/apply/ApplyStatus";
 import { ChatOnboarding } from "@/components/admin/onboarding/ChatOnboarding";
 import { parseKind, type ApplyKind, type ApplyState, type MyApplication } from "@/lib/applications";
 import { callEdgeFunction } from "@/lib/edge";
 import { createClient } from "@/lib/supabase/server";
+import { introOf } from "@/lib/welcome-chat";
 
 export const metadata = { title: "Join Noni" };
 export const dynamic = "force-dynamic";
 
-/* The front door. Brands and creators sign in with Google, answer a short
-   chat (edge function apply-chat) and wait in review; the platform admin
-   approves them in /ops/applications. Where someone lands here depends only
-   on their application: no application shows the two choices, a draft opens
-   the chat, pending shows "in review", and an approved company goes to its
-   dashboard. People who already have a Noni account are sent to it. */
+/* The front door (Get started). Signed out, the chat starts at once
+   (WelcomeChat): Noni asks their name and whether they are a company or a
+   creator, then they sign in with Google and come back here with both.
+   A company gets its workspace straight away and carries on in the
+   onboarding chat; a creator carries on in the creator chat and waits for
+   review (/ops/applications). The first lines are carried into either chat.
+   People who already have a Noni account are sent to it. */
 export default async function ApplyPage({
   searchParams,
 }: {
@@ -24,12 +27,15 @@ export default async function ApplyPage({
   const params = await searchParams;
   const wanted = parseKind(params.as);
   const again = params.again === "1";
+  /* Said in the Get started chat before sign in: carried into the real chat. */
+  const told = typeof params.name === "string" ? params.name.trim().slice(0, 60) : "";
+  const intro = told && wanted ? introOf(told, wanted, params.asked === "1") : [];
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return <ApplyChooser signedIn={false} preselect={wanted} />;
+  if (!user) return <WelcomeChat signedIn={false} preselect={wanted} />;
 
   const email = user.email?.toLowerCase() ?? "";
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
@@ -50,7 +56,7 @@ export default async function ApplyPage({
 
   /* Already on Noni and not in the middle of applying: go to the account. */
   if (!app && state.data.has_profile && !wanted) redirect("/dash");
-  if (!kind) return <ApplyChooser signedIn preselect={null} />;
+  if (!kind) return <WelcomeChat signedIn preselect={null} />;
 
   /* A company is let straight in: its workspace is made now and the
      onboarding chat (the first thing every company does) asks the rest. */
@@ -58,13 +64,18 @@ export default async function ApplyPage({
     const joined = await callEdgeFunction<{ company_id: string | null }>("apply-chat", {
       action: "join_company",
       kind: "company",
+      ...(told ? { name: told, intro } : {}),
     });
     if (joined.error !== null) return <ApplyChooser signedIn preselect="company" />;
     redirect("/onboarding");
   }
 
   if (!app || (app.status === "rejected" && again)) {
-    const started = await callEdgeFunction<{ application: MyApplication }>("apply-chat", { action: "start", kind });
+    const started = await callEdgeFunction<{ application: MyApplication }>("apply-chat", {
+      action: "start",
+      kind,
+      ...(told ? { name: told, intro } : {}),
+    });
     if (started.error !== null) return <ApplyChooser signedIn preselect={kind} />;
     app = started.data.application;
   }

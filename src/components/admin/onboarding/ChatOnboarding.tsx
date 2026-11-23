@@ -385,9 +385,14 @@ export function ChatOnboarding({
         if (state.progress) setProgress(state.progress);
         if (state.messages.length) {
           setMessages(state.messages);
-          setPending(state.pending);
           setWelcome(false);
-          setBusy(false);
+          /* Opened from the Get started chat: its first lines are here and
+             the last word was theirs, so Noni asks the next question. */
+          if (state.messages[state.messages.length - 1].role === "user") void turn(null);
+          else {
+            setPending(state.pending);
+            setBusy(false);
+          }
         } else if (!source) {
           setWelcome(true);
           setBusy(false);

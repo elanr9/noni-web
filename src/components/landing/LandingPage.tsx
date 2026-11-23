@@ -220,7 +220,7 @@ export function LandingPage() {
               </p>
               <div data-hero-block className="mx-auto mt-[clamp(18px,3.4svh,32px)] flex w-fit flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
                 <Link
-                  href="/apply?as=company"
+                  href="/apply"
                   className="group inline-flex items-center justify-center gap-2 rounded-[14px] bg-ink px-8 py-4 text-[16px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97]"
                 >
                   Get started
@@ -414,7 +414,7 @@ export function LandingPage() {
               </h2>
               <div className="mt-[clamp(12px,2.4svh,22px)] flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
                 <Link
-                  href="/apply?as=company"
+                  href="/apply"
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-7 py-3.5 text-[15px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97]"
                 >
                   Get started
