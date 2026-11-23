@@ -3,12 +3,13 @@
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
-import { MANAGED_PLAN, PLAN_CREATOR_CAP, SELF_SERVE_PLANS } from "@/lib/plans";
+import { PLAN_CREATOR_CAP, SELF_SERVE_PLANS } from "@/lib/plans";
 import { BOOKING_URL } from "@/lib/site-config";
 
 /* Pricing on the landing page, kept to one row: the four plans side by side
    (two to a row on phones), each with its price, one line and one button.
    No toggles: the yearly price leads and the monthly price sits under it.
+   Done for you and Enterprise list no price: both start with a call.
    What every plan includes is said once, under the title. */
 
 const SIGN_UP = "/apply";
@@ -49,9 +50,8 @@ const CARDS: Card[] = [
   },
   {
     name: "Done for you",
-    price: `$${MANAGED_PLAN.annual}`,
-    per: "/mo",
-    note: `yearly, or $${MANAGED_PLAN.monthly} monthly`,
+    price: "Contact us",
+    note: "priced on a call",
     line: "The Noni team runs your whole program",
     cta: "Book a call",
     call: true,
