@@ -59,6 +59,8 @@ function toastTitle(step: AchievementStep): string {
   switch (step.key) {
     case "billing":
       return "Budget and subscription set";
+    case "app":
+      return "The app is on its way";
     case "brain":
       return "Noni knows your company";
     case "sales":

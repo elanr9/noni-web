@@ -3,6 +3,9 @@
    found. The company sets itself up first and brings people in last:
    1. Plan: a running subscription (active or trialing). The creator budget
       is set by the Noni team and does not gate the step.
+   1b. App: done once a company admin asked for the iPhone app invite
+      (TestFlight while in beta) or signed in on the app. Never offered
+      before the plan.
    2. Company brain: done once the company has confirmed (or fixed) every
       line of the summary Noni wrote from its website, in the short chat at
       /onboarding/company. Noni still fills in the detail itself.
@@ -29,6 +32,7 @@ import type { AdminDataset } from "./types";
 
 export type SetupStepKey =
   | "billing"
+  | "app"
   | "brain"
   | "media"
   | "managers"
@@ -77,6 +81,14 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       short: "Plan",
       action: "Pick a plan",
       href: "/admin/billing",
+    },
+    {
+      key: "app",
+      done: dataset.company.appRequested,
+      title: "Get the iPhone app",
+      short: "App",
+      action: "Get the app",
+      href: "/admin/app",
     },
     {
       key: "brain",
@@ -128,7 +140,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       : []),
   ];
 
-  const keep: SetupStepKey[] = ["billing", "sales"];
+  const keep: SetupStepKey[] = ["billing", "app", "sales"];
   const shown = onboarding.runBy === "noni" ? steps.filter((s) => keep.includes(s.key)) : steps;
 
   const doneCount = shown.filter((s) => s.done).length;

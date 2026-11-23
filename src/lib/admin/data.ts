@@ -384,6 +384,7 @@ function emptyDataset(companyId: string): AdminDataset {
       managerAccess: parseManagerAccess(null),
       mediaCount: 0,
       brainConfirmed: false,
+      appRequested: false,
     },
     managers: [],
     creators: [],
@@ -404,6 +405,23 @@ function emptyDataset(companyId: string): AdminDataset {
     },
     weeklyViews: [],
   };
+}
+
+/** True once a company admin asked for the TestFlight invite or signed in on the app. */
+async function appRequestedBy(
+  supabase: ReturnType<typeof createServiceClient>,
+  adminIds: string[],
+  emailById: Map<string, string>,
+): Promise<boolean> {
+  if (!adminIds.length) return false;
+  const emails = adminIds.map((id) => emailById.get(id)?.toLowerCase()).filter((e): e is string => Boolean(e));
+  const [leadsRes, appRes] = await Promise.all([
+    emails.length
+      ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("kind", "testflight").in("email", emails)
+      : Promise.resolve({ count: 0 }),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).in("id", adminIds).not("expo_push_token", "is", null),
+  ]);
+  return (leadsRes.count ?? 0) > 0 || (appRes.count ?? 0) > 0;
 }
 
 async function fetchAdminData(companyId: string): Promise<AdminDataset> {
@@ -655,6 +673,11 @@ async function fetchAdminData(companyId: string): Promise<AdminDataset> {
     mediaCount: mediaCountRes.count ?? 0,
     brainConfirmed: snapshotConfirmed(
       ((brainSurveyRes.data as { snapshot?: CompanySnapshot | null } | null)?.snapshot ?? null) || null,
+    ),
+    appRequested: await appRequestedBy(
+      supabase,
+      profileRows.filter((p) => p.member_role === "company_admin").map((p) => p.id),
+      emailById,
     ),
   };
 

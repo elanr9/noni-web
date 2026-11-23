@@ -93,6 +93,8 @@ export interface AdminCompany {
   mediaCount: number;
   /** The company has confirmed what Noni knows about it (the brain summary). */
   brainConfirmed: boolean;
+  /** Someone running the company asked for the iPhone app invite or signed in on the app. */
+  appRequested: boolean;
 }
 
 export interface Member {

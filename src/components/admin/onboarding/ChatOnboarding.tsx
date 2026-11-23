@@ -8,7 +8,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { getBrainIngestStatus } from "@/app/admin/brain/knowledge-actions";
 import { finishChatOnboarding, startOnboardingScan } from "@/app/onboarding/actions";
 import { SnapshotReview } from "@/components/admin/brain/SnapshotReview";
-import { GetTheApp } from "@/components/GetTheApp";
 import { BackButton } from "@/components/onboarding/BackButton";
 import { WelcomeLaunch } from "@/components/admin/onboarding/WelcomeLaunch";
 import { RestartOnboardingButton } from "@/components/RestartOnboardingButton";
@@ -563,11 +562,8 @@ export function ChatOnboarding({
               disabled={finishing}
               className="w-full cursor-pointer rounded-full border-none bg-ink px-6 py-4 text-[16px] font-bold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-60 sm:w-auto sm:self-start"
             >
-              {finishing ? "One sec…" : "Next"}
+              {finishing ? "One sec…" : "Go to dashboard"}
             </button>
-            <div className="rounded-[20px] border border-line bg-white p-5">
-              <GetTheApp email={email} name={name} source="onboarding" look="ops" showOpenApp={false} onDownload={() => {}} />
-            </div>
           </div>
         ) : null}
 

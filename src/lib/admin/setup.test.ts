@@ -69,10 +69,11 @@ const pastDue = {
 };
 
 describe("deriveSetupStatus", () => {
-  it("orders the steps billing, brain, media, sales, managers, creators", () => {
+  it("orders the steps billing, app, brain, media, sales, managers, creators", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
+      "app",
       "brain",
       "media",
       "sales",
@@ -81,9 +82,9 @@ describe("deriveSetupStatus", () => {
     ]);
   });
 
-  it("counts the mock dataset as 4 of 6 done (billing and sales pending)", () => {
+  it("counts the mock dataset as 5 of 7 done (billing and sales pending)", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
-    expect(status.doneCount).toBe(4);
+    expect(status.doneCount).toBe(5);
     expect(status.remaining).toBe(2);
     expect(status.complete).toBe(false);
     expect(status.steps.find((s) => s.key === "billing")?.done).toBe(false);
@@ -140,6 +141,7 @@ describe("deriveSetupStatus", () => {
     );
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
+      "app",
       "brain",
       "media",
       "sales",
@@ -184,7 +186,7 @@ describe("deriveSetupStatus", () => {
         creatorCount: 0,
       }),
     );
-    expect(status.steps).toHaveLength(6);
+    expect(status.steps).toHaveLength(7);
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(false);
   });
@@ -193,7 +195,7 @@ describe("deriveSetupStatus", () => {
     const status = deriveSetupStatus(
       dataset({ brainDocs: filledDocs, billing: completeBilling }),
     );
-    expect(status.doneCount).toBe(6);
+    expect(status.doneCount).toBe(7);
     expect(status.remaining).toBe(0);
     expect(status.complete).toBe(true);
   });
@@ -215,13 +217,13 @@ describe("deriveSetupStatus", () => {
 });
 
 describe("deriveSetupStatus when Noni runs the campaigns", () => {
-  it("asks only for the plan and the connections", () => {
+  it("asks only for the plan, the app and the connections", () => {
     const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "noni" }));
-    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales"]);
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "app", "sales"]);
   });
 
   it("keeps every step when the company runs it", () => {
     const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "me", doesUgc: false }));
-    expect(status.steps.map((s) => s.key)).toEqual(["billing", "brain", "media", "sales", "managers", "creators"]);
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "app", "brain", "media", "sales", "managers", "creators"]);
   });
 });
