@@ -96,7 +96,7 @@ function LoginForm() {
       <p className="mt-5 text-center text-[13px] text-muted">
         New to Noni?{" "}
         <Link href="/apply" className="font-semibold text-accent hover:text-accent-deep">
-          Apply to join
+          Create an account
         </Link>
       </p>
     </div>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { ApplyChooser } from "@/components/apply/ApplyChooser";
+import { SignUpWithGoogle } from "@/components/apply/SignUpWithGoogle";
 import { WelcomeChat } from "@/components/apply/WelcomeChat";
 import { ChatDone, CreatorApproved, InReview, NotAccepted } from "@/components/apply/ApplyStatus";
 import { ChatOnboarding } from "@/components/admin/onboarding/ChatOnboarding";
@@ -12,9 +13,10 @@ import { introOf } from "@/lib/welcome-chat";
 export const metadata = { title: "Join Noni" };
 export const dynamic = "force-dynamic";
 
-/* The front door (Get started). Signed out, the chat opens on Sign in with
-   Google (WelcomeChat). Back here signed in, Noni asks company or creator
-   (and their name only when Google did not give one).
+/* The front door (Get started). Signed out, a plain sign-up card with
+   Google (SignUpWithGoogle); the chat never shows before sign in. Back here
+   signed in, the chat starts fresh (WelcomeChat): Noni asks their name
+   (always, whatever Google gave), then company or creator.
    A company gets its workspace straight away and carries on in the
    onboarding chat; a creator carries on in the creator chat and waits for
    review (/ops/applications). The first lines are carried into either chat.
@@ -35,7 +37,7 @@ export default async function ApplyPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return <WelcomeChat signedIn={false} preselect={wanted} />;
+  if (!user) return <SignUpWithGoogle preselect={wanted} />;
 
   const email = user.email?.toLowerCase() ?? "";
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
@@ -56,7 +58,10 @@ export default async function ApplyPage({
 
   /* Already on Noni and not in the middle of applying: go to the account. */
   if (!app && state.data.has_profile && !wanted) redirect("/dash");
-  if (!kind) return <WelcomeChat signedIn preselect={null} knownName={name} />;
+  if (!kind) return <WelcomeChat signedIn preselect={null} />;
+  /* Signing up fresh with company or creator already in the link: the chat
+     still asks their name first (always, whatever Google gave). */
+  if (!told && !app && !state.data.has_profile) return <WelcomeChat signedIn preselect={kind} />;
 
   /* A company is let straight in: its workspace is made now and the
      onboarding chat (the first thing every company does) asks the rest. */

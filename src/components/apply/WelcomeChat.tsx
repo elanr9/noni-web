@@ -9,9 +9,9 @@ import type { ApplyKind } from "@/lib/applications";
 import { createClient } from "@/lib/supabase/client";
 import { ASK_NAME, askKind, KIND_ANSWER, SIGN_IN_FIRST } from "@/lib/welcome-chat";
 
-/* Where Get started lands. Step one is Sign in with Google. Back signed in,
-   Noni greets them by the name Google gave (or asks it when there is none)
-   and asks whether they are a company or a creator, then the same
+/* The fresh chat after Google sign up (signing up itself is
+   SignUpWithGoogle). Noni always asks their name, then whether they are a
+   company or a creator, then the same
    conversation carries on (company: the onboarding chat; creator: the
    creator chat), these first lines included. The wording comes from
    @/lib/welcome-chat, shared with the page that carries it on. */
@@ -87,19 +87,10 @@ function firstName(name: string) {
   return name.trim().split(/\s+/)[0] ?? name;
 }
 
-export function WelcomeChat({
-  signedIn,
-  preselect,
-  knownName = "",
-}: {
-  signedIn: boolean;
-  preselect: ApplyKind | null;
-  /** The name Google gave, when signed in. */
-  knownName?: string;
-}) {
-  const startName = signedIn ? knownName.trim().slice(0, 60) : "";
-  /* Asked only when Google gave no name; carried on so the real chat shows it. */
-  const askedName = signedIn && !startName;
+export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; preselect: ApplyKind | null }) {
+  /* Noni always asks their name in the chat, whatever Google gave. */
+  const startName = "";
+  const askedName = true;
   const [lines, setLines] = useState<Line[]>([
     { from: "noni", text: !signedIn ? SIGN_IN_FIRST : startName ? askKind(firstName(startName)) : ASK_NAME },
   ]);
@@ -148,9 +139,9 @@ export function WelcomeChat({
   };
 
   /** On to the real chat, carrying what was said here. */
-  const go = (who: string, as: ApplyKind) => {
+  const go = (who: string, as: ApplyKind, askedKind: boolean) => {
     window.location.assign(
-      `/apply?as=${as}&name=${encodeURIComponent(who)}&asked=1${askedName ? "&named=1" : ""}`,
+      `/apply?as=${as}&name=${encodeURIComponent(who)}${askedKind ? "&asked=1" : ""}${askedName ? "&named=1" : ""}`,
     );
   };
 
@@ -159,14 +150,20 @@ export function WelcomeChat({
     if (!who || !settled) return;
     setName(who);
     setDraft("");
-    say(who, askKind(firstName(who)));
+    // The link already said company or creator: only the name is asked.
+    if (preselect) {
+      say(who, null);
+      go(who, preselect, false);
+      return;
+    }
+    say(who, askKind(firstName(who), true));
   };
 
   const pickKind = (k: ApplyKind) => {
     if (!settled || kind) return;
     setKind(k);
     say(KIND_ANSWER[k], null);
-    go(name, k);
+    go(name, k, true);
   };
 
   return (

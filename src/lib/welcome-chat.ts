@@ -7,7 +7,9 @@ import type { ApplyKind } from "@/lib/applications";
 
 export const SIGN_IN_FIRST = "Hi, I'm Noni! Sign in with Google to get started.";
 export const ASK_NAME = "Hi, I'm Noni! What should I call you?";
-export const askKind = (first: string) => `Nice to meet you, ${first}! Are you a company or a creator?`;
+/** Company or creator. After Noni already asked their name it is "Nice to meet you"; otherwise it says hello. */
+export const askKind = (first: string, greeted = false) =>
+  greeted ? `Nice to meet you, ${first}! Are you a company or a creator?` : `Hi ${first}, I'm Noni! Are you a company or a creator?`;
 export const KIND_ANSWER: Record<ApplyKind, string> = { company: "A company", creator: "A creator" };
 
 export type IntroLine = { role: "assistant" | "user"; text: string; slot: string };
@@ -24,7 +26,7 @@ export function introOf(name: string, kind: ApplyKind, askedKind: boolean, asked
       : []),
     ...(askedKind
       ? [
-          { role: "assistant" as const, text: askKind(first), slot: "intro_kind" },
+          { role: "assistant" as const, text: askKind(first, askedName), slot: "intro_kind" },
           { role: "user" as const, text: KIND_ANSWER[kind], slot: "intro_kind" },
         ]
       : []),
