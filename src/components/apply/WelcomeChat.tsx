@@ -7,14 +7,14 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { ApplyKind } from "@/lib/applications";
 import { createClient } from "@/lib/supabase/client";
-import { ASK_NAME, askKind, KIND_ANSWER } from "@/lib/welcome-chat";
+import { ASK_NAME, askKind, KIND_ANSWER, SIGN_IN_FIRST } from "@/lib/welcome-chat";
 
-/* Where Get started lands: the chat starts at once, before any sign in.
-   Noni asks what to call them, then whether they are a company or a
-   creator, then asks them to sign in with Google to save their spot. After
-   sign in the same conversation carries on (company: the onboarding chat;
-   creator: the creator chat), these first lines included. The wording here
-   comes from @/lib/welcome-chat, shared with the page that carries it on. */
+/* Where Get started lands. Step one is Sign in with Google. Back signed in,
+   Noni greets them by the name Google gave (or asks it when there is none)
+   and asks whether they are a company or a creator, then the same
+   conversation carries on (company: the onboarding chat; creator: the
+   creator chat), these first lines included. The wording comes from
+   @/lib/welcome-chat, shared with the page that carries it on. */
 
 
 type Line = { from: "noni" | "me"; text: string };
@@ -83,17 +83,35 @@ function GoogleLogo() {
   );
 }
 
-export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; preselect: ApplyKind | null }) {
-  const [lines, setLines] = useState<Line[]>([{ from: "noni", text: ASK_NAME }]);
+function firstName(name: string) {
+  return name.trim().split(/\s+/)[0] ?? name;
+}
+
+export function WelcomeChat({
+  signedIn,
+  preselect,
+  knownName = "",
+}: {
+  signedIn: boolean;
+  preselect: ApplyKind | null;
+  /** The name Google gave, when signed in. */
+  knownName?: string;
+}) {
+  const startName = signedIn ? knownName.trim().slice(0, 60) : "";
+  /* Asked only when Google gave no name; carried on so the real chat shows it. */
+  const askedName = signedIn && !startName;
+  const [lines, setLines] = useState<Line[]>([
+    { from: "noni", text: !signedIn ? SIGN_IN_FIRST : startName ? askKind(firstName(startName)) : ASK_NAME },
+  ]);
   const [settled, setSettled] = useState(false);
-  const [name, setName] = useState("");
+  const [name, setName] = useState(startName);
   const [kind, setKind] = useState<ApplyKind | null>(preselect);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const box = useRef<HTMLInputElement>(null);
 
-  const stage: "name" | "kind" | "signin" = !name ? "name" : !kind ? "kind" : "signin";
+  const stage: "signin" | "name" | "kind" | "going" = !signedIn ? "signin" : !name ? "name" : !kind ? "kind" : "going";
   const lastNoni = lines.map((l) => l.from).lastIndexOf("noni");
 
   useLayoutEffect(() => {
@@ -109,15 +127,11 @@ export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; presel
     setLines((prev) => [...prev, { from: "me", text: mine }, ...(noni ? [{ from: "noni" as const, text: noni }] : [])]);
   };
 
-  /** On to the real chat: straight there when signed in, else through Google. */
-  const go = async (who: string, as: ApplyKind, askedKind: boolean) => {
-    const next = `/apply?as=${as}&name=${encodeURIComponent(who)}${askedKind ? "&asked=1" : ""}`;
-    if (signedIn) {
-      window.location.assign(next);
-      return;
-    }
+  /** Step one: Google, then back to this page signed in. */
+  const signIn = async () => {
     setBusy(true);
     setError(null);
+    const next = preselect ? `/apply?as=${preselect}` : "/apply";
     const { data, error: oauthError } = await createClient().auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -133,25 +147,26 @@ export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; presel
     window.location.assign(data.url);
   };
 
+  /** On to the real chat, carrying what was said here. */
+  const go = (who: string, as: ApplyKind) => {
+    window.location.assign(
+      `/apply?as=${as}&name=${encodeURIComponent(who)}&asked=1${askedName ? "&named=1" : ""}`,
+    );
+  };
+
   const sendName = () => {
     const who = draft.trim().replace(/\s+/g, " ").slice(0, 60);
     if (!who || !settled) return;
-    const first = who.split(" ")[0];
     setName(who);
     setDraft("");
-    if (preselect) {
-      say(who, signedIn ? null : `Nice to meet you, ${first}! Sign in with Google so I can save your spot.`);
-      if (signedIn) void go(who, preselect, false);
-    } else {
-      say(who, askKind(first));
-    }
+    say(who, askKind(firstName(who)));
   };
 
   const pickKind = (k: ApplyKind) => {
     if (!settled || kind) return;
     setKind(k);
-    say(KIND_ANSWER[k], signedIn ? null : "Perfect. Sign in with Google so I can save your spot.");
-    if (signedIn) void go(name, k, true);
+    say(KIND_ANSWER[k], null);
+    go(name, k);
   };
 
   return (
@@ -201,11 +216,11 @@ export function WelcomeChat({ signedIn, preselect }: { signedIn: boolean; presel
             </div>
           ) : null}
 
-          {stage === "signin" && settled && !signedIn ? (
+          {stage === "signin" && settled ? (
             <button
               type="button"
               disabled={busy}
-              onClick={() => kind && void go(name, kind, !preselect)}
+              onClick={() => void signIn()}
               className="inline-flex cursor-pointer items-center justify-center gap-2.5 self-start rounded-full border-[1.5px] border-line bg-white px-6 py-3.5 text-[16px] font-bold text-ink shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-[transform,box-shadow] duration-150 hover:-translate-y-px hover:shadow-[0_12px_28px_rgba(15,23,42,0.12)] active:scale-[0.98] disabled:opacity-60 animate-om-rise"
             >
               <GoogleLogo />

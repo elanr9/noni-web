@@ -12,9 +12,9 @@ import { introOf } from "@/lib/welcome-chat";
 export const metadata = { title: "Join Noni" };
 export const dynamic = "force-dynamic";
 
-/* The front door (Get started). Signed out, the chat starts at once
-   (WelcomeChat): Noni asks their name and whether they are a company or a
-   creator, then they sign in with Google and come back here with both.
+/* The front door (Get started). Signed out, the chat opens on Sign in with
+   Google (WelcomeChat). Back here signed in, Noni asks company or creator
+   (and their name only when Google did not give one).
    A company gets its workspace straight away and carries on in the
    onboarding chat; a creator carries on in the creator chat and waits for
    review (/ops/applications). The first lines are carried into either chat.
@@ -29,7 +29,7 @@ export default async function ApplyPage({
   const again = params.again === "1";
   /* Said in the Get started chat before sign in: carried into the real chat. */
   const told = typeof params.name === "string" ? params.name.trim().slice(0, 60) : "";
-  const intro = told && wanted ? introOf(told, wanted, params.asked === "1") : [];
+  const intro = told && wanted ? introOf(told, wanted, params.asked === "1", params.named === "1") : [];
 
   const supabase = await createClient();
   const {
@@ -56,7 +56,7 @@ export default async function ApplyPage({
 
   /* Already on Noni and not in the middle of applying: go to the account. */
   if (!app && state.data.has_profile && !wanted) redirect("/dash");
-  if (!kind) return <WelcomeChat signedIn preselect={null} />;
+  if (!kind) return <WelcomeChat signedIn preselect={null} knownName={name} />;
 
   /* A company is let straight in: its workspace is made now and the
      onboarding chat (the first thing every company does) asks the rest. */
