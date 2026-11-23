@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 import { getBrainIngestStatus } from "@/app/admin/brain/knowledge-actions";
 import { finishChatOnboarding, startOnboardingScan } from "@/app/onboarding/actions";
+import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { SnapshotReview } from "@/components/admin/brain/SnapshotReview";
 import { BackButton } from "@/components/onboarding/BackButton";
 import { WelcomeLaunch } from "@/components/admin/onboarding/WelcomeLaunch";
@@ -277,6 +278,8 @@ export function ChatOnboarding({
   /* A company's first visit (from the invite email) opens on a welcome
      screen; the chat starts from its button. Back returns to it. */
   const [welcome, setWelcome] = useState(fresh && !source);
+  /* The chat is finished: a full screen thank you takes over the thread. */
+  const [thanked, setThanked] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
   const composer = useRef<HTMLDivElement>(null);
   /* The thread always clears the answer area, however tall it gets. */
@@ -452,6 +455,14 @@ export function ChatOnboarding({
     router.push("/admin?tour=1");
   };
 
+  const over = !source && pending?.kind === "done" && !busy;
+  useEffect(() => {
+    if (!over) return;
+    /* The closing words land first, then the thank you takes the screen. */
+    const id = window.setTimeout(() => setThanked(true), 900);
+    return () => window.clearTimeout(id);
+  }, [over]);
+
   const begin = () => {
     setWelcome(false);
     if (messages.length === 0 && streaming === null) void turn(null);
@@ -483,6 +494,43 @@ export function ChatOnboarding({
             Let&apos;s get started
             <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />
           </button>
+        </main>
+      </div>
+    );
+  }
+
+  if (thanked) {
+    return (
+      <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#fbfbfc] font-ops">
+        <header className="flex items-center gap-[9px] px-5 py-4 sm:px-7">
+          <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
+          <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
+          <span className="flex-1" />
+          {canRestart ? <RestartOnboardingButton variant="pill" /> : null}
+        </header>
+        <main className="mx-auto flex w-full max-w-[760px] flex-1 flex-col items-center justify-center gap-7 px-5 pb-24 text-center">
+          <span
+            className="relative inline-flex h-24 w-24 items-center justify-center rounded-full animate-om-check"
+            style={{ backgroundColor: "#22C55E", color: "#FFFFFF" }}
+          >
+            <Burst colors={["#3B82F6", "#22C55E", "#FBBF24", "#3B82F6"]} count={36} reach={190} />
+            <Check size={48} strokeWidth={3.5} />
+          </span>
+          <h1 className="display m-0 text-[52px] font-bold leading-[1.05] tracking-[-1.8px] text-ink animate-om-rise">
+            Thanks{name ? ` ${name}` : ""}, we got
+            <br />
+            everything we need!
+          </h1>
+          <button
+            type="button"
+            onClick={() => void finish()}
+            disabled={finishing}
+            className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none bg-blue-500 px-9 py-[18px] text-[18px] font-bold text-white shadow-[0_12px_28px_rgba(59,130,246,0.34)] transition-[transform,filter] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.96] disabled:opacity-60 animate-om-rise"
+          >
+            {finishing ? "One sec…" : "Go to dashboard"}
+            {finishing ? null : <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />}
+          </button>
+          {error ? <p className="m-0 text-[14px] font-semibold text-danger">{error}</p> : null}
         </main>
       </div>
     );
