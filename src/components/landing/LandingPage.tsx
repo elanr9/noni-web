@@ -9,7 +9,6 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
-import { PricingFork } from "@/components/PricingFork";
 import { Footer } from "@/components/Footer";
 import { Navbar } from "@/components/Navbar";
 import { WaitlistModal, type LeadModalKind } from "@/components/WaitlistModal";
@@ -19,6 +18,7 @@ import { BOOKING_URL } from "@/lib/site-config";
 
 import { HeroNoteStyles, HeroPingDock, HeroPings } from "./HeroNotifications";
 import { HowItWorks } from "./HowItWorks";
+import { LandingPricing } from "./LandingPricing";
 
 const FROM_PRICE = Math.min(...SELF_SERVE_PLANS.map((p) => p.annual));
 
@@ -62,14 +62,6 @@ function LandingScreenStyles() {
       /* Short laptop windows: shrink the text sections a little so each still fits. */
       @media (min-width: 640px) and (max-height: 780px) { .landing-fit { zoom: 0.86; } }
       @media (min-width: 640px) and (max-height: 640px) { .landing-fit { zoom: 0.7; } }
-      /* Plans: three across from tablet up, one at a time to swipe on phones. */
-      @media (min-width: 640px) { .landing-pricing .plan-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-      @media (max-width: 639px) {
-        .landing-pricing .plan-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin-inline: -16px; padding: 4px 16px 8px; }
-        .landing-pricing .plan-grid::-webkit-scrollbar { display: none; }
-        .landing-pricing .plan-grid > * { flex: 0 0 84%; scroll-snap-align: center; }
-        .landing-pricing .plan-title, .landing-pricing .plan-footnote { display: none; }
-      }
       .landing-swipe { scrollbar-width: none; }
       .landing-swipe::-webkit-scrollbar { display: none; }
     `}</style>
@@ -163,8 +155,8 @@ export function LandingPage() {
 
         {/* ── Pricing ── */}
         <section id="pricing" className="landing-screen flex flex-col justify-center py-6">
-          <div className="landing-fit landing-pricing font-ops mx-auto w-full max-w-[1080px] px-4 md:px-8">
-            <PricingFork tight />
+          <div className="landing-fit mx-auto w-full max-w-[1120px] px-4 md:px-8">
+            <LandingPricing />
           </div>
         </section>
 
