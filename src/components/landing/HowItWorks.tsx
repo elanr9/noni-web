@@ -459,6 +459,7 @@ type Step = { title: string; icon: LucideIcon; Screen: () => ReactNode; dark?: b
 const FLOWS: Record<Side, Step[]> = {
   companies: [
     { title: "Type a post idea", icon: FileText, Screen: BriefScreen, ms: 7200 },
+    { title: "Creators film in app", icon: VideoIcon, Screen: RecordScreen, dark: true },
     { title: "Approve in one tap", icon: BadgeCheck, Screen: ApproveScreen },
     { title: "Posted automatically", icon: Share2, Screen: PostedScreen },
     { title: "Sales tracked live", icon: CircleDollarSign, Screen: PaidScreen },
@@ -597,11 +598,17 @@ export function HowItWorks() {
         {/* The steps, left to right (wide screens) */}
         <ol
           key={side}
-          className="relative m-0 mt-[clamp(14px,2.6svh,28px)] hidden w-full max-w-[680px] list-none grid-cols-4 p-0 animate-om-rise md:grid"
+          className="relative m-0 mt-[clamp(14px,2.6svh,28px)] hidden w-full list-none p-0 animate-om-rise md:grid"
+          style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, maxWidth: steps.length * 170 }}
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
-          <span aria-hidden className="absolute left-[12.5%] right-[12.5%] top-[21px] h-[2px] rounded-full bg-line">
+          {/* The line runs from the first circle's centre to the last one's. */}
+          <span
+            aria-hidden
+            className="absolute top-[21px] h-[2px] rounded-full bg-line"
+            style={{ left: `${50 / steps.length}%`, right: `${50 / steps.length}%` }}
+          >
             <span
               className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
               style={{ width: `${(step / last) * 100}%` }}
