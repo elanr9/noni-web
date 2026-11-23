@@ -16,7 +16,8 @@
    4. Connections: done once both Stripe (sales) and Supabase (sign-ups)
       are connected, so every post shows what it brought in. Required.
    5. Managers: done once at least one campaign manager is on the team
-      (self-as-manager rows count like any other). Omitted when the
+      (self-as-manager rows count like any other). Omitted when the admin
+      runs the campaigns themselves (runBy "me"), and when the
       onboarding count is 0.
    6. Creators: done once at least one creator is on the team.
    When the company hands the campaigns to Noni (onboarding chat: "Noni runs
@@ -68,7 +69,9 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
     subscription.status === "active" || subscription.status === "trialing";
 
   /* A company that does not do UGC yet still starts with one of each. */
-  const showManagers = onboarding.doesUgc ? onboarding.managerCount > 0 : true;
+  /* Running the campaigns themselves: there is no manager to invite. */
+  const runsItThemselves = onboarding.runBy === "me" || onboarding.selfIsManager;
+  const showManagers = runsItThemselves ? false : onboarding.doesUgc ? onboarding.managerCount > 0 : true;
   const showCreators = onboarding.doesUgc ? onboarding.creatorCount > 0 : true;
   const managersDone = dataset.managers.length >= 1;
   const creatorsDone = dataset.creators.length >= 1;

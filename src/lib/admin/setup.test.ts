@@ -222,8 +222,13 @@ describe("deriveSetupStatus when Noni runs the campaigns", () => {
     expect(status.steps.map((s) => s.key)).toEqual(["billing", "app", "sales"]);
   });
 
-  it("keeps every step when the company runs it", () => {
+  it("drops the manager step when the admin runs it themselves", () => {
     const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "me", doesUgc: false }));
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "app", "brain", "media", "sales", "creators"]);
+  });
+
+  it("keeps the manager step when someone on their team runs it", () => {
+    const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "team", doesUgc: false }));
     expect(status.steps.map((s) => s.key)).toEqual(["billing", "app", "brain", "media", "sales", "managers", "creators"]);
   });
 });
