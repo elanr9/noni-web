@@ -9,7 +9,6 @@ import {
   Hand,
   Music,
   Play,
-  Send,
   Share2,
   Sparkles,
   Video as VideoIcon,
@@ -18,20 +17,11 @@ import {
 import Image from "next/image";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-/* How it works, one screen: the whole flow from brief to payout. A list of
-   the steps on the left (who does it, and what), one phone on the right
-   acting each step out. It walks through on its own once the section is in
-   view, and any step can be clicked. Phones get the phone and the current
-   step under it. Every screen is drawn here, sized in container units so
-   it scales with the phone. */
-
-type Who = "company" | "creator" | "noni";
-
-const WHO: Record<Who, { label: string; cls: string }> = {
-  company: { label: "Company", cls: "bg-soft text-ink-soft" },
-  creator: { label: "Creator", cls: "bg-accent-soft text-accent-deep" },
-  noni: { label: "Noni", cls: "bg-green-soft text-green" },
-};
+/* How it works, one screen: a Companies / Creators switch, then four
+   simple steps for that side over one phone acting each step out. It walks
+   through on its own once the section is in view, and any step can be
+   clicked. Phones get the phone and the current step under it. Every screen
+   is drawn here, sized in container units so it scales with the phone. */
 
 const STEP_MS = 3600;
 
@@ -278,42 +268,6 @@ function EditScreen() {
   );
 }
 
-function SubmitScreen() {
-  const sent = useAfter(1.6);
-  return (
-    <Screen>
-      <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
-        <Title>Ready to send</Title>
-        <Pop d={0.2} className="mx-auto mt-[4cqw] w-[62%]">
-          <div className="relative aspect-[9/16] overflow-hidden rounded-[4cqw] bg-slate-200 shadow-[0_10px_24px_-12px_rgba(15,23,32,0.4)]">
-            <Video className="h-full w-full" />
-            <span className="absolute left-1/2 top-1/2 flex h-[11cqw] w-[11cqw] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/85">
-              <Play className="ml-[0.6cqw] h-[4.6cqw] w-[4.6cqw] text-ink" fill="currentColor" />
-            </span>
-          </div>
-        </Pop>
-        <div className="mt-auto pb-[9cqw]">
-          <Pop d={0.6}>
-            <div
-              className={`flex items-center justify-center gap-[1.6cqw] rounded-full py-[3.6cqw] text-[5.5cqw] font-bold text-white transition-colors duration-300 ${
-                sent ? "bg-green" : "bg-accent-deep"
-              }`}
-            >
-              {sent ? (
-                <motion.span initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 500, damping: 18 }} className="inline-flex items-center gap-[1.6cqw]">
-                  <Check className="h-[4.4cqw] w-[4.4cqw]" strokeWidth={3} /> Sent for review
-                </motion.span>
-              ) : (
-                "Submit"
-              )}
-            </div>
-          </Pop>
-        </div>
-      </div>
-    </Screen>
-  );
-}
-
 function ApproveScreen() {
   const ok = useAfter(1.4);
   return (
@@ -452,17 +406,24 @@ function PaidScreen() {
     </Screen>
   );
 }
+type Side = "companies" | "creators";
+type Step = { title: string; icon: LucideIcon; Screen: () => ReactNode; dark?: boolean };
 
-const STEPS: { who: Who; title: string; icon: LucideIcon; Screen: () => ReactNode }[] = [
-  { who: "company", title: "Brief written", icon: FileText, Screen: BriefScreen },
-  { who: "creator", title: "Pick a post", icon: Hand, Screen: PickScreen },
-  { who: "creator", title: "Record it", icon: VideoIcon, Screen: RecordScreen },
-  { who: "noni", title: "Edited for you", icon: Sparkles, Screen: EditScreen },
-  { who: "creator", title: "Submit", icon: Send, Screen: SubmitScreen },
-  { who: "company", title: "Approve", icon: BadgeCheck, Screen: ApproveScreen },
-  { who: "noni", title: "Posted", icon: Share2, Screen: PostedScreen },
-  { who: "noni", title: "Tracked and paid", icon: CircleDollarSign, Screen: PaidScreen },
-];
+/* Four steps a side, the whole idea at a glance. */
+const FLOWS: Record<Side, Step[]> = {
+  companies: [
+    { title: "We write the briefs", icon: FileText, Screen: BriefScreen },
+    { title: "You approve videos", icon: BadgeCheck, Screen: ApproveScreen },
+    { title: "We post them", icon: Share2, Screen: PostedScreen },
+    { title: "Watch sales come in", icon: CircleDollarSign, Screen: PaidScreen },
+  ],
+  creators: [
+    { title: "Pick a brief", icon: Hand, Screen: PickScreen },
+    { title: "Film it", icon: VideoIcon, Screen: RecordScreen, dark: true },
+    { title: "We edit it", icon: Sparkles, Screen: EditScreen, dark: true },
+    { title: "Get paid", icon: CircleDollarSign, Screen: PaidScreen },
+  ],
+};
 
 /** The iPhone the steps play in, in iPhone 15 Pro proportions: a thin black
     titanium rim, a slim bezel, round corners (container units, so they stay
@@ -518,47 +479,68 @@ function StagePhone({ children, dark = false }: { children: ReactNode; dark?: bo
   );
 }
 
-/** Steps whose screen is dark, so the status bar turns white over them. */
-const DARK_STEPS = new Set(["Record it", "Edited for you"]);
-
-function WhoChip({ who }: { who: Who }) {
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-[3px] text-[12px] font-bold ${WHO[who].cls}`}>{WHO[who].label}</span>;
-}
-
 export function HowItWorks() {
   const ref = useRef<HTMLElement>(null);
   const inView = useInView(ref, { amount: 0.5 });
+  const [side, setSide] = useState<Side>("companies");
   const [step, setStep] = useState(0);
   const [paused, setPaused] = useState(false);
   const running = inView && !paused;
+  const steps = FLOWS[side];
 
   useEffect(() => {
     if (!running) return;
-    const t = setTimeout(() => setStep((s) => (s + 1) % STEPS.length), STEP_MS);
+    const t = setTimeout(() => setStep((s) => (s + 1) % steps.length), STEP_MS);
     return () => clearTimeout(t);
-  }, [step, running]);
+  }, [step, running, steps.length]);
 
-  const Current = STEPS[step].Screen;
-  const last = STEPS.length - 1;
+  const Current = steps[step].Screen;
+  const last = steps.length - 1;
+  const pickSide = (next: Side) => {
+    setSide(next);
+    setStep(0);
+  };
 
   return (
     <section id="how" ref={ref} className="landing-screen-fixed px-5 md:px-8">
-      <div className="mx-auto flex h-full max-w-[1100px] flex-col py-[clamp(16px,3svh,36px)]">
+      <div className="mx-auto flex h-full max-w-[1100px] flex-col items-center py-[clamp(16px,3svh,36px)]">
         <h2 className="display m-0 text-center text-[clamp(28px,4.8svh,46px)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">How it works</h2>
 
-        {/* The flow, left to right (wide screens) */}
+        {/* Companies or creators */}
+        <div className="mt-[clamp(12px,2.2svh,22px)] inline-flex rounded-full border border-line bg-white p-1 shadow-[0_1px_2px_rgba(15,23,32,0.04)]">
+          {(
+            [
+              ["companies", "Companies"],
+              ["creators", "Creators"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => pickSide(key)}
+              className={`cursor-pointer rounded-full border-none px-6 py-2 text-[15px] font-bold transition-all duration-150 active:scale-[0.96] ${
+                side === key ? "bg-accent-deep text-white shadow-[0_4px_12px_rgba(49,164,244,0.3)]" : "bg-transparent text-slate-500 hover:text-ink"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* The steps, left to right (wide screens) */}
         <ol
-          className="relative m-0 mx-auto mt-[clamp(16px,3svh,32px)] hidden w-full max-w-[1000px] list-none grid-cols-8 p-0 md:grid"
+          key={side}
+          className="relative m-0 mt-[clamp(14px,2.6svh,28px)] hidden w-full max-w-[680px] list-none grid-cols-4 p-0 animate-om-rise md:grid"
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
-          <span aria-hidden className="absolute left-[6.25%] right-[6.25%] top-[21px] h-[2px] rounded-full bg-line">
+          <span aria-hidden className="absolute left-[12.5%] right-[12.5%] top-[21px] h-[2px] rounded-full bg-line">
             <span
               className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
               style={{ width: `${(step / last) * 100}%` }}
             />
           </span>
-          {STEPS.map((s, i) => {
+          {steps.map((s, i) => {
             const Icon = s.icon;
             const active = i === step;
             const done = i < step;
@@ -567,7 +549,7 @@ export function HowItWorks() {
                 <button
                   type="button"
                   onClick={() => setStep(i)}
-                  className="group flex cursor-pointer flex-col items-center gap-2 border-none bg-transparent p-0 text-center [@media(max-height:700px)]:gap-1"
+                  className="group flex cursor-pointer flex-col items-center gap-2 border-none bg-transparent p-0 text-center"
                 >
                   <span
                     className={`flex h-[44px] w-[44px] items-center justify-center rounded-full transition-all duration-300 ${
@@ -580,10 +562,9 @@ export function HowItWorks() {
                   >
                     {done ? <Check className="h-5 w-5" strokeWidth={2.6} /> : <Icon className="h-5 w-5" strokeWidth={2.2} />}
                   </span>
-                  <span className={`whitespace-nowrap text-[clamp(12.5px,1.7svh,14.5px)] font-bold leading-[1.2] transition-colors duration-200 ${active ? "text-ink" : "text-slate-400 group-hover:text-ink-soft"}`}>
+                  <span className={`whitespace-nowrap text-[clamp(13px,1.8svh,15px)] font-bold leading-[1.2] transition-colors duration-200 ${active ? "text-ink" : "text-slate-400 group-hover:text-ink-soft"}`}>
                     {s.title}
                   </span>
-                  <span className={`text-[12px] font-semibold [@media(max-height:700px)]:hidden ${active ? "text-accent-deep" : "text-slate-300"}`}>{WHO[s.who].label}</span>
                 </button>
               </li>
             );
@@ -592,13 +573,13 @@ export function HowItWorks() {
 
         {/* The phone acting the step out */}
         <div
-          className="mt-[clamp(16px,3svh,32px)] flex min-h-0 flex-1 cursor-pointer justify-center"
-          onClick={() => setStep((s) => (s + 1) % STEPS.length)}
+          className="mt-[clamp(14px,2.6svh,28px)] flex min-h-0 w-full flex-1 cursor-pointer justify-center"
+          onClick={() => setStep((s) => (s + 1) % steps.length)}
         >
-          <StagePhone dark={DARK_STEPS.has(STEPS[step].title)}>
+          <StagePhone dark={Boolean(steps[step].dark)}>
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.div
-                key={step}
+                key={`${side}-${step}`}
                 className="absolute inset-0"
                 initial={{ opacity: 0, x: 24 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -613,12 +594,9 @@ export function HowItWorks() {
 
         {/* Current step (small screens) */}
         <div className="mt-[clamp(12px,2.4svh,20px)] flex flex-col items-center md:hidden">
-          <div className="flex items-center gap-2">
-            <WhoChip who={STEPS[step].who} />
-            <span className="text-[18px] font-extrabold text-ink">{STEPS[step].title}</span>
-          </div>
+          <span className="text-[18px] font-extrabold text-ink">{steps[step].title}</span>
           <div className="mt-3 flex gap-1.5">
-            {STEPS.map((s, i) => (
+            {steps.map((s, i) => (
               <button
                 key={s.title}
                 type="button"
