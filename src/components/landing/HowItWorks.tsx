@@ -501,8 +501,29 @@ export function HowItWorks() {
     setStep(0);
   };
 
+  /* Links to /#for-creators (navbar Creators, footer) open the creators side;
+     /#for-businesses and /#features the companies side. */
+  useEffect(() => {
+    const pick = (hash: string) => {
+      if (hash === "#for-creators") pickSide("creators");
+      else if (hash === "#for-businesses" || hash === "#features") pickSide("companies");
+    };
+    const onClick = (e: MouseEvent) => {
+      const href = (e.target as Element | null)?.closest?.("a[href]")?.getAttribute("href") ?? "";
+      const at = href.indexOf("#");
+      if (at >= 0 && (href.startsWith("#") || href.startsWith("/#"))) pick(href.slice(at));
+    };
+    pick(window.location.hash);
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+
   return (
-    <section id="how" ref={ref} className="landing-screen-fixed px-5 md:px-8">
+    <section id="how" ref={ref} className="landing-screen-fixed relative px-5 md:px-8">
+      {/* Older links (navbar Features and Creators, footer) land here too. */}
+      <span id="features" className="absolute top-0" aria-hidden />
+      <span id="for-businesses" className="absolute top-0" aria-hidden />
+      <span id="for-creators" className="absolute top-0" aria-hidden />
       <div className="mx-auto flex h-full max-w-[1100px] flex-col items-center py-[clamp(16px,3svh,36px)]">
         <h2 className="display m-0 text-center text-[clamp(28px,4.8svh,46px)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">How it works</h2>
 

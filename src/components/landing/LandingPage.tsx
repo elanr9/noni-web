@@ -7,7 +7,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { PricingFork } from "@/components/PricingFork";
 import { Footer } from "@/components/Footer";
@@ -19,7 +19,6 @@ import { BOOKING_URL } from "@/lib/site-config";
 
 import { HeroNoteStyles, HeroPingDock, HeroPings } from "./HeroNotifications";
 import { HowItWorks } from "./HowItWorks";
-import { Phone } from "./Phone";
 
 const FROM_PRICE = Math.min(...SELF_SERVE_PLANS.map((p) => p.annual));
 
@@ -49,80 +48,6 @@ function Eyebrow({ children, className = "" }: { children: ReactNode; className?
 
 /* ── What each side gets: one real screen each, a few words under it ── */
 
-type Shot = { title: string; line: string; src: string; alt: string };
-
-const MANAGER_SHOTS: Shot[] = [
-  {
-    title: "Briefs, easier than ever",
-    line: "Noni drafts them from your brand.",
-    src: "/landing/briefs.png",
-    alt: "The Briefs library in Noni",
-  },
-  {
-    title: "Every number",
-    line: "Views and sales for every creator.",
-    src: "/landing/creator.png",
-    alt: "A creator profile with views and sales",
-  },
-  {
-    title: "Payouts handled",
-    line: "Every creator paid from one budget.",
-    src: "/landing/cearn.png",
-    alt: "A creator's earnings and payouts",
-  },
-];
-
-const CREATOR_SHOTS: Shot[] = [
-  {
-    title: "Make it",
-    line: "The brief stays on screen as you film.",
-    src: "/landing/coutline.png",
-    alt: "A creator's brief with a Start recording button",
-  },
-  {
-    title: "Post and track",
-    line: "Every post and its views in one place.",
-    src: "/landing/chome.png",
-    alt: "A creator's home screen in Noni",
-  },
-  {
-    title: "Get paid",
-    line: "See what you earned, week by week.",
-    src: "/landing/cearn.png",
-    alt: "A creator's earnings screen",
-  },
-];
-
-type Side = "companies" | "creators";
-
-const SIDES: { key: Side; label: string }[] = [
-  { key: "companies", label: "For companies" },
-  { key: "creators", label: "For creators" },
-];
-
-
-/* One row of real screens, sized from the screen height so every phone
-   shows whole. Wide: three side by side. Narrow: swipe one at a time with
-   the next one peeking in. */
-function ShotRow({ shots, dark = false }: { shots: Shot[]; dark?: boolean }) {
-  return (
-    <div className="landing-swipe -mx-5 flex min-h-0 flex-1 snap-x snap-mandatory gap-4 overflow-x-auto px-[9%] sm:mx-0 sm:gap-6 sm:overflow-visible sm:px-0 lg:gap-10">
-      {shots.map((s, i) => (
-        <Reveal
-          key={s.title}
-          delay={i * 0.06}
-          className="flex min-h-0 shrink-0 basis-[82%] snap-center flex-col items-center text-center sm:basis-0 sm:flex-1"
-        >
-          <div className="flex min-h-0 w-full flex-1 justify-center">
-            <Phone fitHeight src={s.src} alt={s.alt} sizes="(min-width: 640px) 30vw, 70vw" />
-          </div>
-          <h3 className={`m-0 mt-[clamp(10px,2svh,22px)] text-[clamp(16px,2.3svh,20px)] font-extrabold ${dark ? "text-white" : "text-ink"}`}>{s.title}</h3>
-          <p className={`m-0 mt-1 text-[clamp(13px,1.8svh,15px)] ${dark ? "text-white/65" : "text-ink-soft/75"}`}>{s.line}</p>
-        </Reveal>
-      ))}
-    </div>
-  );
-}
 
 /** Each section is exactly one screen under the navbar. The page scrolls freely, no snapping. */
 function LandingScreenStyles() {
@@ -176,25 +101,6 @@ const FAQ = [
 
 export function LandingPage() {
   const [form, setForm] = useState<LeadModalKind | null>(null);
-  const [side, setSide] = useState<Side>("companies");
-
-  /* The Creators link (navbar, footer, or a shared /#for-creators) opens the creators tab. */
-  useEffect(() => {
-    const pick = (hash: string) => {
-      if (hash === "#for-creators") setSide("creators");
-      else if (hash === "#for-businesses") setSide("companies");
-    };
-    const onClick = (e: MouseEvent) => {
-      const link = (e.target as Element | null)?.closest?.("a[href]");
-      const href = link?.getAttribute("href") ?? "";
-      const at = href.indexOf("#");
-      if (at >= 0 && (href.startsWith("#") || href.startsWith("/#"))) pick(href.slice(at));
-    };
-    pick(window.location.hash);
-    document.addEventListener("click", onClick);
-    return () => document.removeEventListener("click", onClick);
-  }, []);
-
   /** Book a call: the scheduling link when one is configured, else the request form. */
   const bookCall = () => {
     if (BOOKING_URL) window.open(BOOKING_URL, "_blank", "noopener,noreferrer");
@@ -252,77 +158,8 @@ export function LandingPage() {
           <HeroPings />
         </section>
 
-        {/* ── How it works: brief to payout, one screen ── */}
+        {/* ── How it works: a Companies / Creators switch, four steps each ── */}
         <HowItWorks />
-
-        {/* ── What Noni does, one screen: a tab for each side ── */}
-        <section id="features" className="landing-screen-fixed relative px-5 md:px-8">
-          <span id="for-businesses" className="absolute top-0" aria-hidden />
-          <span id="for-creators" className="absolute top-0" aria-hidden />
-          <div className="mx-auto flex h-full max-w-[1180px] flex-col py-[clamp(16px,3.4svh,40px)]">
-            <div role="tablist" aria-label="Who Noni is for" className="mx-auto inline-flex rounded-full border border-line bg-white p-1.5 shadow-[0_1px_2px_rgba(15,23,32,0.04)]">
-              {SIDES.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="tab"
-                  aria-selected={side === key}
-                  onClick={() => setSide(key)}
-                  className={`relative cursor-pointer whitespace-nowrap rounded-full border-none bg-transparent px-5 py-2.5 text-[15px] font-bold transition-colors duration-150 active:scale-[0.96] md:px-7 md:text-[16px] ${
-                    side === key ? "text-white" : "text-slate-500 hover:text-ink"
-                  }`}
-                >
-                  {side === key ? (
-                    <motion.span
-                      layoutId="landing-side"
-                      className="absolute inset-0 rounded-full bg-accent-deep"
-                      transition={{ type: "spring", stiffness: 500, damping: 36 }}
-                    />
-                  ) : null}
-                  <span className="relative">{label}</span>
-                </button>
-              ))}
-            </div>
-
-            <motion.div
-              key={side}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease }}
-              className="mt-[clamp(16px,3.4svh,36px)] flex min-h-0 flex-1 flex-col"
-            >
-              <ShotRow shots={side === "companies" ? MANAGER_SHOTS : CREATOR_SHOTS} />
-            </motion.div>
-
-            <div className="mt-[clamp(16px,3svh,32px)] flex justify-center gap-3">
-              {side === "companies" ? (
-                <>
-                  <Link
-                    href="/apply?as=company"
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-ink-soft active:scale-[0.97] md:px-7 md:py-3.5"
-                  >
-                    Get started
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    href="#pricing"
-                    className="inline-flex items-center justify-center rounded-full border border-line-strong bg-white px-6 py-3 text-[15px] font-bold text-ink no-underline transition hover:bg-soft active:scale-[0.97] md:px-7 md:py-3.5"
-                  >
-                    See pricing
-                  </Link>
-                </>
-              ) : (
-                <Link
-                  href="/apply?as=creator"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-6 py-3 text-[15px] font-bold text-white no-underline transition hover:bg-accent-deep active:scale-[0.97] md:px-7 md:py-3.5"
-                >
-                  Apply as a creator
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              )}
-            </div>
-          </div>
-        </section>
 
         {/* ── Pricing ── */}
         <section id="pricing" className="landing-screen flex flex-col justify-center py-6">
