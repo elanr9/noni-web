@@ -286,7 +286,7 @@ function SubmitScreen() {
         <Title>Ready to send</Title>
         <Pop d={0.2} className="mx-auto mt-[4cqw] w-[62%]">
           <div className="relative aspect-[9/16] overflow-hidden rounded-[4cqw] bg-slate-200 shadow-[0_10px_24px_-12px_rgba(15,23,32,0.4)]">
-            <Image src="/brand/post-fabri.png" alt="" fill sizes="200px" className="object-cover" />
+            <Video className="h-full w-full" />
             <span className="absolute left-1/2 top-1/2 flex h-[11cqw] w-[11cqw] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/85">
               <Play className="ml-[0.6cqw] h-[4.6cqw] w-[4.6cqw] text-ink" fill="currentColor" />
             </span>
