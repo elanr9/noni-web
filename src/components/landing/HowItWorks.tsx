@@ -464,27 +464,62 @@ const STEPS: { who: Who; title: string; icon: LucideIcon; Screen: () => ReactNod
   { who: "noni", title: "Tracked and paid", icon: CircleDollarSign, Screen: PaidScreen },
 ];
 
-/** The iPhone the steps play in: metal edge, black bezel, Dynamic Island. Height driven. */
-function StagePhone({ children }: { children: ReactNode }) {
+/** The iPhone the steps play in, in iPhone 15 Pro proportions: a thin black
+    titanium rim, a slim bezel, round corners (container units, so they stay
+    circles at any size), the status bar with the Dynamic Island, and the
+    home bar. Height driven: it takes its parent's height. */
+function StagePhone({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
   return (
-    <div
-      className="relative h-full max-w-full shrink-0 rounded-[15%/7%] bg-[#2b2d31] p-[1.1%] shadow-[0_30px_60px_-22px_rgba(15,23,32,0.45),0_10px_24px_-10px_rgba(15,23,32,0.25),inset_0_0_0_1px_rgba(255,255,255,0.14)]"
-      style={{ aspectRatio: 0.4754 }}
-    >
-      <span className="absolute -left-[1.3%] top-[24%] h-[7.5%] w-[1.3%] rounded-l-[3px] bg-[#2b2d31]" />
-      <span className="absolute -left-[1.3%] top-[33%] h-[7.5%] w-[1.3%] rounded-l-[3px] bg-[#2b2d31]" />
-      <span className="absolute -right-[1.3%] top-[27%] h-[11%] w-[1.3%] rounded-r-[3px] bg-[#2b2d31]" />
-      <div className="h-full w-full rounded-[14%/6.5%] bg-black p-[2.3%]">
-        <div className="relative h-full w-full overflow-hidden rounded-[12%/5.6%]" style={{ containerType: "size" }}>
-          {children}
-          {/* Dynamic Island and home bar over every screen */}
-          <span className="pointer-events-none absolute left-1/2 top-[1.6%] z-10 h-[3.6%] w-[30%] -translate-x-1/2 rounded-full bg-black" />
-          <span className="pointer-events-none absolute bottom-[1.2%] left-1/2 z-10 h-[0.55%] w-[34%] -translate-x-1/2 rounded-full bg-black/70" />
+    <div className="relative h-full max-w-full shrink-0" style={{ aspectRatio: 0.488, containerType: "inline-size" }}>
+      {/* Side buttons */}
+      <span className="absolute -left-[0.9cqw] top-[18%] h-[4.5%] w-[1.1cqw] rounded-l-[1cqw] bg-[#2a2b2f]" />
+      <span className="absolute -left-[0.9cqw] top-[25.5%] h-[8%] w-[1.1cqw] rounded-l-[1cqw] bg-[#2a2b2f]" />
+      <span className="absolute -left-[0.9cqw] top-[35.5%] h-[8%] w-[1.1cqw] rounded-l-[1cqw] bg-[#2a2b2f]" />
+      <span className="absolute -right-[0.9cqw] top-[28%] h-[12%] w-[1.1cqw] rounded-r-[1cqw] bg-[#2a2b2f]" />
+      {/* Titanium rim */}
+      <div className="relative h-full w-full rounded-[15cqw] bg-[#232427] p-[1.15cqw] shadow-[0_50px_90px_-40px_rgba(15,23,42,0.55),0_18px_36px_-20px_rgba(15,23,42,0.35),inset_0_0_0_0.35cqw_rgba(255,255,255,0.16)]">
+        {/* Bezel */}
+        <div className="h-full w-full rounded-[13.9cqw] bg-black p-[2.5cqw]">
+          {/* Screen: each step fills it (cq units); the status bar floats on
+              top, dark text on the light steps and white on the dark ones. */}
+          <div className="relative h-full w-full overflow-hidden rounded-[11.6cqw] bg-[#f6f7f9]" style={{ containerType: "size" }}>
+            {children}
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[13cqw]">
+              <div className={`flex h-full items-center justify-between px-[8.5cqw] transition-colors duration-300 ${dark ? "text-white" : "text-ink"}`}>
+                <span className="text-[4.1cqw] font-semibold tracking-[-0.02em]">9:41</span>
+                <span className="flex items-center gap-[1.3cqw]" aria-hidden>
+                  <svg viewBox="0 0 18 12" className="h-[2.8cqw] w-auto">
+                    <rect x="0" y="8" width="3" height="4" rx="1" fill="currentColor" />
+                    <rect x="5" y="5.5" width="3" height="6.5" rx="1" fill="currentColor" />
+                    <rect x="10" y="3" width="3" height="9" rx="1" fill="currentColor" />
+                    <rect x="15" y="0" width="3" height="12" rx="1" fill="currentColor" />
+                  </svg>
+                  <svg viewBox="0 0 16 12" className="h-[2.8cqw] w-auto">
+                    <path d="M8 2.2c2.4 0 4.6.9 6.2 2.4l1.2-1.3C13.4 1.4 10.8.4 8 .4S2.6 1.4.6 3.3l1.2 1.3C3.4 3.1 5.6 2.2 8 2.2Z" fill="currentColor" />
+                    <path d="M8 5.6c1.4 0 2.7.5 3.7 1.4l1.2-1.3C11.6 4.5 9.9 3.8 8 3.8S4.4 4.5 3.1 5.7L4.3 7c1-.9 2.3-1.4 3.7-1.4Z" fill="currentColor" />
+                    <path d="M8 9c.6 0 1.1.2 1.5.6L8 11.2 6.5 9.6C6.9 9.2 7.4 9 8 9Z" fill="currentColor" />
+                  </svg>
+                  <svg viewBox="0 0 27 12" className="h-[2.8cqw] w-auto">
+                    <rect x="0.5" y="0.5" width="23" height="11" rx="3.2" fill="none" stroke="currentColor" strokeOpacity="0.45" />
+                    <rect x="2" y="2" width="20" height="8" rx="2" fill="currentColor" />
+                    <path d="M25 4v4c.8-.3 1.3-1.1 1.3-2S25.8 4.3 25 4Z" fill="currentColor" fillOpacity="0.5" />
+                  </svg>
+                </span>
+              </div>
+              {/* Dynamic Island */}
+              <span className="absolute left-1/2 top-[2.8cqw] h-[8.6cqw] w-[30cqw] -translate-x-1/2 rounded-full bg-black" />
+            </div>
+            {/* Home bar */}
+            <span className={`pointer-events-none absolute bottom-[1.9cqw] left-1/2 z-10 h-[1.35cqw] w-[35cqw] -translate-x-1/2 rounded-full transition-colors duration-300 ${dark ? "bg-white/85" : "bg-black/75"}`} />
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+/** Steps whose screen is dark, so the status bar turns white over them. */
+const DARK_STEPS = new Set(["Record it", "Edited for you"]);
 
 function WhoChip({ who }: { who: Who }) {
   return <span className={`inline-flex items-center rounded-full px-2.5 py-[3px] text-[12px] font-bold ${WHO[who].cls}`}>{WHO[who].label}</span>;
@@ -560,7 +595,7 @@ export function HowItWorks() {
           className="mt-[clamp(16px,3svh,32px)] flex min-h-0 flex-1 cursor-pointer justify-center"
           onClick={() => setStep((s) => (s + 1) % STEPS.length)}
         >
-          <StagePhone>
+          <StagePhone dark={DARK_STEPS.has(STEPS[step].title)}>
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.div
                 key={step}
