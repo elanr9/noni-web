@@ -75,7 +75,7 @@ const FAQ = [
   },
   {
     q: "How are sales tracked?",
-    a: "Each creator gets a promo code. Connect Stripe and every sale on that code is credited to them.",
+    a: "Connect Stripe and Noni tracks sign ups and sales next to every post's views.",
   },
   {
     q: "How do creators get paid?",
