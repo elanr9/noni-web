@@ -84,8 +84,8 @@ function stepperStatus(card: WeekCardData): string {
 }
 
 function notPlannedLine(startDay: string | null): string {
-  if (startDay === null) return "Not planned yet. Click to start it.";
-  return `Not planned yet. ${opensSentence(startDay)}. Click to start it.`;
+  if (startDay === null) return "Not planned yet";
+  return `Not planned yet. ${opensSentence(startDay)}.`;
 }
 
 function LaneSummaryCard({
@@ -210,16 +210,13 @@ export function BriefsIndexView({
   if (weeks.length === 0) {
     return (
       <div>
-        <PageHead
-          title="Briefs"
-          sub="A week is one shared pool of posts for the whole roster."
-        />
+        <PageHead title="Briefs" />
         <Card pad={22} className="flex max-w-[460px] flex-col items-start gap-4">
           <span className="inline-flex h-[52px] w-[52px] items-center justify-center bg-blue-100 rounded-pill">
             <LayoutList size={24} className="text-blue-700" />
           </span>
           <span className="text-[20px] font-bold tracking-[-0.4px] text-ink">
-            Start your first brief!
+            First brief
           </span>
           <Pill onClick={() => router.push("/manager/briefs/setup")}>
             Start week 1
@@ -235,7 +232,6 @@ export function BriefsIndexView({
     <div>
       <PageHead
         title="Briefs"
-        sub="A week is one shared pool of posts for the whole roster."
         right={<Segmented options={VIEWS} value={view} onSelect={setView} />}
       />
 
@@ -290,7 +286,7 @@ export function BriefsIndexView({
           {cw.status === "next" ? (
             <p className="m-0 text-[13px] text-slate-400">
               {cw.startDay === null
-                ? "Nothing recorded yet. Start the week to plan it."
+                ? "Nothing recorded yet"
                 : `Nothing recorded yet. The brief ${briefWeekOpensLabel(cw.startDay)}.`}
             </p>
           ) : cwPosts === undefined ? (

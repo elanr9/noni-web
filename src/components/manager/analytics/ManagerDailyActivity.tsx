@@ -173,7 +173,6 @@ export function ManagerDailyActivity({
       ? [`Money is tracked since ${gate.sinceLabel}.`]
       : []),
     "Dot = posts published.",
-    "Click a day for the full picture.",
   ].join(" ");
 
   const selectedDay =

@@ -25,14 +25,6 @@ import type {
    (app/(admin)/(tabs)/index.tsx): Posts | Music | Accounts lanes, one row
    per waiting item, whole row opens the detail page. */
 
-const SUBTITLE_DEFAULT = "Approve posts and they will be posted automatically!";
-const SUBTITLE_ONE_LEFT = "One to clear, then you're done for today.";
-const SUBTITLE_CLEARED =
-  "Everything is cleared. Creators are recording the rest of the week.";
-const FOOTER_NOTE =
-  "Reject a single clip and only that clip goes back. The rest stay approved.";
-const MUSIC_INTRO =
-  "Slideshows only. Open the post, check the song is on it, approve. Approval unlocks that post's earnings.";
 
 const LANES = ["Posts", "Music", "Accounts"] as const;
 type Lane = (typeof LANES)[number];
@@ -147,7 +139,7 @@ function EmptyLane({
 }: {
   icon: LucideIcon;
   title: string;
-  body: string;
+  body?: string;
 }) {
   return (
     <Card pad={0} className="flex flex-col items-center gap-2.5 px-6 py-12 text-center">
@@ -155,9 +147,11 @@ function EmptyLane({
         <Icon size={19} className="text-slate-400" />
       </span>
       <span className="text-[14.5px] font-bold text-ink">{title}</span>
-      <span className="max-w-[380px] text-[13px] font-semibold leading-relaxed text-slate-400">
-        {body}
-      </span>
+      {body ? (
+        <span className="max-w-[380px] text-[13px] font-semibold leading-relaxed text-slate-400">
+          {body}
+        </span>
+      ) : null}
     </Card>
   );
 }
@@ -177,18 +171,10 @@ export function ReviewHome({
   const sentBackAccounts = accounts.filter((a) => a.status === "needs_changes");
 
   const total = posts.length + music.length + pendingAccounts.length;
-  const subtitle =
-    total === 0
-      ? SUBTITLE_CLEARED
-      : total === 1
-        ? SUBTITLE_ONE_LEFT
-        : SUBTITLE_DEFAULT;
-
   return (
     <div>
       <PageHead
         title="Review"
-        sub={subtitle}
         right={
           total === 0 ? (
             <Chip tone="green">All clear</Chip>
@@ -214,7 +200,6 @@ export function ReviewHome({
           <EmptyLane
             icon={Inbox}
             title="Nothing to review"
-            body="Creators are recording this week's posts. New submissions land here, newest first."
           />
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -250,9 +235,6 @@ export function ReviewHome({
                 }
               />
             ))}
-            <p className="m-0 mt-1 px-0.5 text-[12px] font-semibold leading-relaxed text-slate-400">
-              {FOOTER_NOTE}
-            </p>
           </div>
         )
       ) : lane === "Music" ? (
@@ -260,13 +242,9 @@ export function ReviewHome({
           <EmptyLane
             icon={Music2}
             title="No songs waiting"
-            body="Creators tap Music added once the track is on a live slideshow. It lands here."
           />
         ) : (
           <div className="flex flex-col gap-2.5">
-            <p className="m-0 mb-1 px-0.5 text-[12px] font-semibold leading-relaxed text-slate-500">
-              {MUSIC_INTRO}
-            </p>
             {music.map((row) => (
               <QueueRow
                 key={row.assignmentId}
@@ -294,7 +272,6 @@ export function ReviewHome({
         <EmptyLane
           icon={CircleUserRound}
           title="No accounts to approve"
-          body="Every creator on the roster is linked. New creators show up here after they upload their warm up proof."
         />
       ) : (
         <div className="flex flex-col gap-2.5">

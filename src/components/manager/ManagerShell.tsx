@@ -8,6 +8,8 @@ import {
   FolderOpen,
   ListChecks,
   Menu,
+  Radar,
+  Store,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -34,6 +36,8 @@ const NAV_SECTIONS: ReadonlyArray<{ label: string; items: NavItem[] }> = [
     items: [
       { href: "/manager", label: "Review", icon: ListChecks },
       { href: "/manager/briefs", label: "Briefs", icon: CalendarDays },
+      { href: "/manager/market", label: "Market", icon: Store },
+      { href: "/manager/scout", label: "Scout", icon: Radar },
       { href: "/manager/creators", label: "Creators", icon: Users },
       { href: "/manager/library", label: "Library", icon: FolderOpen },
       { href: "/manager/media", label: "Media", icon: Clapperboard },

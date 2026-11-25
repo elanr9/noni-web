@@ -25,11 +25,9 @@ const ALL_SORTS: Array<{ key: SortKey; label: string }> = [
 
 function InviteCreatorModal({
   companyId,
-  companyName,
   onClose,
 }: {
   companyId: string;
-  companyName: string;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -56,7 +54,7 @@ function InviteCreatorModal({
   };
 
   return (
-    <Modal title={sentTo ? undefined : "Invite a creator"} onClose={onClose}>
+    <Modal title={sentTo ? undefined : "Invite creator"} onClose={onClose}>
       {sentTo ? (
         <div className="px-1 pb-1.5 pt-[18px] text-center">
           <span className="inline-flex h-[52px] w-[52px] items-center justify-center bg-green-soft rounded-pill">
@@ -65,11 +63,6 @@ function InviteCreatorModal({
           <div className="mt-3.5 text-[18px] font-bold tracking-[-0.4px] text-ink">
             Invite sent
           </div>
-          <p className="mx-0 mb-0 mt-2 text-[13.5px] font-semibold leading-[1.6] text-slate-400">
-            {sentTo} gets an email. When they sign in with it, Noni already
-            knows they&apos;re a creator for {companyName}. No code, no setup
-            on their end.
-          </p>
           <div className="mt-[18px] flex justify-center gap-2">
             <Pill
               size="sm"
@@ -102,10 +95,6 @@ function InviteCreatorModal({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="name@company.com"
           />
-          <p className="m-0 text-[12.5px] font-semibold text-slate-400">
-            Already on Noni with another company? That is fine. Accepting adds
-            yours and they keep the rest.
-          </p>
           {error ? (
             <p className="m-0 text-[13px] font-semibold text-danger">{error}</p>
           ) : null}
@@ -144,7 +133,6 @@ function Stat({
 export function CreatorsRoster({
   roster,
   companyId,
-  companyName,
   viewFinancials,
   canInvite,
 }: {
@@ -152,7 +140,6 @@ export function CreatorsRoster({
   /** The company this roster was rendered for; the invite refuses when
       the account has since switched to another one. */
   companyId: string;
-  companyName: string;
   viewFinancials: boolean;
   canInvite: boolean;
 }) {
@@ -175,7 +162,6 @@ export function CreatorsRoster({
     <div>
       <PageHead
         title="Creators"
-        sub={`Approved creators recording for ${companyName}, with what they have posted and earned.`}
         right={
           canInvite ? (
             <Pill size="sm" icon={Plus} onClick={() => setInviting(true)}>
@@ -208,9 +194,7 @@ export function CreatorsRoster({
           </div>
           {sorted.length === 0 ? (
             <p className="m-0 border-t border-line px-5 py-3.5 text-[13.5px] font-semibold text-slate-400">
-              {canInvite
-                ? "No creators yet. Invite creators and they show up here once they join."
-                : "No creators yet. They show up here once they join."}
+              No creators yet
             </p>
           ) : (
             sorted.map((c) => (
@@ -296,7 +280,6 @@ export function CreatorsRoster({
       {inviting ? (
         <InviteCreatorModal
           companyId={companyId}
-          companyName={companyName}
           onClose={() => setInviting(false)}
         />
       ) : null}

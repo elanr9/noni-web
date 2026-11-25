@@ -148,15 +148,11 @@ export function ManagerAnalyticsView({
     <div>
       <PageHead
         title="Analytics"
-        sub="Views and daily activity across every post and creator."
         right={empty ? undefined : <ModeToggle mode={mode} onSelect={setMode} />}
       />
       {empty ? (
         <Card pad={22} className="py-14 text-center">
           <p className="m-0 text-[16px] font-bold text-ink">No numbers yet</p>
-          <p className="mx-auto mb-0 mt-1.5 max-w-[360px] text-[13.5px] font-semibold text-slate-400">
-            Metrics start landing the day the first post goes live.
-          </p>
         </Card>
       ) : (
         <>

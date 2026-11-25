@@ -174,7 +174,7 @@ export function MusicApprovalView({
     return (
       <DoneCard
         title="Song approved"
-        body={`Earnings for this post are unlocked. ${short} sees it in their wallet tonight.`}
+        body="Earnings unlocked"
       />
     );
   }
@@ -182,7 +182,7 @@ export function MusicApprovalView({
     return (
       <DoneCard
         title="Sent back"
-        body={`${short} sees your notes and fixes the song on the live post. It lands back in this queue when they mark it added again.`}
+        body="Lands back here once fixed."
       />
     );
   }

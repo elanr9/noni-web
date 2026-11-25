@@ -290,7 +290,7 @@ export function CreatorProfile({
             <Label className="block px-5 pb-2 pt-4">Current assignments</Label>
             <AssignmentRows
               rows={creator.currentAssignments}
-              empty="Nothing in flight. Assignments show up here as the week fills in."
+              empty="Nothing in flight"
               showMetrics={false}
             />
           </Card>

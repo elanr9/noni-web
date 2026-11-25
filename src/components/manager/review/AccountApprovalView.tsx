@@ -261,7 +261,7 @@ export function AccountApprovalView({
       <DoneCard
         tone="good"
         title={`${short} is approved`}
-        body={`@${detail.tiktokHandle ?? ""} and @${detail.instagramHandle ?? ""} are linked. Their first brief lands tomorrow morning.`}
+        body={`@${detail.tiktokHandle ?? ""} and @${detail.instagramHandle ?? ""} linked`}
       />
     );
   }
@@ -270,7 +270,7 @@ export function AccountApprovalView({
       <DoneCard
         tone="warn"
         title={`Sent back to ${short}`}
-        body="They see your notes on their setup screen and resubmit. It lands back in this queue."
+        body="Lands back here when they resubmit."
       />
     );
   }

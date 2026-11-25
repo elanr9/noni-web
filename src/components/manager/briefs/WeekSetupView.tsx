@@ -141,7 +141,7 @@ export function WeekSetupView({ weekNumber }: { weekNumber: number }) {
           })}
         </div>
         <p className="m-0 text-[12.5px] text-slate-400">
-          {`Runs ${briefWeekRangeLabel(dropDate)}. The clock starts when the first post goes live.`}
+          {`Runs ${briefWeekRangeLabel(dropDate)}`}
         </p>
 
         {error ? (

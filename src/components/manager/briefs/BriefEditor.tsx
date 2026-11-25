@@ -839,12 +839,12 @@ export function BriefEditor({
   const bankTags = [...new Set([...hashtagBank, ...hashtags])];
   const pointCountLine =
     currentType === null
-      ? "Clip count comes from the type."
+      ? "Pick a type"
       : currentType.clip_structure === "single_clip"
-        ? "One clip, derived from the type."
+        ? "One clip"
         : currentType.clip_structure === "slide_per_point"
-          ? `One slide per point = ${Math.max(points.length, currentType.min_points)} slides. Derived from the type, never entered.`
-          : `Hook + ${Math.max(points.length, currentType.min_points)} points + outro = ${Math.max(points.length, currentType.min_points) + 2} clips. Derived from the type, never entered.`;
+          ? `${Math.max(points.length, currentType.min_points)} slides, one per point`
+          : `${Math.max(points.length, currentType.min_points) + 2} clips: hook, ${Math.max(points.length, currentType.min_points)} points, outro`;
 
   return (
     <div>
@@ -897,7 +897,7 @@ export function BriefEditor({
         <div className="flex min-w-0 flex-col gap-3.5">
           <SectionCard
             title="Title"
-            intent="Optional. It is how the post reads in the grid, not on the platform."
+            intent="Optional"
             action={
               <Pill
                 size="sm"
@@ -941,7 +941,7 @@ export function BriefEditor({
 
           <SectionCard
             title="Search phrase"
-            intent="The TikTok search this post answers. Everything downstream is written against it."
+            intent="The TikTok search this post answers"
             action={
               <RegenButton
                 busy={regenBusy === "search_phrase"}
@@ -959,7 +959,7 @@ export function BriefEditor({
 
           <SectionCard
             title="Hook"
-            intent="Nine words maximum, written against the finished body. Pick one or write your own."
+            intent="Nine words max"
             action={
               <RegenButton
                 busy={regenBusy === "hook"}
@@ -1031,7 +1031,7 @@ export function BriefEditor({
 
           <SectionCard
             title="CTA"
-            intent="One plug sentence. It lands inside one talking point, never its own clip."
+            intent="One sentence inside a talking point"
           >
             <input
               value={cta}
@@ -1114,7 +1114,7 @@ export function BriefEditor({
 
           <SectionCard
             title="Caption and hashtags"
-            intent="Caption and 3 to 5 hashtags. Instagram reads tags inside the caption."
+            intent="Caption and 3 to 5 hashtags"
             action={
               <RegenButton
                 busy={regenBusy === "caption"}
@@ -1175,7 +1175,7 @@ export function BriefEditor({
           {script !== null && script.trim() !== "" ? (
             <SectionCard
               title="Script"
-              intent="Legacy full script. New posts run on talking points instead."
+              intent="Legacy script"
             >
               <textarea
                 value={script ?? ""}
@@ -1187,7 +1187,7 @@ export function BriefEditor({
         </div>
 
         <div className="flex min-w-0 flex-col gap-3.5">
-          <SectionCard title="AI review" intent="Suggestions only. Apply what helps, ignore the rest, confirm when it reads right.">
+          <SectionCard title="AI review" intent="Suggestions">
             {reviewedAt !== null ? (
               <p className="m-0 text-[12.5px] font-semibold text-slate-400">
                 Reviewed {new Date(reviewedAt).toLocaleDateString("en-US")}. You
@@ -1205,7 +1205,7 @@ export function BriefEditor({
 
           <SectionCard
             title="Text overlay"
-            intent="On screen text for the whole post, burned in by the render pass."
+            intent="On screen text"
           >
             <Toggle
               on={textOverlay.enabled}
@@ -1265,7 +1265,7 @@ export function BriefEditor({
           {family === "video" ? (
             <SectionCard
               title="Subtitles"
-              intent="Auto transcribed from the creator's voice. Two lines at the bottom of the reel."
+              intent="Auto transcribed"
             >
               <Toggle
                 on={subtitles}
@@ -1280,7 +1280,7 @@ export function BriefEditor({
 
           <SectionCard
             title="Clips"
-            intent="Derived from the type on save. Overlay text and screenshots are kept when clips change."
+            intent="Set by the type"
           >
             {segments.length === 0 ? (
               <p className="m-0 text-[12.5px] font-semibold text-slate-400">

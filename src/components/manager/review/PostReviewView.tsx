@@ -384,7 +384,7 @@ export function PostReviewView({ detail }: { detail: PostReviewDetail | null }) 
     return (
       <DoneCard
         title="Approved"
-        body={`${detail.briefTitle} is out of your hands. Noni posts it to TikTok and Instagram at the slot time and ${short} gets notified once it is live.`}
+        body="Posts to TikTok and Instagram automatically at the slot time."
       />
     );
   }
@@ -392,7 +392,7 @@ export function PostReviewView({ detail }: { detail: PostReviewDetail | null }) 
     return (
       <DoneCard
         title="Sent back"
-        body={`${short} gets this post back with your notes on the sections you marked. Nothing else has to be re-recorded.`}
+        body="Only the marked sections go back."
       />
     );
   }

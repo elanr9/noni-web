@@ -63,24 +63,24 @@ const EMPTY: Record<LibrarySource, Record<UsedTab, { icon: LucideIcon; title: st
     unused: {
       icon: Sparkles,
       title: "No ideas yet",
-      body: "Type one line above and save. Paste a whole doc to save one idea per line.",
+      body: "Type one above and save.",
     },
     used: {
       icon: Sparkles,
       title: "Nothing used yet",
-      body: "Ideas move here the moment you make a post from them.",
+      body: "",
     },
   },
   reference: {
     unused: {
       icon: Link2,
       title: "No references yet",
-      body: "Paste a TikTok or Instagram link above. It saves with a thumbnail and title.",
+      body: "Paste a TikTok or Instagram link above.",
     },
     used: {
       icon: Link2,
       title: "Nothing used yet",
-      body: "References move here the moment you make a post from them.",
+      body: "",
     },
   },
 };
@@ -479,7 +479,7 @@ function QuickCapture({
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Optional notes. How should this translate to our product?"
+            placeholder="Notes"
             rows={2}
             className="block w-full resize-y border border-line bg-white px-3 py-2.5 text-[13.5px] font-normal leading-normal text-ink outline-none rounded-[12px] placeholder:text-slate-400 focus:border-blue-500"
           />
@@ -524,7 +524,7 @@ function EmptyState({ icon: Icon, title, body }: { icon: LucideIcon; title: stri
         <Icon size={18} className="text-slate-400" />
       </span>
       <p className="m-0 text-[15px] font-bold text-ink">{title}</p>
-      <p className="mx-auto mb-0 mt-1 max-w-[340px] text-[13px] font-semibold text-slate-400">{body}</p>
+      {body ? <p className="mx-auto mb-0 mt-1 max-w-[340px] text-[13px] font-semibold text-slate-400">{body}</p> : null}
     </Card>
   );
 }
@@ -791,7 +791,7 @@ export function LibraryView({ initialIdeas, initialCounts, creators, postTypes }
       return search.length > 0 || activeFilters > 0 ? (
         <p className="my-8 text-center text-[14px] font-medium text-slate-400">No posts match these filters</p>
       ) : (
-        <EmptyState icon={Play} title="No posts yet" body="Every post you publish lands here the day it goes live." />
+        <EmptyState icon={Play} title="No posts yet" body="" />
       );
     }
     if (!itemSource) return null;
@@ -855,7 +855,7 @@ export function LibraryView({ initialIdeas, initialCounts, creators, postTypes }
 
   return (
     <div>
-      <PageHead title="Library" sub="Post ideas, saved references, shared media and everything your creators have published." />
+      <PageHead title="Library" />
       <Tabs
         tabs={LANES}
         active={lane}
