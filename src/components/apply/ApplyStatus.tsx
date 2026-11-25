@@ -99,10 +99,8 @@ export function ChatDone({ kind }: { kind: ApplyKind }) {
           kind === "company" ? "bg-blue-500 shadow-[0_10px_24px_rgba(59,130,246,0.3)]" : "bg-ink"
         }`}
       >
-        {kind === "company" ? "Next" : "See my application"}
-        {kind === "company" ? (
-          <ArrowRight size={18} className="transition-transform duration-150 group-hover:translate-x-1" />
-        ) : null}
+        Next
+        <ArrowRight size={18} className="transition-transform duration-150 group-hover:translate-x-1" />
       </Link>
     </div>
   );

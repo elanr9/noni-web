@@ -5,11 +5,13 @@ export type ChatOption = { value: string; label: string };
 
 export type SlotSpec = {
   key: string;
-  kind: "choice" | "multi" | "text" | "summary" | "done";
+  kind: "choice" | "multi" | "text" | "age" | "summary" | "done";
   options?: ChatOption[];
   placeholder?: string;
   /** A draft answer from the site, offered as "That's right". */
   draft?: string;
+  /** Most picks for a multi. */
+  max?: number;
 };
 
 export type ChatMessage = { role: "assistant" | "user"; text: string; slot: string };

@@ -153,6 +153,44 @@ function UserMessage({ text }: { text: string }) {
   );
 }
 
+/** How old are you: a big number over a slider, 16 to 65+, then Continue. */
+function AgePicker({ disabled, onPick }: { disabled: boolean; onPick: (age: number) => void }) {
+  const [age, setAge] = useState(23);
+  const pct = ((age - 16) / (65 - 16)) * 100;
+  return (
+    <div className="flex flex-col items-center gap-4 rounded-[28px] border-[1.5px] border-slate-200 bg-white px-6 pb-5 pt-4 shadow-[0_8px_30px_rgba(15,23,42,0.10)] animate-om-rise">
+      <span className="text-[56px] font-extrabold leading-none tracking-[-2px] text-ink tabular-nums">{age >= 65 ? "65+" : age}</span>
+      <div className="w-full">
+        <input
+          type="range"
+          min={16}
+          max={65}
+          value={age}
+          disabled={disabled}
+          onChange={(e) => setAge(Number(e.target.value))}
+          aria-label="Your age"
+          className="h-2 w-full cursor-pointer appearance-none rounded-full accent-blue-500"
+          style={{ background: `linear-gradient(to right, #3B82F6 ${pct}%, #E2E8F0 ${pct}%)` }}
+        />
+        <div className="mt-2 flex justify-between text-[13px] font-semibold text-slate-400">
+          <span>16</span>
+          <span>30</span>
+          <span>45</span>
+          <span>65+</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onPick(age)}
+        className="w-full cursor-pointer rounded-full border-none bg-blue-500 py-3.5 text-[16px] font-bold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-50"
+      >
+        Continue
+      </button>
+    </div>
+  );
+}
+
 function Chip({
   label,
   selected,
@@ -596,7 +634,9 @@ export function ChatOnboarding({
         <div ref={composer} className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-[#fbfbfc] via-[#fbfbfc] to-transparent pb-5 pt-10">
           <div className="mx-auto flex w-full max-w-[720px] flex-col gap-3 px-5">
             {choice && pending.options && pending.kind === "multi" ? (
-              <p className="m-0 text-[13px] font-semibold text-slate-400">Pick any, or add your own</p>
+              <p className="m-0 text-[13px] font-semibold text-slate-400">
+                {pending.max ? `Pick up to ${pending.max}` : "Pick any, or add your own"}
+              </p>
             ) : null}
             {choice && pending.options ? (
               <div
@@ -614,7 +654,13 @@ export function ChatOnboarding({
                     selected={picked.includes(o.value)}
                     onClick={() => {
                       if (pending.kind === "multi") {
-                        setPicked((p) => (p.includes(o.value) ? p.filter((x) => x !== o.value) : [...p, o.value]));
+                        setPicked((p) =>
+                          p.includes(o.value)
+                            ? p.filter((x) => x !== o.value)
+                            : pending.max && p.length >= pending.max
+                              ? p
+                              : [...p, o.value],
+                        );
                       } else answer(o.value, o.label);
                     }}
                   />
@@ -650,6 +696,9 @@ export function ChatOnboarding({
                 ) : null}
               </div>
             ) : null}
+            {pending.kind === "age" ? (
+              <AgePicker disabled={busy} onPick={(age) => answer(String(age), age >= 65 ? "65+" : String(age))} />
+            ) : (
             <div
               onClick={() => box.current?.focus()}
               className="flex cursor-text items-end gap-2 rounded-[28px] border-[1.5px] border-slate-300 bg-white py-2.5 pl-5 pr-2.5 shadow-[0_8px_30px_rgba(15,23,42,0.10)] transition-[border-color,box-shadow] duration-150 hover:border-slate-400 focus-within:border-blue-500 focus-within:shadow-[0_0_0_4px_rgba(59,130,246,0.15),0_8px_30px_rgba(15,23,42,0.10)]"
@@ -721,6 +770,7 @@ export function ChatOnboarding({
                 </button>
               )}
             </div>
+            )}
           </div>
         </div>
       ) : null}
