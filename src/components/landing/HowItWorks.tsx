@@ -4,6 +4,8 @@ import { AnimatePresence, motion, useInView } from "framer-motion";
 import {
   BadgeCheck,
   Check,
+  ChevronLeft,
+  ChevronRight,
   CircleDollarSign,
   FileText,
   Hand,
@@ -15,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 
 /* How it works, one screen: a Companies / Creators switch, then four
    simple steps for that side over one phone acting each step out. It walks
@@ -91,21 +93,18 @@ function InstagramIcon({ className = "" }: { className?: string }) {
 
 /* ── The screens ── */
 
-/** The finished video, whole: a blurred copy fills the box, the full frame sits on top so no caption is cut. */
-function Video({ zoomFrom, className = "" }: { zoomFrom?: number; className?: string }) {
+/** The finished video, cropped to fill its box. */
+function Video({ className = "" }: { className?: string }) {
   return (
     <div className={`relative overflow-hidden bg-black ${className}`}>
-      <Image src="/brand/post-fabri.png" alt="" fill sizes="200px" className="scale-110 object-cover opacity-70 blur-[6px]" />
-      <motion.div
-        className="absolute inset-0 origin-bottom"
-        initial={zoomFrom ? { scale: zoomFrom } : false}
-        animate={{ scale: 1 }}
-        transition={{ delay: 0.5, duration: 0.9, ease }}
-      >
-        <Image src="/brand/post-fabri.png" alt="" fill sizes="300px" className="object-contain" />
-      </motion.div>
+      <Image src="/brand/post-fabri.png" alt="" fill sizes="(max-width: 768px) 80vw, 400px" quality={90} className="object-cover" />
     </div>
   );
+}
+
+/** Raw footage, portrait, no caption baked in. */
+function Footage() {
+  return <Image src="/brand/film-fabri.jpg" alt="" fill sizes="(max-width: 768px) 80vw, 400px" quality={90} className="object-cover" />;
 }
 
 function Screen({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
@@ -148,7 +147,7 @@ function BriefScreen() {
         <Title>New post</Title>
 
         {/* The idea, typed in */}
-        <div className="mt-[3cqw] rounded-[4cqw] border-[0.5cqw] border-accent bg-white px-[3.8cqw] py-[3cqw] shadow-[0_0_0_1.2cqw_var(--accent-soft)]">
+        <div className="mt-[3cqw] rounded-[4cqw] border-[0.5cqw] border-accent bg-white px-[3.8cqw] py-[3cqw]">
           <p className="m-0 text-[3.6cqw] font-bold uppercase tracking-[0.08em] text-muted">Post idea</p>
           <p className="m-0 mt-[0.8cqw] min-h-[6cqw] text-[5cqw] font-semibold leading-[1.3] text-ink">
             {typed}
@@ -170,16 +169,13 @@ function BriefScreen() {
             </div>
             <p className="m-0 mt-[1.8cqw] text-[5.8cqw] font-extrabold leading-[1.2]">5 things nobody tells you before freshman year</p>
             {[
-              ["Hook", "What nobody tells you before college", "Look straight at the camera"],
-              ["Middle", "Five quick tips, one line each", "Cut between every tip"],
-              ["Close", "Follow for part two", "Point at the follow button"],
-            ].map(([label, text, note], i) => (
-              <Pop key={label} d={0.25 + i * 0.35} className="mt-[2.6cqw] border-l-[0.8cqw] border-accent pl-[2.6cqw]">
-                <p className="m-0 text-[3.5cqw] font-bold uppercase tracking-[0.08em] text-muted">{label}</p>
-                <p className="m-0 mt-[0.3cqw] text-[4.6cqw] font-semibold leading-[1.3] text-ink">{text}</p>
-                <p className="m-0 mt-[0.6cqw] inline-flex items-center gap-[1.2cqw] rounded-[1.4cqw] bg-[#fff7e6] px-[1.8cqw] py-[0.5cqw] text-[3.7cqw] font-semibold text-[#a16207]">
-                  <FileText className="h-[3.2cqw] w-[3.2cqw]" /> {note}
-                </p>
+              ["Hook", "What nobody tells you before college"],
+              ["Middle", "Five quick tips, one line each"],
+              ["Close", "Follow for part two"],
+            ].map(([label, text], i) => (
+              <Pop key={label} d={0.25 + i * 0.3} className="mt-[3cqw] flex items-baseline gap-[2.6cqw]">
+                <span className="w-[13cqw] shrink-0 text-[3.5cqw] font-bold uppercase tracking-[0.08em] text-muted">{label}</span>
+                <span className="text-[4.6cqw] font-semibold leading-[1.3] text-ink">{text}</span>
               </Pop>
             ))}
           </Pop>
@@ -212,15 +208,15 @@ function BriefScreen() {
 function PickScreen() {
   const picked = useAfter(1.3);
   const briefs = [
-    { title: "5 things athletes should know before freshman year", tag: "Talking Head", tone: "from-sky-400 to-blue-500" },
-    { title: "Reacting to my own heat map", tag: "Greenscreen", tone: "from-emerald-400 to-teal-500" },
-    { title: "How to film a full match on a phone", tag: "Slideshow", tone: "from-pink-400 to-rose-500" },
+    { title: "5 things athletes should know before freshman year", tag: "Talking head", img: "/brand/post-fabri.png" },
+    { title: "Reacting to my own heat map", tag: "Greenscreen", img: "/brand/post-sebastian.png" },
+    { title: "How to film a full match on a phone", tag: "Slideshow", img: "/brand/post-tona.png" },
   ];
   return (
     <Screen>
       <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
         <Title>Hi Maya</Title>
-        <p className="m-0 mt-[4cqw] text-[4.7cqw] font-bold text-muted">New briefs for you</p>
+        <p className="m-0 mt-[4cqw] text-[4.7cqw] font-bold text-muted">New posts</p>
         <div className="mt-[2.4cqw] flex flex-col gap-[2.6cqw]">
           {briefs.map((b, i) => (
             <Pop key={b.title} d={0.2 + i * 0.18}>
@@ -230,7 +226,9 @@ function PickScreen() {
                 }`}
               >
                 <div className="flex items-center gap-[3cqw]">
-                  <span className={`h-[11cqw] w-[11cqw] shrink-0 rounded-[2.6cqw] bg-gradient-to-br ${b.tone}`} />
+                  <span className="relative h-[14cqw] w-[11cqw] shrink-0 overflow-hidden rounded-[2.4cqw] bg-slate-200">
+                    <Image src={b.img} alt="" fill sizes="60px" className="object-cover" />
+                  </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[4.9cqw] font-bold leading-[1.25]">{b.title}</span>
                     <span className="mt-[0.8cqw] block text-[3.9cqw] font-semibold text-muted">{b.tag}</span>
@@ -268,17 +266,16 @@ function RecordScreen() {
   }, []);
   return (
     <Screen dark>
-      <Image src="/brand/post-fabri.png" alt="" fill sizes="300px" className="origin-bottom scale-[1.5] object-cover" />
-      <div className="absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-black/60 to-transparent" />
+      <Footage />
       <div className="relative flex flex-1 flex-col px-[5cqw] pt-[14cqw]">
         <div className="flex items-center justify-center">
-          <span className="inline-flex items-center gap-[1.6cqw] rounded-full bg-black/45 px-[3cqw] py-[1.2cqw] text-[4.4cqw] font-bold tabular-nums">
+          <span className="inline-flex items-center gap-[1.6cqw] rounded-full bg-black/60 px-[3cqw] py-[1.2cqw] text-[4.4cqw] font-bold tabular-nums">
             <span className="h-[2.4cqw] w-[2.4cqw] animate-pulse rounded-full bg-red-500" /> 0:{String(secs).padStart(2, "0")}
           </span>
         </div>
-        <Pop d={0.2} className="mt-[4cqw] rounded-[4cqw] bg-black/45 p-[3.6cqw] backdrop-blur">
-          <p className="m-0 text-[3.8cqw] font-bold uppercase tracking-[0.08em] text-white/60">Hook</p>
-          <p className="m-0 mt-[0.6cqw] text-[5.7cqw] font-bold leading-[1.3]">5 things to know before your freshman season</p>
+        <Pop d={0.2} className="mt-[4cqw] rounded-[4cqw] bg-white px-[4cqw] py-[3.2cqw] text-ink">
+          <p className="m-0 text-[3.6cqw] font-bold uppercase tracking-[0.08em] text-muted">Hook</p>
+          <p className="m-0 mt-[0.6cqw] text-[5.4cqw] font-bold leading-[1.3]">5 things to know before your freshman season</p>
         </Pop>
         <div className="mt-auto flex justify-center pb-[10cqw]">
           <span className="flex h-[18cqw] w-[18cqw] items-center justify-center rounded-full border-[1.2cqw] border-white">
@@ -294,7 +291,14 @@ function EditScreen() {
   const steps = ["Captions added", "Cut to the best takes", "Music on"];
   return (
     <Screen dark>
-      <Video zoomFrom={1.5} className="min-h-0 flex-1" />
+      <div className="relative min-h-0 flex-1">
+        <Footage />
+        <Pop d={0.5} className="absolute inset-x-[8cqw] top-[22cqw] flex justify-center">
+          <span className="rounded-[2.4cqw] bg-white px-[3cqw] py-[1.6cqw] text-center text-[5cqw] font-bold leading-[1.25] text-ink">
+            5 things to know before freshman year
+          </span>
+        </Pop>
+      </div>
       <div className="relative -mt-[6cqw] rounded-t-[6cqw] bg-white px-[5cqw] pb-[9cqw] pt-[4.4cqw] text-ink">
         <p className="m-0 flex items-center gap-[1.6cqw] text-[5.7cqw] font-extrabold">
           <Sparkles className="h-[5.4cqw] w-[5.4cqw] text-accent-deep" /> Noni edited it
@@ -335,7 +339,7 @@ function ApproveScreen() {
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 420, damping: 16 }}
-              className="absolute left-1/2 top-1/2 flex h-[22cqw] w-[22cqw] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-green text-white shadow-[0_10px_30px_-8px_rgba(31,143,95,0.6)]"
+              className="absolute left-1/2 top-1/2 flex h-[22cqw] w-[22cqw] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-green text-white"
             >
               <Check className="h-[11cqw] w-[11cqw]" strokeWidth={3} />
             </motion.span>
@@ -403,7 +407,7 @@ function PaidScreen() {
     <Screen>
       <div className="flex flex-1 flex-col px-[5.5cqw] pt-[14cqw]">
         <Title>This week</Title>
-        <Pop d={0.1} className="mt-[4cqw] rounded-[5cqw] bg-gradient-to-br from-[#4fbaf2] to-[#2b8fe0] p-[5cqw] text-white">
+        <Pop d={0.1} className="mt-[4cqw] rounded-[5cqw] bg-accent-deep p-[5cqw] text-white">
           <div className="grid grid-cols-2 gap-[3cqw]">
             <div>
               <p className="m-0 text-[10.9cqw] font-extrabold leading-none tracking-[-0.02em]">
@@ -432,19 +436,18 @@ function PaidScreen() {
           </svg>
         </Pop>
         <Pop d={0.5} className="mt-[3cqw] flex items-center justify-between rounded-[4cqw] bg-white p-[3.6cqw] shadow-[0_1px_2px_rgba(15,23,32,0.06)]">
-          <span className="text-[4.9cqw] font-bold">Sign ups on MAYA10</span>
+          <span className="text-[4.9cqw] font-bold">Sign ups</span>
           <span className="text-[5.7cqw] font-extrabold">
             <CountUp to={4} d={0.6} format={(n) => `${Math.round(n)}`} />
           </span>
         </Pop>
         <div className="mt-auto pb-[9cqw]">
-          <Pop d={1.7} className="flex items-center gap-[3cqw] rounded-[4.5cqw] bg-white p-[3.6cqw] shadow-[0_12px_28px_-12px_rgba(15,23,32,0.35)]">
+          <Pop d={1.7} className="flex items-center gap-[3cqw] rounded-[4.5cqw] bg-white p-[3.6cqw] shadow-[0_1px_2px_rgba(15,23,32,0.06)]">
             <span className="flex h-[10cqw] w-[10cqw] items-center justify-center rounded-full bg-green text-white">
               <Check className="h-[5.4cqw] w-[5.4cqw]" strokeWidth={3} />
             </span>
             <span>
               <span className="block text-[5.2cqw] font-extrabold">Maya paid $45</span>
-              <span className="block text-[4.2cqw] font-semibold text-muted">From your creator budget</span>
             </span>
           </Pop>
         </div>
@@ -492,7 +495,7 @@ function StagePhone({ children, dark = false }: { children: ReactNode; dark?: bo
               top, dark text on the light steps and white on the dark ones. */}
           <div className="relative h-full w-full overflow-hidden rounded-[11.6cqw] bg-[#f6f7f9]" style={{ containerType: "size" }}>
             {children}
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[13cqw]">
+            <div className={`pointer-events-none absolute inset-x-0 top-0 z-10 h-[13cqw] transition-colors duration-300 ${dark ? "bg-black/30" : ""}`}>
               <div className={`flex h-full items-center justify-between px-[8.5cqw] transition-colors duration-300 ${dark ? "text-white" : "text-ink"}`}>
                 <span className="text-[4.1cqw] font-semibold tracking-[-0.02em]">9:41</span>
                 <span className="flex items-center gap-[1.3cqw]" aria-hidden>
@@ -526,26 +529,67 @@ function StagePhone({ children, dark = false }: { children: ReactNode; dark?: bo
   );
 }
 
+function Arrow({ dir, onClick, className = "" }: { dir: "prev" | "next"; onClick: () => void; className?: string }) {
+  const Icon = dir === "prev" ? ChevronLeft : ChevronRight;
+  return (
+    <button
+      type="button"
+      aria-label={dir === "prev" ? "Previous step" : "Next step"}
+      onClick={onClick}
+      className={`flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line bg-white text-ink shadow-[0_1px_2px_rgba(15,23,32,0.06)] transition hover:bg-soft active:scale-[0.92] ${className}`}
+    >
+      <Icon className="h-5 w-5" strokeWidth={2.4} />
+    </button>
+  );
+}
+
 export function HowItWorks() {
   const ref = useRef<HTMLElement>(null);
-  const inView = useInView(ref, { amount: 0.5 });
+  const inView = useInView(ref, { amount: 0.4 });
   const [side, setSide] = useState<Side>("companies");
   const [step, setStep] = useState(0);
   const [paused, setPaused] = useState(false);
+  /* Bumps each time the section comes into view, so the current screen
+     plays from its start instead of having run while nobody could see it. */
+  const [play, setPlay] = useState(0);
   const running = inView && !paused;
   const steps = FLOWS[side];
+  const n = steps.length;
+
+  const [seenInView, setSeenInView] = useState(false);
+  if (inView !== seenInView) {
+    setSeenInView(inView);
+    if (inView) setPlay((p) => p + 1);
+  }
 
   useEffect(() => {
     if (!running) return;
-    const t = setTimeout(() => setStep((s) => (s + 1) % steps.length), steps[step].ms ?? STEP_MS);
+    const t = setTimeout(() => setStep((s) => (s + 1) % n), steps[step].ms ?? STEP_MS);
     return () => clearTimeout(t);
-  }, [step, running, steps]);
+  }, [step, running, steps, n, play]);
 
   const Current = steps[step].Screen;
-  const last = steps.length - 1;
+  const last = n - 1;
+  const go = (d: 1 | -1) => setStep((s) => (s + d + n) % n);
   const pickSide = (next: Side) => {
     setSide(next);
     setStep(0);
+  };
+
+  /* Swipe the phone left or right to change step; vertical drags still scroll the page. */
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: TouchEvent) => {
+    const t = e.touches[0];
+    touch.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: TouchEvent) => {
+    const from = touch.current;
+    touch.current = null;
+    if (!from) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - from.x;
+    const dy = t.clientY - from.y;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
   };
 
   /* Links to /#for-creators (navbar Creators, footer) open the creators side;
@@ -566,16 +610,16 @@ export function HowItWorks() {
   }, []);
 
   return (
-    <section id="how" ref={ref} className="landing-screen-fixed relative px-5 md:px-8">
+    <section id="how" ref={ref} className="landing-screen-fixed relative px-4 md:px-8">
       {/* Older links (navbar Features and Creators, footer) land here too. */}
       <span id="features" className="absolute top-0" aria-hidden />
       <span id="for-businesses" className="absolute top-0" aria-hidden />
       <span id="for-creators" className="absolute top-0" aria-hidden />
-      <div className="mx-auto flex h-full max-w-[1100px] flex-col items-center py-[clamp(16px,3svh,36px)]">
+      <div className="mx-auto flex h-full max-w-[1100px] flex-col items-center py-[clamp(14px,3svh,36px)]">
         <h2 className="display m-0 text-center text-[clamp(28px,4.8svh,46px)] font-bold leading-[1.05] tracking-[-0.02em] text-ink">How it works</h2>
 
         {/* Companies or creators */}
-        <div className="mt-[clamp(12px,2.2svh,22px)] inline-flex rounded-full border border-line bg-white p-1 shadow-[0_1px_2px_rgba(15,23,32,0.04)]">
+        <div className="mt-[clamp(10px,2.2svh,22px)] inline-flex shrink-0 rounded-full border border-line bg-white p-1">
           {(
             [
               ["companies", "Companies"],
@@ -587,7 +631,7 @@ export function HowItWorks() {
               type="button"
               onClick={() => pickSide(key)}
               className={`cursor-pointer rounded-full border-none px-6 py-2 text-[15px] font-bold transition-all duration-150 active:scale-[0.96] ${
-                side === key ? "bg-accent-deep text-white shadow-[0_4px_12px_rgba(49,164,244,0.3)]" : "bg-transparent text-slate-500 hover:text-ink"
+                side === key ? "bg-accent-deep text-white" : "bg-transparent text-slate-500 hover:text-ink"
               }`}
             >
               {label}
@@ -598,8 +642,8 @@ export function HowItWorks() {
         {/* The steps, left to right (wide screens) */}
         <ol
           key={side}
-          className="relative m-0 mt-[clamp(14px,2.6svh,28px)] hidden w-full list-none p-0 animate-om-rise md:grid"
-          style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, maxWidth: steps.length * 196 }}
+          className="relative m-0 mt-[clamp(14px,2.6svh,28px)] hidden w-full shrink-0 list-none p-0 animate-om-rise md:grid"
+          style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))`, maxWidth: n * 196 }}
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
@@ -607,7 +651,7 @@ export function HowItWorks() {
           <span
             aria-hidden
             className="absolute top-[21px] h-[2px] rounded-full bg-line"
-            style={{ left: `${50 / steps.length}%`, right: `${50 / steps.length}%` }}
+            style={{ left: `${50 / n}%`, right: `${50 / n}%` }}
           >
             <span
               className="block h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
@@ -628,7 +672,7 @@ export function HowItWorks() {
                   <span
                     className={`flex h-[44px] w-[44px] items-center justify-center rounded-full transition-all duration-300 ${
                       active
-                        ? "scale-110 bg-accent-deep text-white shadow-[0_0_0_6px_var(--accent-soft)]"
+                        ? "scale-110 bg-accent-deep text-white"
                         : done
                           ? "bg-accent-soft text-accent-deep"
                           : "bg-white text-slate-400 shadow-[inset_0_0_0_1.5px_var(--line)] group-hover:text-ink-soft"
@@ -645,43 +689,48 @@ export function HowItWorks() {
           })}
         </ol>
 
-        {/* The phone acting the step out */}
-        <div
-          className="mt-[clamp(14px,2.6svh,28px)] flex min-h-0 w-full flex-1 cursor-pointer justify-center"
-          onClick={() => setStep((s) => (s + 1) % steps.length)}
-        >
-          <StagePhone dark={Boolean(steps[step].dark)}>
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.div
-                key={`${side}-${step}`}
-                className="absolute inset-0"
-                initial={{ opacity: 0, x: 24 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -24 }}
-                transition={{ duration: 0.35, ease }}
-              >
-                <Current />
-              </motion.div>
-            </AnimatePresence>
-          </StagePhone>
+        {/* The phone acting the step out, an arrow either side (wide screens) */}
+        <div className="mt-[clamp(12px,2.6svh,28px)] flex min-h-0 w-full flex-1 items-center justify-center gap-8">
+          <Arrow dir="prev" onClick={() => go(-1)} className="hidden md:flex" />
+          <div className="flex h-full min-h-0 min-w-0 justify-center" style={{ touchAction: "pan-y" }} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            <StagePhone dark={Boolean(steps[step].dark)}>
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.div
+                  key={`${side}-${step}-${play}`}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3, ease }}
+                >
+                  {play > 0 ? <Current /> : <Screen dark={Boolean(steps[step].dark)}>{null}</Screen>}
+                </motion.div>
+              </AnimatePresence>
+            </StagePhone>
+          </div>
+          <Arrow dir="next" onClick={() => go(1)} className="hidden md:flex" />
         </div>
 
-        {/* Current step (small screens) */}
-        <div className="mt-[clamp(12px,2.4svh,20px)] flex flex-col items-center md:hidden">
-          <span className="text-[18px] font-extrabold text-ink">{steps[step].title}</span>
-          <div className="mt-3 flex gap-1.5">
-            {steps.map((s, i) => (
-              <button
-                key={s.title}
-                type="button"
-                aria-label={s.title}
-                onClick={() => setStep(i)}
-                className={`h-2 cursor-pointer rounded-full border-none p-0 transition-all duration-200 ${
-                  i === step ? "w-6 bg-accent-deep" : i < step ? "w-2 bg-accent/50" : "w-2 bg-line"
-                }`}
-              />
-            ))}
+        {/* Current step between two arrows (small screens) */}
+        <div className="mt-[clamp(10px,2svh,18px)] flex w-full max-w-[360px] shrink-0 items-center justify-between gap-2 md:hidden">
+          <Arrow dir="prev" onClick={() => go(-1)} />
+          <div className="flex min-w-0 flex-col items-center">
+            <span className="truncate text-[17px] font-extrabold text-ink">{steps[step].title}</span>
+            <div className="mt-2 flex gap-1.5">
+              {steps.map((s, i) => (
+                <button
+                  key={s.title}
+                  type="button"
+                  aria-label={s.title}
+                  onClick={() => setStep(i)}
+                  className={`h-2 cursor-pointer rounded-full border-none p-0 transition-all duration-200 ${
+                    i === step ? "w-6 bg-accent-deep" : i < step ? "w-2 bg-accent/50" : "w-2 bg-line"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
+          <Arrow dir="next" onClick={() => go(1)} />
         </div>
       </div>
     </section>
