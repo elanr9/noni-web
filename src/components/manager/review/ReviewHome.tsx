@@ -2,19 +2,25 @@
 
 import {
   AtSign,
+  Check,
   ChevronRight,
   CircleUserRound,
   Images,
   Inbox,
   Music2,
   Play,
+  UserRoundPlus,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
+import { decideApplication } from "@/app/manager/market/actions";
+import { Burst } from "@/components/admin/brain/BrainConfirm";
+
 import { ElsewhereStrip } from "@/components/CompanySwitcher";
-import { Avatar, Card, Chip, Label, PageHead } from "@/components/kit";
+import { Avatar, Card, Chip, Label, PageHead, Pill } from "@/components/kit";
+import { compactCount, creatorFactLine, dollars, mainHandle, type MarketCreator } from "@/lib/manager/market";
 import type {
   AccountQueueItem,
   MusicQueueItem,
@@ -22,11 +28,13 @@ import type {
 } from "@/lib/manager/review";
 
 /* Review home, ported from the mobile Review tab
-   (app/(admin)/(tabs)/index.tsx): Posts | Music | Accounts lanes, one row
-   per waiting item, whole row opens the detail page. */
+   (app/(admin)/(tabs)/index.tsx): Posts | Creators | Music | Accounts
+   lanes, one row per waiting item, whole row opens the detail page.
+   Creators who applied are accepted or declined right on the row. */
 
 
-const LANES = ["Posts", "Music", "Accounts"] as const;
+const LANES = ["Posts", "Creators", "Music", "Accounts"] as const;
+const SPARKS = ["#1BA6EE", "#22C55E", "#F59E0B", "#EC4899"];
 type Lane = (typeof LANES)[number];
 
 function LaneTabs({
@@ -132,6 +140,41 @@ function AccountQueueRow({ row }: { row: AccountQueueItem }) {
   );
 }
 
+function ApplicantRow({ c, busy, onDecide }: { c: MarketCreator; busy: boolean; onDecide: (accept: boolean) => void }) {
+  const name = c.full_name?.trim() || "Creator";
+  const stats = [
+    creatorFactLine(c) || mainHandle(c),
+    c.followers ? `${compactCount(c.followers)} followers` : null,
+    c.total_views ? `${compactCount(c.total_views)} views` : null,
+    c.total_earned_cents ? `${dollars(c.total_earned_cents)} earned` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <div className="flex animate-om-pop items-center gap-3.5 border border-line bg-white p-4 shadow-card rounded-ops-md">
+      {c.photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={c.photo} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+      ) : (
+        <Avatar name={name} size={40} />
+      )}
+      <Link href="/manager/market" className="min-w-0 flex-1 no-underline">
+        <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-bold text-ink">{name}</span>
+        <span className="mt-[3px] block overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] font-semibold text-slate-400">
+          {stats || "New to Noni"}
+        </span>
+      </Link>
+      {c.match_score != null ? <Chip tone="blue">{Math.round(c.match_score)}%</Chip> : null}
+      <Pill variant="quiet" size="sm" disabled={busy} onClick={() => onDecide(false)}>
+        Decline
+      </Pill>
+      <Pill size="sm" icon={Check} loading={busy} onClick={() => onDecide(true)}>
+        Accept
+      </Pill>
+    </div>
+  );
+}
+
 function EmptyLane({
   icon: Icon,
   title,
@@ -160,17 +203,38 @@ export function ReviewHome({
   posts,
   music,
   accounts,
+  applicants = [],
 }: {
   posts: PostQueueItem[];
   music: MusicQueueItem[];
   accounts: AccountQueueItem[];
+  applicants?: MarketCreator[];
 }) {
-  const [lane, setLane] = useState<Lane>("Posts");
+  const [lane, setLane] = useState<Lane>(posts.length === 0 && applicants.length > 0 ? "Creators" : "Posts");
+  const [waiting, setWaiting] = useState(applicants);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const decide = async (c: MarketCreator, accept: boolean) => {
+    if (!c.application_id || busyId) return;
+    setBusyId(c.creator_id);
+    setError(null);
+    const r = await decideApplication(c.application_id, accept);
+    setBusyId(null);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    setWaiting((all) => all.filter((x) => x.creator_id !== c.creator_id));
+    setToast(accept ? `${c.full_name?.split(" ")[0] ?? "They"} joined` : "Declined");
+    window.setTimeout(() => setToast(null), 1800);
+  };
 
   const pendingAccounts = accounts.filter((a) => a.status !== "needs_changes");
   const sentBackAccounts = accounts.filter((a) => a.status === "needs_changes");
 
-  const total = posts.length + music.length + pendingAccounts.length;
+  const total = posts.length + waiting.length + music.length + pendingAccounts.length;
   return (
     <div>
       <PageHead
@@ -189,6 +253,7 @@ export function ReviewHome({
         active={lane}
         counts={{
           Posts: posts.length,
+          Creators: waiting.length,
           Music: music.length,
           Accounts: pendingAccounts.length,
         }}
@@ -234,6 +299,17 @@ export function ReviewHome({
                   </span>
                 }
               />
+            ))}
+          </div>
+        )
+      ) : lane === "Creators" ? (
+        waiting.length === 0 ? (
+          <EmptyLane icon={UserRoundPlus} title="No one waiting" />
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {error ? <span className="text-[13px] font-semibold text-danger">{error}</span> : null}
+            {waiting.map((c) => (
+              <ApplicantRow key={c.creator_id} c={c} busy={busyId === c.creator_id} onDecide={(accept) => void decide(c, accept)} />
             ))}
           </div>
         )
@@ -288,6 +364,16 @@ export function ReviewHome({
           ) : null}
         </div>
       )}
+
+      {toast ? (
+        <div className="pointer-events-none fixed bottom-8 left-1/2 z-50 -translate-x-1/2 animate-om-pop">
+          <div className="relative flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-[14px] font-extrabold text-white shadow-lg">
+            <Check size={16} />
+            {toast}
+            <Burst colors={SPARKS} count={10} reach={40} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

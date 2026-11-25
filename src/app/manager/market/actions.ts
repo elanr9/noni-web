@@ -13,6 +13,7 @@ import {
   type MarketPage,
   type MarketScope,
 } from "@/lib/manager/market";
+import { companyLogoUrl } from "@/lib/company-logo";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -96,10 +97,15 @@ export async function loadMarket(): Promise<Result<MarketData>> {
         .select("*")
         .eq("company_id", g.companyId)
         .order("created_at", { ascending: true }),
-      createServiceClient().from("companies").select("name").eq("id", g.companyId).maybeSingle(),
+      createServiceClient().from("companies").select("name, logo_path").eq("id", g.companyId).maybeSingle(),
     ]);
     if (error) throw new Error(error.message);
-    const listing = ((listings ?? []) as unknown as Listing[])[0] ?? null;
+    let listing = ((listings ?? []) as unknown as Listing[])[0] ?? null;
+    if (!listing) {
+      /* The campaign is written for the company the first time a manager looks. */
+      const made = await supabase.rpc("ensure_marketplace_listing" as never);
+      if (!made.error && made.data) listing = made.data as unknown as Listing;
+    }
     const [applicantCount, invitedCount, creators] = await Promise.all([
       countScope(listing?.id ?? null, "applicants"),
       countScope(listing?.id ?? null, "invited"),
@@ -109,6 +115,7 @@ export async function loadMarket(): Promise<Result<MarketData>> {
       ok: true,
       data: {
         companyName: (company as { name?: string } | null)?.name ?? "Your company",
+        logoUrl: companyLogoUrl((company as { logo_path?: string | null } | null)?.logo_path),
         listing,
         applicantCount,
         invitedCount,
@@ -117,6 +124,26 @@ export async function loadMarket(): Promise<Result<MarketData>> {
     };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Could not load." };
+  }
+}
+
+/** Creators waiting on a yes or no, for the Review page. */
+export async function loadApplicants(): Promise<MarketCreator[]> {
+  const g = await gate();
+  if (!g.ok) return [];
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("marketplace_listings" as never)
+      .select("id")
+      .eq("company_id", g.companyId)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    const id = ((data ?? []) as unknown as { id: string }[])[0]?.id;
+    if (!id) return [];
+    return (await queryCreators({ listingId: id, scope: "applicants", sort: "match", limit: 50 })).rows;
+  } catch {
+    return [];
   }
 }
 

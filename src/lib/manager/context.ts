@@ -51,11 +51,12 @@ export const listCompanyCreators = cache(
 );
 
 /* Everything waiting on the campaign manager, mirroring the app's Review
-   tab: submitted posts, songs marked ready, and pending account links. */
+   tab: submitted posts, creators who applied, songs marked ready, and
+   pending account links. */
 export const countReviewQueue = cache(
   async (companyId: string): Promise<number> => {
     const supabase = createServiceClient();
-    const [posts, music, accounts] = await Promise.all([
+    const [posts, music, accounts, applied] = await Promise.all([
       supabase
         .from("assignments")
         .select("id", { count: "exact", head: true })
@@ -72,8 +73,13 @@ export const countReviewQueue = cache(
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .eq("status", "pending"),
+      supabase
+        .from("marketplace_applications" as never)
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("status", "applied"),
     ]);
-    return (posts.count ?? 0) + (music.count ?? 0) + (accounts.count ?? 0);
+    return (posts.count ?? 0) + (music.count ?? 0) + (accounts.count ?? 0) + (applied.count ?? 0);
   },
 );
 

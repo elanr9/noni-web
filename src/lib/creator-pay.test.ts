@@ -21,10 +21,10 @@ describe("creatorPayForPost", () => {
     expect(creatorPayForPost("photo_carousel", 12_345)).toBe(500 + 1200);
   });
 
-  it("caps view pay at $500 a post", () => {
-    expect(viewPayCents(500_000)).toBe(50_000);
-    expect(viewPayCents(10_000_000)).toBe(50_000);
-    expect(creatorPayForPost("video", 10_000_000)).toBe(51_000);
+  it("caps view pay at $300 a post", () => {
+    expect(viewPayCents(500_000)).toBe(30_000);
+    expect(viewPayCents(10_000_000)).toBe(30_000);
+    expect(creatorPayForPost("video", 10_000_000)).toBe(31_000);
   });
 
   it("treats negative or bad view counts as zero", () => {
@@ -62,10 +62,10 @@ describe("estimateCampaignCost", () => {
     expect(e.postsTotal).toBe(200);
     expect(e.baseCreatorCents).toBe(120 * 1000 + 80 * 500);
     expect(e.viewCreatorCents).toBe(200 * 500);
-    expect(e.maxViewCreatorCents).toBe(200 * 50_000);
+    expect(e.maxViewCreatorCents).toBe(200 * 30_000);
     expect(e.companyMinCents).toBe(companyCostCents(160_000));
     expect(e.companyEstimateCents).toBe(companyCostCents(260_000));
-    expect(e.companyMaxCents).toBe(companyCostCents(160_000 + 10_000_000));
+    expect(e.companyMaxCents).toBe(companyCostCents(160_000 + 6_000_000));
   });
 
   it("caps the per post view estimate", () => {
@@ -76,7 +76,7 @@ describe("estimateCampaignCost", () => {
       weeks: 1,
       avgViewsPerPost: 2_000_000,
     });
-    expect(e.viewCreatorCents).toBe(50_000);
+    expect(e.viewCreatorCents).toBe(30_000);
     expect(e.viewCreatorCents).toBe(e.maxViewCreatorCents);
   });
 

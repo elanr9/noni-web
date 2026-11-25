@@ -26,7 +26,8 @@ import {
 import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { Card, Chip, Field, Modal, PageHead, Pill, TextArea } from "@/components/kit";
 import { NICHES } from "@/lib/creator-profile";
-import { PAY_LINE } from "@/lib/creator-campaigns";
+import { CampaignCard, type CardCampaign } from "@/components/campaign/CampaignCard";
+import { CARD_COLORS, DEFAULT_TERMS, TERM_FLOORS, cardColor, payLines, postsPerDayLabel, withTerms } from "@/lib/campaign-terms";
 import {
   AGE_BANDS,
   EXPERIENCE,
@@ -198,7 +199,7 @@ function CreatorCard({
         {scope === "applicants" ? (
           <>
             <Pill variant="quiet" size="sm" disabled={busy} onClick={() => onDecide(false)}>
-              Pass
+              Decline
             </Pill>
             <Pill size="sm" icon={Check} loading={busy} onClick={() => onDecide(true)}>
               Accept
@@ -285,18 +286,20 @@ function NumberBox({ label, value, onChange, placeholder }: { label: string; val
   );
 }
 
-const EDIT_TABS = ["Pitch", "Who", "Job", "Agreement"] as const;
+const EDIT_TABS = ["Pitch", "Who", "Job", "Pay", "Agreement"] as const;
 type EditTab = (typeof EDIT_TABS)[number];
 
 /* The campaign as creators see it. Tabs inside the modal so it never scrolls. */
 function ListingEditor({
   listing,
   companyName,
+  logoUrl,
   onSaved,
   onClose,
 }: {
   listing: Listing | null;
   companyName: string;
+  logoUrl: string | null;
   onSaved: (l: Listing) => void;
   onClose: () => void;
 }) {
@@ -307,7 +310,15 @@ function ListingEditor({
   const [requirements, setRequirements] = useState(listing?.requirements ?? "");
   const [niches, setNiches] = useState<string[]>(listing?.niches ?? []);
   const [platforms, setPlatforms] = useState<string[]>(listing?.platforms ?? ["tiktok", "instagram"]);
-  const [perWeek, setPerWeek] = useState(String(listing?.posts_per_week ?? 3));
+  const t0 = listing ? withTerms(listing) : DEFAULT_TERMS;
+  const [dayMin, setDayMin] = useState(String(t0.posts_per_day_min));
+  const [dayMax, setDayMax] = useState(String(t0.posts_per_day_max));
+  const [video, setVideo] = useState(String(t0.video_post_cents / 100));
+  const [slide, setSlide] = useState(String(t0.static_post_cents / 100));
+  const [per1k, setPer1k] = useState(String(t0.cents_per_1k_views / 100));
+  const [cap, setCap] = useState(String(t0.view_pay_cap_cents / 100));
+  const [minViews, setMinViews] = useState(String(t0.min_views));
+  const [color, setColor] = useState(cardColor(t0.brand_color, companyName));
   const [spots, setSpots] = useState(listing?.spots != null ? String(listing.spots) : "");
   const [startDays, setStartDays] = useState(String(listing?.start_days ?? 3));
   const [minAge, setMinAge] = useState(String(listing?.min_age ?? 18));
@@ -320,6 +331,20 @@ function ListingEditor({
   const toggle = (list: string[], set: (v: string[]) => void) => (k: string) =>
     set(list.includes(k) ? list.filter((x) => x !== k) : [...list, k]);
 
+  const cents = (v: string, floor: number) => Math.max(floor, Math.round((Number(v) || 0) * 100));
+  const lo = Math.min(7, Math.max(1, Math.round(Number(dayMin) || 1)));
+  const terms = {
+    posts_per_day_min: lo,
+    posts_per_day_max: Math.min(7, Math.max(lo, Math.round(Number(dayMax) || lo))),
+    video_post_cents: cents(video, TERM_FLOORS.video_post_cents),
+    static_post_cents: cents(slide, TERM_FLOORS.static_post_cents),
+    cents_per_1k_views: cents(per1k, TERM_FLOORS.cents_per_1k_views),
+    view_pay_cap_cents: cents(cap, 0),
+    min_views: Math.max(0, Math.round(Number(minViews) || 0)),
+    brand_color: color,
+  };
+  const card: CardCampaign = { ...terms, company_name: companyName, title: title.trim() || companyName, tagline: tagline.trim() || null, logo_url: logoUrl };
+
   const save = async () => {
     if (busy || !title.trim()) return;
     setBusy(true);
@@ -331,7 +356,7 @@ function ListingEditor({
       requirements: requirements.trim(),
       niches,
       platforms,
-      posts_per_week: Math.max(1, Number(perWeek) || 3),
+      ...terms,
       spots: spots ? Math.max(1, Number(spots)) : null,
       start_days: Math.min(60, Number(startDays) || 0),
       min_age: Math.max(18, Number(minAge) || 18),
@@ -360,7 +385,9 @@ function ListingEditor({
   const tabs = listing ? EDIT_TABS : EDIT_TABS.filter((t) => t !== "Agreement");
 
   return (
-    <Modal title="Your campaign" onClose={onClose} width={620}>
+    <Modal title="Your campaign" onClose={onClose} width={900}>
+     <div className="flex flex-col gap-5 md:flex-row">
+      <div className="min-w-0 flex-1">
       {listing ? (
         <div className="mb-4 flex items-center gap-3 rounded-[14px] bg-fill-quiet px-4 py-3">
           <span className="flex-1 text-[14px] font-extrabold text-ink">Open to applications</span>
@@ -387,7 +414,23 @@ function ListingEditor({
           <>
             <Field label="Campaign name" value={title} onChange={(e) => setTitle(e.target.value.slice(0, 80))} />
             <Field label="One line" value={tagline} onChange={(e) => setTagline(e.target.value.slice(0, 140))} optional />
-            <TextArea label="About" value={about} onChange={(e) => setAbout(e.target.value.slice(0, 2000))} rows={4} optional />
+            <TextArea label="About" value={about} onChange={(e) => setAbout(e.target.value.slice(0, 2000))} rows={3} optional />
+            <div>
+              <SmallLabel>Card color</SmallLabel>
+              <div className="flex flex-wrap gap-2">
+                {CARD_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    aria-label={c}
+                    aria-pressed={color === c}
+                    onClick={() => setColor(c)}
+                    className={`h-8 w-8 cursor-pointer rounded-full border-2 border-white transition-transform active:scale-90 ${color === c ? "scale-110 outline outline-2 outline-ink" : "hover:scale-105"}`}
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
+            </div>
           </>
         ) : tab === "Who" ? (
           <>
@@ -410,13 +453,21 @@ function ListingEditor({
         ) : tab === "Job" ? (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <NumberBox label="Posts a week" value={perWeek} onChange={(v) => setPerWeek(v.slice(0, 2))} />
+              <NumberBox label="Posts a day, least" value={dayMin} onChange={(v) => setDayMin(v.slice(0, 1))} />
+              <NumberBox label="Posts a day, most" value={dayMax} onChange={(v) => setDayMax(v.slice(0, 1))} />
               <NumberBox label="Creators wanted" value={spots} onChange={setSpots} placeholder="No limit" />
               <NumberBox label="Days to first post" value={startDays} onChange={(v) => setStartDays(v.slice(0, 2))} />
               <NumberBox label="Minimum age" value={minAge} onChange={(v) => setMinAge(v.slice(0, 2))} />
             </div>
-            <div className="rounded-[12px] bg-fill-quiet px-3.5 py-2.5 text-[13px] font-bold text-slate-500">Pay: {PAY_LINE}</div>
           </>
+        ) : tab === "Pay" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <NumberBox label="Per video, $" value={video} onChange={(v) => setVideo(v.slice(0, 4))} />
+            <NumberBox label="Per slideshow, $" value={slide} onChange={(v) => setSlide(v.slice(0, 4))} />
+            <NumberBox label="Per 1,000 views, $" value={per1k} onChange={(v) => setPer1k(v.slice(0, 3))} />
+            <NumberBox label="View pay cap, $" value={cap} onChange={(v) => setCap(v.slice(0, 5))} />
+            <NumberBox label="Views to get paid" value={minViews} onChange={(v) => setMinViews(v.slice(0, 6))} />
+          </div>
         ) : (
           <>
             <Field label="Title" value={contractTitle} onChange={(e) => setContractTitle(e.target.value.slice(0, 80))} />
@@ -434,6 +485,12 @@ function ListingEditor({
           {listing ? "Save" : "Create"}
         </Pill>
       </div>
+      </div>
+      <div className="hidden w-[300px] shrink-0 md:block">
+        <SmallLabel>Creators see</SmallLabel>
+        <CampaignCard c={card} chips={[...(spots ? [{ label: `${spots} spots` }] : []), ...niches.slice(0, 2).map((n) => ({ label: nicheLabel(n) }))]} className="!h-auto" />
+      </div>
+     </div>
     </Modal>
   );
 }
@@ -575,7 +632,7 @@ function CreatorModal({
             </Pill>
             <span className="flex-1" />
             <Pill variant="quiet" disabled={busy} onClick={() => onDecide(false)}>
-              Pass
+              Decline
             </Pill>
             <Pill icon={Check} loading={busy} onClick={() => onDecide(true)}>
               Accept
@@ -678,9 +735,85 @@ function FiltersPanel({ value, onApply, onClose }: { value: CreatorFilters; onAp
   );
 }
 
+/* The campaign as creators see it, its numbers, and one switch to open it. */
+function CampaignTab({
+  listing,
+  companyName,
+  logoUrl,
+  busy,
+  applicants,
+  onOpen,
+  onEdit,
+  onApplicants,
+}: {
+  listing: Listing;
+  companyName: string;
+  logoUrl: string | null;
+  busy: boolean;
+  applicants: number;
+  onOpen: (open: boolean) => void;
+  onEdit: () => void;
+  onApplicants: () => void;
+}) {
+  const l = withTerms(listing);
+  const open = l.status === "open";
+  const card: CardCampaign = { ...l, company_name: companyName, logo_url: logoUrl };
+  const chips = [...(l.spots ? [{ label: `${l.spots} spots` }] : []), ...l.niches.slice(0, 2).map((n) => ({ label: nicheLabel(n) }))];
+  return (
+    <div className="grid min-h-0 flex-1 animate-om-pop grid-cols-1 gap-4 md:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="min-w-0">
+        <CampaignCard c={card} chips={chips} className="!h-auto" />
+      </div>
+      <Card pad={20} className="flex min-w-0 flex-col gap-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className={`h-2.5 w-2.5 rounded-full ${open ? "bg-green" : "bg-slate-300"}`} />
+          <span className="flex-1 text-[17px] font-extrabold text-ink">{open ? "Open to creators" : "Hidden from creators"}</span>
+          {applicants > 0 ? (
+            <Pill variant="tint" size="sm" onClick={onApplicants}>
+              {applicants} applied
+            </Pill>
+          ) : null}
+          <Pill variant="quiet" size="sm" icon={Pencil} onClick={onEdit}>
+            Edit
+          </Pill>
+          <Pill size="sm" variant={open ? "quiet" : "primary"} loading={busy} onClick={() => onOpen(!open)}>
+            {open ? "Pause" : "Open campaign"}
+          </Pill>
+        </div>
+        <div>
+          <SmallLabel>Pay</SmallLabel>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+            {payLines(l).map((p) => (
+              <div key={p.label} className="rounded-[14px] bg-fill-quiet px-3.5 py-3">
+                <div className="text-[20px] font-extrabold tracking-[-0.3px] text-ink">{p.value}</div>
+                <div className="text-[12px] font-bold text-slate-400">{p.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <SmallLabel>The job</SmallLabel>
+          <div className="flex flex-wrap gap-1.5">
+            {[postsPerDayLabel(l), l.spots ? `${l.spots} creators wanted` : null, `First post in ${l.start_days} days`, `${l.min_age}+`, ...l.platforms.map((p) => (p === "tiktok" ? "TikTok" : p === "instagram" ? "Instagram" : p))]
+              .filter(Boolean)
+              .map((x) => (
+                <span key={x} className="rounded-full bg-fill-quiet px-3 py-1.5 text-[13px] font-bold text-slate-600">
+                  {x}
+                </span>
+              ))}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 export function MarketView({ initial, preview = false }: { initial: MarketData; preview?: boolean }) {
   const [listing, setListing] = useState<Listing | null>(initial.listing);
   const [scope, setScope] = useState<MarketScope>(initial.listing ? "applicants" : "all");
+  /* The campaign tab shows the card creators see; it opens first when nobody is waiting. */
+  const [onCampaign, setOnCampaign] = useState(initial.listing !== null && initial.applicantCount === 0);
+  const [opening, setOpening] = useState(false);
   const [rows, setRows] = useState<MarketCreator[]>(initial.creators.rows);
   const [total, setTotal] = useState(initial.creators.total);
   const [counts, setCounts] = useState({ applicants: initial.applicantCount, invited: initial.invitedCount });
@@ -739,7 +872,22 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  const setOpenStatus = async (open: boolean) => {
+    if (!listing || opening) return;
+    setOpening(true);
+    setError(null);
+    const r = await saveListing(listing.id, { status: open ? "open" : "paused" });
+    setOpening(false);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    setListing(r.data);
+    flash(open ? "Campaign is open" : "Paused");
+  };
+
   const pickScope = (s: MarketScope) => {
+    setOnCampaign(false);
     setScope(s);
     setPage(0);
     void reload({ scope: s });
@@ -766,7 +914,7 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
     setTotal((t) => Math.max(0, t - 1));
     setCounts((k) => ({ ...k, applicants: Math.max(0, k.applicants - 1) }));
     setOpen(null);
-    flash(accept ? `${c.full_name?.split(" ")[0] ?? "They"} joined` : "Passed");
+    flash(accept ? `${c.full_name?.split(" ")[0] ?? "They"} joined` : "Declined");
   };
 
   const invite = async (c: MarketCreator, message: string) => {
@@ -816,9 +964,6 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
           listing ? (
             <div className="flex items-center gap-2">
               <Chip tone={status!.tone}>{status!.label}</Chip>
-              <Pill variant="quiet" size="sm" icon={Pencil} onClick={() => setEditing(true)}>
-                Edit campaign
-              </Pill>
             </div>
           ) : null
         }
@@ -834,18 +979,21 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
             Set up campaign
           </Pill>
         </Card>
-      ) : listing.status !== "open" ? (
-        <Card pad={0} className="mb-4 flex shrink-0 items-center gap-3" style={{ padding: "12px 16px 12px 20px" }}>
-          <span className="min-w-0 flex-1 truncate text-[14px] font-extrabold text-ink">{listing.title}</span>
-          <span className="text-[13px] font-bold text-slate-400">Hidden from creators</span>
-          <Pill size="sm" onClick={() => setEditing(true)}>
-            Open it
-          </Pill>
-        </Card>
       ) : null}
 
       <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
         <div className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 [scrollbar-width:none]">
+          {listing ? (
+            <button
+              type="button"
+              onClick={() => setOnCampaign(true)}
+              className={`shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-4 py-1.5 text-[13.5px] font-bold transition-colors ${
+                onCampaign ? "border-ink bg-ink text-white" : "border-line bg-white text-slate-500 hover:text-ink"
+              }`}
+            >
+              Campaign
+            </button>
+          ) : null}
           {SCOPES.filter((s) => listing || s.key === "all").map((s) => {
             const n = counter(s.key);
             return (
@@ -854,7 +1002,7 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
                 type="button"
                 onClick={() => pickScope(s.key)}
                 className={`shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-4 py-1.5 text-[13.5px] font-bold transition-colors ${
-                  scope === s.key ? "border-ink bg-ink text-white" : "border-line bg-white text-slate-500 hover:text-ink"
+                  scope === s.key && !onCampaign ? "border-ink bg-ink text-white" : "border-line bg-white text-slate-500 hover:text-ink"
                 }`}
               >
                 {s.label} {n !== null ? <span className="tabular-nums opacity-70">{n}</span> : null}
@@ -863,7 +1011,7 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
           })}
         </div>
 
-        {scope === "all" ? (
+        {scope === "all" && !onCampaign ? (
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
             <label className="flex h-9 min-w-[180px] flex-1 items-center gap-2 rounded-full border border-line bg-white px-3 sm:max-w-[240px]">
               <Search size={15} className="text-slate-400" />
@@ -907,7 +1055,7 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
           <span className="flex-1" />
         )}
 
-        {pages > 1 ? (
+        {pages > 1 && !onCampaign ? (
           <span className="flex items-center gap-1.5 text-[13px] font-bold text-slate-500">
             <button
               type="button"
@@ -936,7 +1084,18 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
 
       {error ? <div className="mb-2 shrink-0 text-[13px] font-semibold text-danger">{error}</div> : null}
 
-      {shown.length ? (
+      {onCampaign && listing ? (
+        <CampaignTab
+          listing={listing}
+          companyName={initial.companyName}
+          logoUrl={initial.logoUrl}
+          busy={opening}
+          applicants={counts.applicants}
+          onOpen={(open) => void setOpenStatus(open)}
+          onEdit={() => setEditing(true)}
+          onApplicants={() => pickScope("applicants")}
+        />
+      ) : shown.length ? (
         <div
           key={`${scope}-${safePage}`}
           className={`grid min-h-0 flex-1 grid-cols-1 gap-3 transition-opacity sm:grid-cols-2 lg:auto-rows-[minmax(0,1fr)] lg:grid-cols-3 xl:grid-cols-4 ${
@@ -1013,7 +1172,7 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
       ) : null}
 
       {editing ? (
-        <ListingEditor listing={listing} companyName={initial.companyName} onSaved={onSaved} onClose={() => setEditing(false)} />
+        <ListingEditor listing={listing} companyName={initial.companyName} logoUrl={initial.logoUrl} onSaved={onSaved} onClose={() => setEditing(false)} />
       ) : null}
 
       {filtering ? (

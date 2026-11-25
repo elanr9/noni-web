@@ -2,13 +2,14 @@
    source for these numbers.
 
    These MUST match the SQL function public.creator_pay_rates() in the noni
-   repo (supabase migration 144), which is what actually credits creators
+   repo (supabase migrations 144 and 163), which is what actually credits creators
    and debits company_billing.credit_balance_cents. Change both together.
 
    The rules:
    - A creator takes home $10 per video post and $5 per static (slideshow)
-     post once it goes live, plus $1 for every full 1,000 views.
-   - View pay is capped at $500 per post, and only views in the first 30
+     post once it is live and has 500 views, plus $1 for every full 1,000
+     views. A campaign can set its own higher rates (migration 163).
+   - View pay is capped at $300 per post, and only views in the first 30
      days after posting count (checked daily).
    - The company pays creator pay plus a 13% Noni fee, rounded up to the
      cent, debited from its credit balance as pay is earned. */
@@ -18,7 +19,9 @@ import type { BriefFormat } from "@/components/manager/briefs/lib";
 export const VIDEO_POST_CENTS = 1000;
 export const STATIC_POST_CENTS = 500;
 export const CENTS_PER_1K_VIEWS = 100;
-export const VIEW_PAY_CAP_CENTS = 50000;
+export const VIEW_PAY_CAP_CENTS = 30000;
+/** A post is paid for itself once it has this many views. */
+export const MIN_VIEWS_FOR_POST_PAY = 500;
 export const VIEW_WINDOW_DAYS = 30;
 export const NONI_FEE_RATE = 0.13;
 
@@ -149,7 +152,7 @@ const FEE_LABEL = `${FEE_PERCENT}%`;
 
 /** One line explaining the pay rules, for UI copy. */
 export const PAY_RULES_LINE =
-  `Creators earn ${formatCents(VIDEO_POST_CENTS)} per video and ${formatCents(STATIC_POST_CENTS)} per slideshow when it goes live, ` +
+  `Creators earn ${formatCents(VIDEO_POST_CENTS)} per video and ${formatCents(STATIC_POST_CENTS)} per slideshow once it is live with ${MIN_VIEWS_FOR_POST_PAY} views, ` +
   `plus ${formatCents(CENTS_PER_1K_VIEWS)} per 1,000 views (up to ${formatCents(VIEW_PAY_CAP_CENTS)} a post, views in the first ${VIEW_WINDOW_DAYS} days). ` +
   `Noni adds a ${FEE_LABEL} fee.`;
 

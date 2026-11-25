@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, DollarSign, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 
 import { leave, signAndApply, withdraw } from "@/app/campaigns/actions";
 import {
-  PAY_LINE,
   campaignTodo,
   groupCampaigns,
   missingToApply,
@@ -20,6 +19,9 @@ import {
   type FeedListing,
   type Tone,
 } from "@/lib/creator-campaigns";
+import { CampaignCard as ExploreCard, CampaignCover, type CardCampaign } from "@/components/campaign/CampaignCard";
+import { payLines, postsPerDayLabel, withTerms } from "@/lib/campaign-terms";
+import { companyLogoUrl } from "@/lib/company-logo";
 import { NICHES } from "@/lib/creator-profile";
 import { IOS_APP_URL } from "@/lib/site-config";
 
@@ -269,36 +271,15 @@ function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
 const CARD =
   "flex h-full w-full cursor-pointer flex-col rounded-[20px] border border-line bg-white p-4 text-left transition-all duration-[160ms] ease-om hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md active:scale-[0.99]";
 
+const cardOf = (l: FeedListing): CardCampaign => ({ ...withTerms(l), logo_url: companyLogoUrl(l.logo_path) });
+
 function ListingCard({ l, mine, onOpen }: { l: FeedListing; mine: string[]; onOpen: () => void }) {
-  const meta = [`${l.posts_per_week} posts a week`, spotsLabel(l)].filter(Boolean).join(" · ");
-  return (
-    <button type="button" onClick={onOpen} className={CARD}>
-      <div className="flex w-full items-center gap-3">
-        <Mark id={l.company_id} name={l.company_name} />
-        <div className="min-w-0 flex-1">
-          <p className="m-0 truncate text-[13px] font-semibold text-slate-500">{l.company_name}</p>
-          <p className="m-0 line-clamp-2 text-[16px] font-bold leading-[1.25] text-ink">{l.title}</p>
-        </div>
-      </div>
-      {l.tagline ? <p className="m-0 mt-3 line-clamp-2 text-[14px] leading-[1.45] text-slate-500">{l.tagline}</p> : null}
-      <div className="mt-auto pt-3">
-        <p className="m-0 flex items-center gap-1 text-[14px] font-bold text-ink">
-          <DollarSign size={16} className="text-green" />
-          {PAY_LINE}
-        </p>
-        <p className="m-0 mt-1 text-[13px] text-slate-500">{meta}</p>
-        {l.niches.length > 0 ? (
-          <div className="mt-2.5 flex flex-wrap gap-1.5">
-            {l.niches.slice(0, 3).map((n) => (
-              <span key={n} className={`rounded-full px-2 py-0.5 text-[12px] font-semibold ${mine.includes(n) ? "bg-blue-100 text-blue-700" : "bg-fill-quiet text-slate-500"}`}>
-                {nicheLabel(n)}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </button>
-  );
+  const spots = spotsLabel(l);
+  const chips = [
+    ...(spots ? [{ label: spots }] : []),
+    ...l.niches.slice(0, 2).map((n) => ({ label: nicheLabel(n), on: mine.includes(n) })),
+  ];
+  return <ExploreCard c={cardOf(l)} chips={chips} onOpen={onOpen} />;
 }
 
 function CampaignCard({ c, onOpen }: { c: CreatorCampaign; onOpen: () => void }) {
@@ -409,12 +390,25 @@ function Done({ label }: { label: string }) {
 }
 
 function ListingDetails({ l }: { l: FeedListing }) {
-  const facts = [`${l.posts_per_week} posts a week`, spotsLabel(l), l.min_age > 0 ? `${l.min_age}+` : null, l.platforms.length ? l.platforms.map((p) => (p === "tiktok" ? "TikTok" : p === "instagram" ? "Instagram" : p)).join(", ") : null].filter(Boolean);
+  const t = withTerms(l);
+  const facts = [postsPerDayLabel(t), spotsLabel(l), l.min_age > 0 ? `${l.min_age}+` : null, ...l.platforms.map((p) => (p === "tiktok" ? "TikTok" : p === "instagram" ? "Instagram" : p))].filter(Boolean);
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-[16px] bg-green-soft px-4 py-3">
-        <p className="m-0 text-[16px] font-bold text-green">{PAY_LINE}</p>
-        <p className="m-0 mt-0.5 text-[13px] text-green">{facts.join(" · ")}</p>
+      <CampaignCover c={cardOf(l)} className="rounded-[18px]" />
+      <div className="grid grid-cols-3 gap-2">
+        {payLines(t).map((p) => (
+          <div key={p.label} className="rounded-[14px] bg-green-soft px-3 py-2.5">
+            <p className="m-0 text-[18px] font-extrabold text-green">{p.value}</p>
+            <p className="m-0 text-[11.5px] font-bold leading-tight text-green">{p.label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {facts.map((f) => (
+          <span key={f} className="rounded-full bg-ink px-2.5 py-1 text-[12.5px] font-bold text-white">
+            {f}
+          </span>
+        ))}
       </div>
       {l.tagline ? <p className="m-0 text-[15px] leading-[1.5] text-ink">{l.tagline}</p> : null}
       {l.about ? <Section title="About">{l.about}</Section> : null}
@@ -600,7 +594,7 @@ function CampaignPanel({ c, listing, name, missing, onClose }: { c: CreatorCampa
             <BigStat value={String(c.posted)} label="Posted" />
             <BigStat value={String(c.in_review)} label="In review" />
           </div>
-          {c.posts_per_week ? <p className="m-0 text-[14px] text-slate-500">{c.posts_per_week} posts a week</p> : null}
+          {listing ? <p className="m-0 text-[14px] text-slate-500">{postsPerDayLabel(withTerms(listing))}</p> : null}
         </div>
       ) : c.kind === "past" ? (
         <div className="grid grid-cols-2 gap-3">

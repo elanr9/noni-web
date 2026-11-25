@@ -1,11 +1,12 @@
 /* A creator's campaigns on the website: the open ones to explore and the
    ones they are in, applied to or left. Mirrors lib/marketplace.ts in the
    app (rpc marketplace_feed, migration 155; rpc creator_campaigns, 162). */
-import { CENTS_PER_1K_VIEWS, VIDEO_POST_CENTS } from "@/lib/creator-pay";
+import type { CampaignTerms } from "@/lib/campaign-terms";
 
 export type ApplicationStatus = "invited" | "applied" | "accepted" | "declined" | "withdrawn";
 
-export type FeedListing = {
+export type FeedListing = CampaignTerms & {
+  logo_path: string | null;
   id: string;
   company_id: string;
   company_name: string;
@@ -68,8 +69,6 @@ export type CampaignGroups = { active: CreatorCampaign[]; applied: CreatorCampai
 const money = (cents: number) =>
   `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 export { money };
-
-export const PAY_LINE = `${money(VIDEO_POST_CENTS)} a video + ${money(CENTS_PER_1K_VIEWS)} per 1k views`;
 
 export function groupCampaigns(rows: CreatorCampaign[]): CampaignGroups {
   const todo = (c: CreatorCampaign) => c.to_fix * 3 + c.to_make * 2 + c.unread;

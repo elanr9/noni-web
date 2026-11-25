@@ -4,6 +4,7 @@
    in the app (migration 155, 160). Every write is a database function that
    checks the caller is a manager of the active company, so reads and writes
    run on the signed-in user's client, never the service client. */
+import type { CampaignTerms } from "@/lib/campaign-terms";
 import { NICHES } from "@/lib/creator-profile";
 
 export type ListingStatus = "draft" | "open" | "paused" | "closed";
@@ -12,7 +13,7 @@ export type Gender = "female" | "male" | "nonbinary" | "undisclosed";
 export type Experience = "pro" | "some" | "new";
 export type MarketScope = "all" | "applicants" | "invited";
 
-export type Listing = {
+export type Listing = CampaignTerms & {
   id: string;
   company_id: string;
   status: ListingStatus;
@@ -206,6 +207,7 @@ export type MarketPage = { total: number; rows: MarketCreator[] };
 
 export type MarketData = {
   companyName: string;
+  logoUrl: string | null;
   listing: Listing | null;
   applicantCount: number;
   invitedCount: number;
