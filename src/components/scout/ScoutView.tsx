@@ -153,14 +153,14 @@ function CreatorCard({
   };
 
   return (
-    <Card pad={0} lift onClick={onOpen} className="relative flex min-h-0 cursor-pointer flex-col overflow-hidden">
-      <div className="grid h-[118px] shrink-0 grid-cols-3 gap-1 p-1.5 pb-0">
+    <Card pad={0} lift onClick={onOpen} className="relative flex h-full min-h-0 cursor-pointer flex-col overflow-hidden">
+      <div className="grid min-h-[96px] flex-1 grid-cols-3 gap-1 p-1.5 pb-0">
         {covers.length
           ? covers.map((v) => <Cover key={v.url} url={v.url} cover={v.cover} views={v.views} className="h-full" />)
           : [0, 1, 2].map((i) => <span key={i} className="rounded-[10px] bg-fill-quiet" />)}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3.5 pb-3 pt-2.5">
+      <div className="flex shrink-0 flex-col gap-2 px-3.5 pb-3 pt-2.5">
         <div className="flex items-center gap-2.5">
           <Face c={c} size={30} />
           <span className="min-w-0 flex-1">
@@ -179,7 +179,7 @@ function CreatorCard({
           {c.why ?? (c.source === "link" ? "Applied with your join link" : "")}
         </p>
 
-        <div className="mt-auto flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           {c.status === "match" ? (
             <>
               <span className="relative flex-1">
@@ -276,20 +276,23 @@ function CreatorModal({
   onSaveDm: (dm: string) => void;
   onMove: (status: ScoutStatus) => void;
 }) {
-  const [dm, setDm] = useState(c.dm ?? "");
+  /* Shown with their real link; saved back with the {link} placeholder. */
+  const shownDm = (c.dm ?? "").replace(/\{link\}/g, link);
+  const [dm, setDmText] = useState(shownDm);
   const [copied, setCopied] = useState(false);
-  const dirty = dm !== (c.dm ?? "");
+  const dirty = dm !== shownDm;
+  const stored = (text: string) => text.split(link).join("{link}");
 
   const send = () => {
-    if (dirty) onSaveDm(dm);
-    void navigator.clipboard?.writeText(dm.replace(/\{link\}/g, link).trim()).catch(() => undefined);
+    if (dirty) onSaveDm(stored(dm));
+    void navigator.clipboard?.writeText(dm.trim()).catch(() => undefined);
     window.open(profileUrl(c.platform, c.handle), "_blank", "noopener");
     setCopied(true);
     if (c.status === "match") window.setTimeout(() => onMove("contacted"), 500);
   };
 
   return (
-    <Modal onClose={() => { if (dirty) onSaveDm(dm); onClose(); }} width={640}>
+    <Modal onClose={() => { if (dirty) onSaveDm(stored(dm)); onClose(); }} width={640}>
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <Face c={c} size={48} />
@@ -308,7 +311,7 @@ function CreatorModal({
                 .join(" · ")}
             </span>
           </span>
-          {c.score !== null ? <Chip tone={scoreTone(c.score)}>{c.score}</Chip> : null}
+          {c.score !== null ? <Chip tone={scoreTone(c.score)} className="mr-10">{c.score}</Chip> : null}
         </div>
 
         {c.why ? <p className="m-0 text-[14px] font-semibold leading-[1.45] text-ink">{c.why}</p> : null}
@@ -337,7 +340,7 @@ function CreatorModal({
             <span className="text-[12px] font-semibold text-slate-400">Message</span>
             <textarea
               value={dm}
-              onChange={(e) => setDm(e.target.value)}
+              onChange={(e) => setDmText(e.target.value)}
               rows={4}
               className="box-border w-full resize-none rounded-ops-sm border border-line bg-white px-3.5 py-2.5 text-[14.5px] font-semibold leading-[1.45] text-ink outline-none focus:border-blue-500"
             />
@@ -540,11 +543,22 @@ function RunStrip({ data, accent }: { data: ScoutData; accent: string }) {
 
 /* ------------------------------------------------------------------ view */
 
-export function ScoutView({ initial, companyId, origin }: { initial: ScoutData; companyId?: string; origin: string }) {
+export function ScoutView({
+  initial,
+  companyId,
+  origin,
+  initialOpen = null,
+}: {
+  initial: ScoutData;
+  companyId?: string;
+  origin: string;
+  /** Dev preview only: a creator to open on load. */
+  initialOpen?: string | null;
+}) {
   const [data, setData] = useState(initial);
   const [tab, setTab] = useState<TabKey>("match");
   const [page, setPage] = useState(0);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(initialOpen);
   const [searching, setSearching] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -715,7 +729,7 @@ export function ScoutView({ initial, companyId, origin }: { initial: ScoutData; 
       {shown.length ? (
         <div key={`${tab}-${safePage}`} className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-2 gap-3 lg:grid-cols-4">
           {shown.map((c, i) => (
-            <div key={c.id} className="min-h-0 animate-om-pop" style={{ animationDelay: `${i * 35}ms` } as CSSProperties}>
+            <div key={c.id} className="h-full min-h-0 animate-om-pop" style={{ animationDelay: `${i * 35}ms` } as CSSProperties}>
               <CreatorCard
                 c={c}
                 accent={accent}

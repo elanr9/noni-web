@@ -11,13 +11,14 @@ export default async function ScoutPreviewPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const id = (await searchParams).company;
+  const sp = await searchParams;
+  const id = sp.company;
   if (typeof id !== "string") notFound();
   const data = await loadScout(id);
   if (!data) notFound();
   return (
     <AdminShell companyName={data.companyName} name="Preview" people={[]} setupRemaining={0} setupComplete>
-      <ScoutView initial={data} origin="http://localhost:3111" />
+      <ScoutView initial={data} origin="http://localhost:3000" initialOpen={typeof sp.open === "string" ? sp.open : null} />
     </AdminShell>
   );
 }
