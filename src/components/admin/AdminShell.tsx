@@ -8,6 +8,7 @@ import {
   House,
   Images,
   Menu,
+  Radar,
   Sparkles,
   Users,
   type LucideIcon,
@@ -39,6 +40,7 @@ const NAV_SECTIONS: ReadonlyArray<{ label: string; items: NavItem[] }> = [
       { href: "/admin/analytics", label: "Analytics", icon: ChartColumn, tour: "nav-analytics" },
       { href: "/admin/team", label: "Team", icon: Users, tour: "nav-team" },
       { href: "/admin/posts", label: "Posts", icon: Images, tour: "nav-posts" },
+      { href: "/admin/scout", label: "Scout", icon: Radar, tour: "nav-scout" },
     ],
   },
   {

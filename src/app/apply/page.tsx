@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { ApplyChooser } from "@/components/apply/ApplyChooser";
@@ -87,7 +87,12 @@ export default async function ApplyPage({
     app = started.data.application;
   }
 
-  if (app.status === "approved") return <CreatorApproved email={email} name={name} />;
+  if (app.status === "approved") {
+    /* Came from a company's join link: finish joining there. */
+    const join = (await cookies()).get("noni_join")?.value;
+    if (kind === "creator" && join?.startsWith("/join/")) redirect(join);
+    return <CreatorApproved email={email} name={name} />;
+  }
   if (app.status === "pending") return <InReview kind={kind} email={email} />;
   if (app.status === "rejected") return <NotAccepted kind={kind} note={app.decision_note} />;
 
