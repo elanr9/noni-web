@@ -196,3 +196,31 @@ export function capUpgradeHint(tier: PlanTier): string {
   }
   return "";
 }
+
+const usd = (cents: number) =>
+  `$${(cents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+
+/** The plan agreed on the call, in plain lines: the /start screen and the
+    email that sends the company there both show these. */
+export function planOfferLines(
+  plan: SubscriptionPlan,
+  budgetCents: number,
+  /** What Stripe actually charges each period (month or year), when known. */
+  chargeCents?: number | null,
+): { plan: string; budget: string | null } {
+  const p = PLAN_PRICING[plan];
+  const name = `${PLAN_TIER_LABEL[p.tier]} plan`;
+  const yearly = chargeCents ?? p.yearlyPriceCents ?? p.monthlyPriceCents * 12;
+  const monthly = chargeCents ?? p.monthlyPriceCents;
+  const price =
+    p.cadence === "annual"
+      ? `${usd(Math.round(yearly / 12))} a month, billed yearly at ${usd(yearly)}`
+      : `${usd(monthly)} a month`;
+  return {
+    plan: `${name}: ${price}.`,
+    budget:
+      budgetCents > 0
+        ? `Creator budget: ${usd(budgetCents)} a month, billed monthly. Anything unused rolls over to the next month.`
+        : null,
+  };
+}

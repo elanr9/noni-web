@@ -209,8 +209,24 @@ export async function clearSubscription(companyId: string): Promise<string | nul
     subscription_renews_at: null,
     stripe_subscription_id: null,
     stripe_budget_subscription_id: null,
-    monthly_budget_cents: null,
+    monthly_budget_cents: 0,
+    budget_next_invoice_at: null,
   });
+}
+
+/** Starts the monthly creator budget cycle once a company has both a
+    running plan and a budget: the budget-billing edge function bills the
+    first month on its next run (every 15 minutes) and every month after on
+    the same day. A cycle already running is left alone, so a budget change
+    takes effect from the next bill. */
+export async function scheduleFirstBudgetBill(companyId: string): Promise<string | null> {
+  const row = await readBillingRow(companyId);
+  if (!row) return null;
+  if (rowNum(row, "monthly_budget_cents") <= 0) return null;
+  if (!["active", "trialing"].includes(rowStr(row, "subscription_status") ?? "")) return null;
+  if (rowBool(row, "billing_simulated")) return null;
+  if (rowStr(row, "budget_next_invoice_at")) return null;
+  return writeBilling(companyId, { budget_next_invoice_at: new Date().toISOString() });
 }
 
 /** Ledger entry (kind topup or budget, feeds the credit history) plus
@@ -570,6 +586,21 @@ export async function stripePriceIdForPlan(
     /* fall through to the env */
   }
   return process.env[PLAN_PRICING[plan].priceEnv] ?? null;
+}
+
+/** What the plan's live Stripe price charges per period, in cents, or null
+    without Stripe. The plan screen shows this so it always matches Checkout. */
+export async function stripeChargeForPlan(plan: SubscriptionPlan): Promise<number | null> {
+  const stripe = getStripe();
+  if (!stripe) return null;
+  const id = await stripePriceIdForPlan(stripe, plan);
+  if (!id) return null;
+  try {
+    const price = await stripe.prices.retrieve(id);
+    return price.unit_amount ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Resolves a live Stripe subscription to one of our plans: by price id

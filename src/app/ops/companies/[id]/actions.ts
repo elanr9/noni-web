@@ -8,11 +8,16 @@ import {
   getStripe,
   PLAN_PRICING,
   readBillingRow,
+  scheduleFirstBudgetBill,
+  stripeChargeForPlan,
+  stripePriceIdForPlan,
   STRIPE_NOT_CONFIGURED,
   writeBilling,
 } from "@/lib/admin/billing";
 import { getSessionProfile, isPlatformAdmin } from "@/lib/auth";
 import type { SubscriptionPlan } from "@/lib/admin/types";
+import { callEdgeFunction } from "@/lib/edge";
+import { planOfferLines } from "@/lib/plans";
 import { createServiceClient } from "@/lib/supabase/service";
 
 export type CompanyActionResult = { ok: true } | { ok: false; error: string };
@@ -109,9 +114,11 @@ export async function setCreatorBudget(input: {
   if (!wholeDollars(input.dollars)) {
     return { ok: false, error: "Enter a whole dollar amount up to $100,000." };
   }
-  const error = await writeBilling(input.companyId, {
-    monthly_budget_cents: input.dollars * 100,
-  });
+  const error =
+    (await writeBilling(input.companyId, {
+      monthly_budget_cents: input.dollars * 100,
+      ...(input.dollars === 0 ? { budget_next_invoice_at: null } : {}),
+    })) ?? (await scheduleFirstBudgetBill(input.companyId));
   if (error) return { ok: false, error };
   revalidatePath(`/ops/companies/${input.companyId}`);
   revalidatePath("/admin", "layout");
@@ -251,9 +258,80 @@ export async function setCompanyPlan(input: {
           subscription_price_cents:
             input.plan === "enterprise" ? 0 : PLAN_PRICING[input.plan].monthlyPriceCents,
           subscription_renews_at: null,
+          offer_plan: null,
         });
   if (error) return { ok: false, error };
+  const scheduled = input.plan === "none" ? null : await scheduleFirstBudgetBill(input.companyId);
+  if (scheduled) return { ok: false, error: scheduled };
   revalidatePath(`/ops/companies/${input.companyId}`);
   revalidatePath("/admin", "layout");
   return { ok: true };
+}
+
+/* ── After the call ──
+   The plan agreed on the call is saved as an offer and the company admin is
+   emailed a link to /start, where they start exactly that plan in Stripe
+   Checkout. The creator budget (setCreatorBudget) is billed monthly from
+   then on by the budget-billing edge function. */
+
+export async function sendPlanOffer(input: {
+  companyId: string;
+  plan: SubscriptionPlan;
+}): Promise<CompanyActionResult & { email?: string }> {
+  const denied = await requirePlatformAdmin();
+  if (denied) return { ok: false, error: denied };
+  if (!input.companyId) return { ok: false, error: "Company id is required." };
+  if (!(input.plan in PLAN_PRICING)) return { ok: false, error: "Pick a plan." };
+
+  const row = await readBillingRow(input.companyId);
+  const live = row?.stripe_subscription_id;
+  if (typeof live === "string" && live.startsWith("sub_") && row?.subscription_status !== "none") {
+    return { ok: false, error: "This company already pays for a plan." };
+  }
+  const stripe = getStripe();
+  if (stripe && !(await stripePriceIdForPlan(stripe, input.plan))) {
+    return { ok: false, error: "That plan has no Stripe price yet." };
+  }
+
+  const saved = await writeBilling(input.companyId, { offer_plan: input.plan });
+  if (saved) return { ok: false, error: saved };
+
+  const budgetCents = typeof row?.monthly_budget_cents === "number" ? row.monthly_budget_cents : 0;
+  const lines = planOfferLines(input.plan, budgetCents, await stripeChargeForPlan(input.plan));
+  const { data, error } = await callEdgeFunction<{ ok: boolean; email?: string }>("budget-billing", {
+    action: "send_offer",
+    company_id: input.companyId,
+    lines: [lines.plan, lines.budget].filter(Boolean),
+  });
+  revalidatePath(`/ops/companies/${input.companyId}`);
+  if (error) return { ok: false, error: `The plan is saved but the email did not send: ${error}` };
+  return { ok: true, email: data?.email };
+}
+
+/** Bills this month's creator budget right away instead of waiting for the
+    company's billing day. Leftover still counts: only the top up is billed. */
+export async function billBudgetNow(input: { companyId: string }): Promise<CompanyActionResult & { text?: string }> {
+  const denied = await requirePlatformAdmin();
+  if (denied) return { ok: false, error: denied };
+  if (!input.companyId) return { ok: false, error: "Company id is required." };
+  const { data, error } = await callEdgeFunction<{
+    ok: boolean;
+    result?: { status: string; amount_cents?: number } | null;
+  }>("budget-billing", { action: "bill_now", company_id: input.companyId });
+  revalidatePath(`/ops/companies/${input.companyId}`);
+  if (error) return { ok: false, error };
+  const r = data?.result;
+  const amount = `$${Math.round((r?.amount_cents ?? 0) / 100).toLocaleString("en-US")}`;
+  const text = !r
+    ? "Nothing to bill right now."
+    : r.status === "skipped"
+      ? "Leftover covers this month. Nothing billed."
+      : r.status === "paid"
+        ? `${amount} charged.`
+        : r.status === "open"
+          ? `${amount} billed. Waiting on payment.`
+          : r.status.startsWith("already")
+            ? `This month is ${r.status.replace("already ", "")} already.`
+            : "Stripe refused the bill. It is retried every 15 minutes.";
+  return { ok: true, text };
 }

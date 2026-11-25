@@ -13,6 +13,7 @@ import { cache } from "react";
 import type { OverviewStats } from "@/lib/ops/analytics";
 import type {
   BrainDoc,
+  BudgetBill,
   Brief,
   BriefWeek,
   Company,
@@ -159,7 +160,13 @@ interface BillingRow {
   subscription_plan?: string | null;
   subscription_status?: string | null;
   stripe_subscription_id?: string | null;
+  credit_balance_cents?: number | null;
+  offer_plan?: string | null;
+  offer_sent_at?: string | null;
+  budget_next_invoice_at?: string | null;
 }
+
+type BudgetBillStatus = BudgetBill["status"];
 
 interface BrandDocRow {
   company_id: string;
@@ -452,7 +459,7 @@ async function fetchOpsData(): Promise<OpsDataset> {
     supabase
       .from("company_billing")
       .select(
-        "company_id, monthly_budget_cents, subscription_plan, subscription_status, stripe_subscription_id",
+        "company_id, monthly_budget_cents, subscription_plan, subscription_status, stripe_subscription_id, credit_balance_cents, offer_plan, offer_sent_at, budget_next_invoice_at",
       ),
     supabase
       .from("brand_docs")
@@ -774,6 +781,15 @@ async function fetchOpsData(): Promise<OpsDataset> {
   }
 
   /* Billing */
+  const { data: budgetBillRows } = await supabase
+    .from("company_budget_invoices")
+    .select("company_id, period_start, budget_cents, leftover_cents, amount_cents, status, error")
+    .order("period_start", { ascending: false })
+    .limit(500);
+  const monthYear = (day: string) => {
+    const d = new Date(`${day}T00:00:00Z`);
+    return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+  };
   const billing: Record<string, CompanyBilling> = {};
   for (const c of companies) {
     if (c.status !== "Active") continue;
@@ -799,6 +815,22 @@ async function fetchOpsData(): Promise<OpsDataset> {
           ? (row.subscription_plan ?? null)
           : null,
       stripePlan: (row?.stripe_subscription_id ?? "").startsWith("sub_"),
+      status: row?.subscription_status ?? "none",
+      offerPlan: row?.offer_plan ?? null,
+      offerSent: row?.offer_sent_at ? fmtShortDate(row.offer_sent_at) : null,
+      balance: Math.round((row?.credit_balance_cents ?? 0) / 100),
+      nextBill: row?.budget_next_invoice_at ? fmtShortDate(row.budget_next_invoice_at) : null,
+      budgetBills: (budgetBillRows ?? [])
+        .filter((r) => r.company_id === c.id)
+        .slice(0, 6)
+        .map((r) => ({
+          period: monthYear(r.period_start),
+          budget: Math.round(r.budget_cents / 100),
+          leftover: Math.round(r.leftover_cents / 100),
+          amount: Math.round(r.amount_cents / 100),
+          status: r.status as BudgetBillStatus,
+          error: r.error,
+        })),
     };
   }
 

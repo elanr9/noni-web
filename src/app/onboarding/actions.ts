@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { startBrainIngest, type BrainResult } from "@/app/admin/brain/knowledge-actions";
 import type { IngestState } from "@/lib/admin/brain-model";
+import { companyPlanAccess } from "@/lib/admin/billing";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import { isStaleCompany, STALE_COMPANY_ERROR } from "@/lib/stale-company";
@@ -218,8 +219,10 @@ export async function completeOnboarding(
 /* The end of the onboarding conversation: the answers were saved as they
    were given (edge function onboarding-chat), so this only marks the person
    and the company as set up. */
-export async function finishChatOnboarding(renderedFor: string): Promise<OnboardingResult> {
-  if (mockMode()) return { ok: true };
+export async function finishChatOnboarding(
+  renderedFor: string,
+): Promise<{ ok: true; next: string } | { ok: false; error: string }> {
+  if (mockMode()) return { ok: true, next: "/admin?tour=1" };
   const gate = await requireOnboardingAdmin(renderedFor);
   if (!gate.ok) return gate;
   const supabase = await createClient();
@@ -230,8 +233,50 @@ export async function finishChatOnboarding(renderedFor: string): Promise<Onboard
     .update({ onboarded_at: new Date().toISOString() })
     .eq("id", gate.companyId);
   if (companyError) return { ok: false, error: companyError.message };
+
+  /* No plan yet: the call with the founders is next. They hear about it
+     at once, the same way as every other lead (notify-lead). */
+  const access = await companyPlanAccess(gate.companyId);
+  if (!access.entitled) {
+    const service = createServiceClient();
+    const { data: company } = await service
+      .from("companies")
+      .select("name, website, intake")
+      .eq("id", gate.companyId)
+      .maybeSingle();
+    const intake = (company?.intake as Record<string, unknown> | null) ?? {};
+    if (company && !intake.call_requested_at) {
+      await service
+        .from("companies")
+        .update({ intake: { ...intake, call_requested_at: new Date().toISOString() } })
+        .eq("id", gate.companyId);
+      const [{ data: auth }, { profile }] = await Promise.all([
+        service.auth.admin.getUserById(gate.userId),
+        getSessionProfile(),
+      ]);
+      const email = auth.user?.email ?? "";
+      const answer = (key: string) => (typeof intake[key] === "string" ? String(intake[key]) : "");
+      await service.from("leads").insert({
+        kind: "call",
+        name: profile?.full_name?.trim() || email || "New company",
+        email,
+        company: company.name,
+        website: company.website,
+        message: [
+          "Finished onboarding. Booking their call next.",
+          answer("goal") ? `Goal: ${answer("goal")}` : "",
+          answer("creators_wanted") ? `Creators wanted: ${answer("creators_wanted")}` : "",
+          answer("launch") ? `Launch: ${answer("launch")}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        source: "onboarding",
+      });
+    }
+  }
+
   revalidatePath("/admin");
-  return { ok: true };
+  return { ok: true, next: access.entitled ? "/admin?tour=1" : "/start" };
 }
 
 /* Testing only: wipes the active company's onboarding (chat, intake, done

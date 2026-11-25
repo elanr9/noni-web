@@ -125,6 +125,28 @@ export interface CompanyBilling {
   /** True when the plan is a live Stripe subscription the company pays by
       card; ops cannot overwrite those. */
   stripePlan?: boolean;
+  /** subscription_status ("none", "active", ...). */
+  status?: string;
+  /** Plan agreed on the call, waiting for the company to start it. */
+  offerPlan?: string | null;
+  /** When the plan link was last emailed, e.g. "Nov 24". */
+  offerSent?: string | null;
+  /** Credits on the balance right now, in dollars. */
+  balance?: number;
+  /** Next monthly budget bill, e.g. "Dec 24", or null when none is scheduled. */
+  nextBill?: string | null;
+  /** Recent monthly budget bills, newest first. */
+  budgetBills?: BudgetBill[];
+}
+
+export interface BudgetBill {
+  /** Month the bill is for, e.g. "Dec 2026". */
+  period: string;
+  budget: number;
+  leftover: number;
+  amount: number;
+  status: "billing" | "open" | "paid" | "skipped" | "void" | "failed";
+  error?: string | null;
 }
 
 export interface Brief {

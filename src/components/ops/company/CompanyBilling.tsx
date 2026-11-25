@@ -1,19 +1,40 @@
 "use client";
 
-import { CircleAlert, DollarSign, Send, Trash2 } from "lucide-react";
+import { CircleAlert, DollarSign, Receipt, Send, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import {
+  billBudgetNow,
   removeCompany,
   sendBudgetInvoice,
+  sendPlanOffer,
   setCompanyPlan,
   setCreatorBudget,
   type OpsPlan,
 } from "@/app/ops/companies/[id]/actions";
 import { Card, Label, Modal, Pill } from "@/components/kit";
 import { money } from "@/lib/ops/mock-data";
-import type { Company, CompanyBilling as Billing } from "@/lib/ops/types";
+import type { SubscriptionPlan } from "@/lib/admin/types";
+import type { BudgetBill, Company, CompanyBilling as Billing } from "@/lib/ops/types";
+
+const OFFER_OPTIONS: [SubscriptionPlan, string][] = [
+  ["starter_monthly", "Starter, monthly"],
+  ["starter_annual", "Starter, annual"],
+  ["premium_monthly", "Premium, monthly"],
+  ["premium_annual", "Premium, annual"],
+  ["managed_monthly", "Done for you, monthly"],
+  ["managed_annual", "Done for you, annual"],
+];
+
+const BILL_STATUS: Record<BudgetBill["status"], string> = {
+  billing: "Billing",
+  open: "Waiting on payment",
+  paid: "Paid",
+  skipped: "Covered by leftover",
+  void: "Voided",
+  failed: "Failed, retrying",
+};
 
 const PLAN_OPTIONS: [OpsPlan, string][] = [
   ["none", "No plan"],
@@ -103,7 +124,12 @@ export function CompanyBilling({
         : "none",
   );
   const [planFee, setPlanFee] = useState("");
-  const [busy, setBusy] = useState<"budget" | "invoice" | "plan" | "planInvoice" | null>(null);
+  const [offer, setOffer] = useState<SubscriptionPlan>(
+    billing?.offerPlan && OFFER_OPTIONS.some(([v]) => v === billing.offerPlan)
+      ? (billing.offerPlan as SubscriptionPlan)
+      : "premium_annual",
+  );
+  const [busy, setBusy] = useState<"budget" | "invoice" | "plan" | "planInvoice" | "offer" | "billNow" | null>(null);
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -165,6 +191,29 @@ export function CompanyBilling({
       text: `Plan invoice for ${money(dollars(planFee))} sent${result.email ? ` to ${result.email}` : ""}.`,
     });
   };
+
+  const sendOffer = async () => {
+    setBusy("offer");
+    setNote(null);
+    const result = await sendPlanOffer({ companyId: company.id, plan: offer });
+    setBusy(null);
+    if (!result.ok) return setNote({ ok: false, text: result.error });
+    setNote({ ok: true, text: `Plan link sent${result.email ? ` to ${result.email}` : ""}.` });
+    router.refresh();
+  };
+
+  const billNow = async () => {
+    setBusy("billNow");
+    setNote(null);
+    const result = await billBudgetNow({ companyId: company.id });
+    setBusy(null);
+    if (!result.ok) return setNote({ ok: false, text: result.error });
+    setNote({ ok: true, text: result.text ?? "Done." });
+    router.refresh();
+  };
+
+  const hasPlan = Boolean(b.plan) && b.status !== "none";
+  const monthName = new Date().toLocaleDateString("en-US", { month: "long" });
 
   const field =
     "box-border w-[130px] border border-line bg-white px-3.5 py-2.5 text-[14.5px] font-semibold text-ink outline-none rounded-ops-sm";
@@ -229,15 +278,40 @@ export function CompanyBilling({
           />
         </div>
         <div className="mt-2 text-[12.5px] font-semibold text-slate-400">
-          {Math.round(pct * 100)}% of August budget used · pays creators
+          {Math.round(pct * 100)}% of {monthName} budget used · Balance {money(b.balance ?? 0)}
         </div>
       </Card>
+      {!hasPlan ? (
+        <Card pad={22}>
+          <Label className="mb-1 block">After the call</Label>
+          <p className="m-0 text-[13px] font-semibold leading-[1.5] text-slate-400">
+            Save the creator budget below, then send the plan. {company.name} gets an email to start it by card.
+            {b.offerSent ? ` Last sent ${b.offerSent}.` : ""}
+          </p>
+          <div className="mt-4 flex flex-wrap items-end gap-2">
+            <select
+              className={`${field} w-[230px]`}
+              value={offer}
+              onChange={(e) => setOffer(e.target.value as SubscriptionPlan)}
+            >
+              {OFFER_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Pill size="sm" icon={Send} disabled={busy !== null} onClick={() => void sendOffer()}>
+              {busy === "offer" ? "Sending…" : b.offerSent ? "Send again" : "Send plan link"}
+            </Pill>
+          </div>
+        </Card>
+      ) : null}
       <Card pad={22}>
         <Label className="mb-1 block">Plan</Label>
         <p className="m-0 text-[13px] font-semibold leading-[1.5] text-slate-400">
           {b.stripePlan
             ? `${company.name} pays for its plan by card through Stripe, so it cannot be changed here.`
-            : `Put ${company.name} on a plan after a call and bill it by invoice. Starter and Premium can also be bought by card in their Billing.`}
+            : `Or set the plan by hand and bill it by invoice (Enterprise, or a client that pays by invoice).`}
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
           <label className="flex flex-col gap-[7px]">
@@ -290,10 +364,18 @@ export function CompanyBilling({
       <Card pad={22}>
         <Label className="mb-1 block">Creator budget</Label>
         <p className="m-0 text-[13px] font-semibold leading-[1.5] text-slate-400">
-          Agreed with {company.name} on a call. They see it in Billing but
-          cannot change it. Invoices are emailed by Stripe and add to the
-          balance once paid.
+          Billed every month once the plan is running. Leftover rolls over: each bill is the budget minus what is
+          still on the balance. Charged to their card, or emailed as an invoice without one.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13.5px] font-semibold text-ink">
+          <span>Balance {money(b.balance ?? 0)}</span>
+          <span>{b.nextBill ? `Next bill ${b.nextBill}` : hasPlan ? "No bill scheduled" : "Starts with the plan"}</span>
+          {hasPlan && b.monthly > 0 ? (
+            <Pill size="sm" variant="quiet" icon={Receipt} disabled={busy !== null} onClick={() => void billNow()}>
+              {busy === "billNow" ? "Billing…" : "Bill now"}
+            </Pill>
+          ) : null}
+        </div>
         <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-4">
           <label className="flex flex-col gap-[7px]">
             <span className="text-[12px] font-semibold text-slate-400">Monthly budget ($)</span>
@@ -311,7 +393,7 @@ export function CompanyBilling({
             </span>
           </label>
           <label className="flex flex-col gap-[7px]">
-            <span className="text-[12px] font-semibold text-slate-400">Invoice amount ($)</span>
+            <span className="text-[12px] font-semibold text-slate-400">One off invoice ($)</span>
             <span className="flex items-center gap-2">
               <input
                 className={field}
@@ -335,6 +417,32 @@ export function CompanyBilling({
           </p>
         ) : null}
       </Card>
+      {b.budgetBills && b.budgetBills.length > 0 ? (
+        <Card pad={0}>
+          <Label className="block px-5 pb-1.5 pt-4">Monthly budget bills</Label>
+          {b.budgetBills.map((bill) => (
+            <div key={bill.period} className="flex items-center gap-3 border-t border-line px-5 py-3">
+              <span className="w-[80px] text-[13.5px] font-bold text-ink">{bill.period}</span>
+              <span className="flex-1 text-[13px] font-semibold text-slate-400">
+                {money(bill.budget)} budget{bill.leftover > 0 ? `, ${money(bill.leftover)} left over` : ""}
+                {bill.status === "failed" && bill.error ? ` · ${bill.error}` : ""}
+              </span>
+              <span
+                className={`text-[13px] font-semibold ${
+                  bill.status === "paid" || bill.status === "skipped"
+                    ? "text-green"
+                    : bill.status === "failed" || bill.status === "void"
+                      ? "text-danger"
+                      : "text-slate-400"
+                }`}
+              >
+                {BILL_STATUS[bill.status]}
+              </span>
+              <span className="w-[70px] text-right text-[14px] font-bold text-ink">{money(bill.amount)}</span>
+            </div>
+          ))}
+        </Card>
+      ) : null}
       <Card pad={0}>
         <Label className="block px-5 pb-1.5 pt-4">Paid invoices</Label>
         {b.topups.length === 0 ? (

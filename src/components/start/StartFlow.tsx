@@ -5,24 +5,20 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { startCheckout } from "@/app/admin/billing/actions";
-import { chooseRunPath, markCallBooked, type RunPath } from "@/app/start/actions";
-import { PlanPicker } from "@/components/admin/billing/PlanPicker";
+import { markCallBooked, startPlanCheckout } from "@/app/start/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
-import { BackButton } from "@/components/onboarding/BackButton";
-import type { SubscriptionPlan } from "@/lib/admin/types";
 import { themeTextColor } from "@/lib/media-library-shared";
 
-/* The first run screen after sign up, and the only thing a company without a
-   plan can open. One question: run it yourself, or have Noni do it for you.
-   - Do it myself: the self serve plans, Stripe checkout, then the full
-     onboarding (every question is theirs to answer).
-   - Do it for me: a call with the founders, and nothing else. The founders
-     hear about it at once; the workspace opens after the call, when ops puts
-     the company on Done for you.
+/* Where a company waits between the onboarding chat and its dashboard.
+   - call: book the call with the founders (Calendly, inline). Every company
+     books one; the plan and the creator budget are agreed on it.
+   - booked: the call is on the calendar.
+   - offer: after the call ops sent the plan; one button starts it in Stripe
+     Checkout.
+   - paid: back from Checkout, waiting for the webhook to open the dashboard.
    Wears the company's color (read off its site), Noni blue until there is one. */
 
-export type StartStep = "choose" | "plans" | "call" | "booked" | "paid";
+export type StartStep = "call" | "booked" | "offer" | "paid";
 
 const NONI_BLUE = "#1BA6EE";
 
@@ -43,7 +39,6 @@ function calendlySrc(url: string, host: string, who: { name: string; email: stri
 
 export function StartFlow({
   companyId,
-  companyName,
   firstName,
   fullName = "",
   host = "usenoni.app",
@@ -51,9 +46,10 @@ export function StartFlow({
   themeColor,
   bookingUrl,
   initialStep,
+  offer,
 }: {
   companyId: string;
-  companyName: string;
+  companyName?: string;
   firstName: string;
   /** Prefills the booking form. */
   fullName?: string;
@@ -63,13 +59,14 @@ export function StartFlow({
   themeColor: string | null;
   bookingUrl: string | null;
   initialStep: StartStep;
+  /** The plan agreed on the call, as lines to show. */
+  offer?: { plan: string; budget: string | null } | null;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<StartStep>(initialStep);
-  const [picked, setPicked] = useState<RunPath | null>(null);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const accent = themeColor ?? NONI_BLUE;
-  const onAccent = themeTextColor(accent);
   const sparks = [accent, "#22C55E", "#FBBF24", accent];
 
   /* Paid: the webhook opens the workspace; the page moves on when it lands. */
@@ -93,128 +90,29 @@ export function StartFlow({
     return () => window.removeEventListener("message", onMessage);
   }, [step, companyId]);
 
-  const choose = (path: RunPath) => {
-    if (picked) return;
-    setPicked(path);
+  const start = async () => {
+    if (starting) return;
+    setStarting(true);
     setError(null);
-    void chooseRunPath(companyId, path).then((r) => {
-      if (!r.ok) {
-        setPicked(null);
-        setError(r.error);
-        return;
-      }
-      /* A beat for the pop before the next screen. */
-      window.setTimeout(() => {
-        setStep(path === "dfy" ? "call" : "plans");
-        setPicked(null);
-      }, 380);
-    });
-  };
-
-  useEffect(() => {
-    if (step !== "choose") return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "1") choose("diy");
-      if (e.key === "2") choose("dfy");
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
-
-  const buy = async (plan: SubscriptionPlan): Promise<boolean> => {
-    setError(null);
-    const r = await startCheckout(companyId, plan, "start");
+    const r = await startPlanCheckout(companyId);
     if (!r.ok) {
+      setStarting(false);
       setError(r.error);
-      return false;
+      return;
     }
-    if (r.redirectUrl) window.location.assign(r.redirectUrl);
+    if (r.redirectUrl?.startsWith("/")) router.push(r.redirectUrl);
+    else if (r.redirectUrl) window.location.assign(r.redirectUrl);
     else router.refresh();
-    return true;
-  };
-
-  const back = step === "plans" || step === "call" ? () => setStep("choose") : null;
-
-  /* One answer, as a row: a radio, the sentence the company would say and
-     an arrow. Hover tints it in the company color; picking it fills the
-     radio with a check and a small burst. 1 and 2 on the keyboard pick too. */
-  const option = (path: RunPath, key: string, sentence: string) => {
-    const on = picked === path;
-    return (
-      <button
-        type="button"
-        disabled={picked !== null}
-        onClick={() => choose(path)}
-        className={`group relative flex w-full cursor-pointer items-center gap-4 rounded-[20px] border-[1.5px] bg-white px-5 py-[22px] text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[transform,box-shadow,border-color,background-color] duration-150 ease-om hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)] active:translate-y-0 active:scale-[0.99] disabled:cursor-default ${
-          on ? "animate-om-bounce" : "border-line hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
-        }`}
-        style={
-          {
-            "--accent": accent,
-            "--accent-soft": `color-mix(in srgb, ${accent} 5%, white)`,
-            ...(on ? { borderColor: accent, backgroundColor: `color-mix(in srgb, ${accent} 6%, white)` } : {}),
-          } as React.CSSProperties
-        }
-      >
-        <span
-          className={`relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-150 ${
-            on ? "" : "border-slate-300 group-hover:border-[var(--accent)]"
-          }`}
-          style={on ? { borderColor: accent, backgroundColor: accent, color: onAccent } : undefined}
-        >
-          {on ? (
-            <>
-              <Burst colors={sparks} count={12} reach={44} />
-              <Check size={15} strokeWidth={3.5} className="animate-om-check" />
-            </>
-          ) : null}
-        </span>
-        <span className="flex-1 text-[19px] font-semibold leading-[1.35] tracking-[-0.3px] text-ink">{sentence}</span>
-        <kbd className="hidden h-7 min-w-7 items-center justify-center rounded-[8px] border border-line bg-[#fbfbfc] px-2 font-ops text-[12.5px] font-bold text-slate-400 sm:inline-flex">
-          {key}
-        </kbd>
-        <ArrowRight
-          size={20}
-          strokeWidth={2.4}
-          className="shrink-0 text-slate-300 transition-[transform,color] duration-150 group-hover:translate-x-1 group-hover:text-[var(--accent)]"
-        />
-      </button>
-    );
   };
 
   return (
     <div className="flex min-h-screen flex-col bg-[#fbfbfc] font-ops">
       <header className="flex h-[72px] items-center gap-[9px] px-5 sm:px-7">
-        {back ? <BackButton onClick={back} /> : null}
         <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
       </header>
 
       <main key={step} className="mx-auto flex w-full max-w-[1080px] flex-1 flex-col items-center justify-center gap-9 px-5 pb-20 text-center animate-om-rise">
-        {step === "choose" ? (
-          <>
-            <h1 className="display m-0 text-[44px] font-bold leading-[1.08] tracking-[-1.4px] text-ink">
-              What are you looking for?
-            </h1>
-            <div className="flex w-full max-w-[620px] flex-col gap-3">
-              {option("diy", "1", "I want to run our UGC campaigns on Noni")}
-              {option("dfy", "2", "I want the Noni team to run my UGC")}
-            </div>
-          </>
-        ) : null}
-
-        {step === "plans" ? (
-          <div className="w-full text-left">
-            <PlanPicker
-              compact
-              selfServeOnly
-              onChoose={buy}
-              known={{ name: firstName, email, company: companyName }}
-            />
-          </div>
-        ) : null}
-
         {step === "call" && bookingUrl ? (
           <div className="flex w-full flex-col items-center gap-8 lg:flex-row lg:items-center lg:gap-14 lg:text-left">
             <div className="flex flex-col items-center gap-6 lg:w-[360px] lg:shrink-0 lg:items-start">
@@ -228,9 +126,6 @@ export function StartFlow({
               <h1 className="display m-0 text-[46px] font-bold leading-[1.05] tracking-[-1.6px] text-ink">
                 Book your call{firstName ? `, ${firstName}` : ""}
               </h1>
-              <p className="m-0 text-[17px] font-medium leading-[1.55] text-slate-500">
-                30 minutes with the founders. We take it from there.
-              </p>
             </div>
             <div className="h-[660px] w-full max-w-[640px] overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_12px_32px_rgba(15,23,42,0.08)]">
               <iframe
@@ -255,7 +150,7 @@ export function StartFlow({
               Let&apos;s talk soon{firstName ? `, ${firstName}` : ""}
             </h1>
             <p className="m-0 max-w-[480px] text-[19px] font-medium leading-[1.55] text-slate-500">
-              We&apos;ll email {email || "you"} today to set up a quick call.
+              We&apos;ll email {email || "you"} today to set up a call.
             </p>
           </>
         ) : null}
@@ -272,9 +167,28 @@ export function StartFlow({
             <h1 className="display m-0 text-[52px] font-bold leading-[1.05] tracking-[-1.8px] text-ink">
               You&apos;re booked{firstName ? `, ${firstName}` : ""}!
             </h1>
-            <p className="m-0 max-w-[480px] text-[19px] font-medium leading-[1.55] text-slate-500">
-              The invite is in {email || "your inbox"}. Talk soon.
-            </p>
+          </>
+        ) : null}
+
+        {step === "offer" && offer ? (
+          <>
+            <h1 className="display m-0 text-[48px] font-bold leading-[1.05] tracking-[-1.6px] text-ink">Your plan</h1>
+            <div className="flex w-full max-w-[520px] flex-col gap-3 rounded-[24px] border border-line bg-white p-7 text-left shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+              <p className="m-0 text-[19px] font-bold leading-[1.4] tracking-[-0.3px] text-ink">{offer.plan}</p>
+              {offer.budget ? (
+                <p className="m-0 border-t border-line pt-3 text-[16px] font-semibold leading-[1.5] text-slate-500">{offer.budget}</p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => void start()}
+              disabled={starting}
+              className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-9 py-[18px] text-[18px] font-bold transition-[transform,filter] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.96] disabled:opacity-60"
+              style={{ backgroundColor: accent, color: themeTextColor(accent) }}
+            >
+              {starting ? "One sec…" : "Start subscription"}
+              {starting ? null : <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />}
+            </button>
           </>
         ) : null}
 

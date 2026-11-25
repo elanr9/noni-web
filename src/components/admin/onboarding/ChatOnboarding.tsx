@@ -1,12 +1,12 @@
 "use client";
 
-import { ArrowRight, ArrowUp, Check, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowUp, Check } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { getBrainIngestStatus } from "@/app/admin/brain/knowledge-actions";
-import { finishChatOnboarding, startOnboardingScan } from "@/app/onboarding/actions";
+import { finishChatOnboarding } from "@/app/onboarding/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { SnapshotReview } from "@/components/admin/brain/SnapshotReview";
 import { BackButton } from "@/components/onboarding/BackButton";
@@ -153,34 +153,6 @@ function UserMessage({ text }: { text: string }) {
   );
 }
 
-/* The site scan, as a line in the thread, the way an assistant shows a tool. */
-function ScanLine({ scan, site }: { scan: IngestState | null; site: string }) {
-  const run = scan?.ingest;
-  if (!run) return null;
-  const host = wwwHost(site);
-  const done = run.status === "done";
-  const failed = run.status === "failed";
-  const pages = scan.summary.sources;
-  return (
-    <div className="flex items-center gap-2 pl-[46px] text-[14px] font-semibold text-slate-400 animate-om-fade">
-      {done ? (
-        <Check size={15} className="text-green" />
-      ) : failed ? (
-        <span className="text-amber">!</span>
-      ) : (
-        <Loader2 size={15} className="animate-spin text-blue-500" />
-      )}
-      <span>
-        {failed
-          ? `Could not finish reading ${host}`
-          : done
-            ? `Read ${host}${pages ? ` · ${pages} ${pages === 1 ? "page" : "pages"}` : ""}`
-            : `Reading ${host}${pages ? ` · ${pages} ${pages === 1 ? "page" : "pages"}` : ""}`}
-      </span>
-    </div>
-  );
-}
-
 function Chip({
   label,
   selected,
@@ -240,6 +212,7 @@ export function ChatOnboarding({
   companyId,
   email,
   initialScan,
+  planSet = false,
   canRestart = false,
   source,
   done,
@@ -258,6 +231,8 @@ export function ChatOnboarding({
   companyId?: string;
   email: string;
   initialScan?: IngestState | null;
+  /** A plan is already in place: the chat ends on the dashboard, not the call. */
+  planSet?: boolean;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -270,7 +245,6 @@ export function ChatOnboarding({
   const [draft, setDraft] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [scan, setScan] = useState<IngestState | null>(initialScan ?? null);
-  const [site, setSite] = useState("");
   const [name, setName] = useState(firstName);
   const [finishing, setFinishing] = useState(false);
   const [lastAnswer, setLastAnswer] = useState<ChatAnswer | null>(null);
@@ -411,20 +385,6 @@ export function ChatOnboarding({
     if (!pending || busy) return;
     const a: ChatAnswer = { slot: pending.key, value, text };
     setMessages((m) => [...m, { role: "user", text, slot: pending.key }]);
-    if (pending.key === "website" && companyId) {
-      const url = text.trim();
-      setSite(url);
-      /* Show the read starting at once; the server's state replaces this. */
-      setScan({
-        started: true,
-        ingest: { status: "running", phase: "crawl", progress: { done: [], failed: [], notes: [] }, error: null },
-        summary: { sources: 0, sources_pending: 0, facts: 0, facts_confirmed: 0, conflicts_open: 0, coverage: 0, missing: [] },
-      });
-      void startOnboardingScan(companyId, { website: url }).then((r) => {
-        if (r.ok) setScan(r.data);
-        else setScan(null);
-      });
-    }
     void turn(a);
   };
 
@@ -452,7 +412,7 @@ export function ChatOnboarding({
       setError(r.error);
       return;
     }
-    router.push("/admin?tour=1");
+    router.push(r.next);
   };
 
   const over = !source && pending?.kind === "done" && !busy;
@@ -527,7 +487,7 @@ export function ChatOnboarding({
             disabled={finishing}
             className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none bg-blue-500 px-9 py-[18px] text-[18px] font-bold text-white shadow-[0_12px_28px_rgba(59,130,246,0.34)] transition-[transform,filter] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.96] disabled:opacity-60 animate-om-rise"
           >
-            {finishing ? "One sec…" : "Go to dashboard"}
+            {finishing ? "One sec…" : planSet ? "Go to dashboard" : "Book your call"}
             {finishing ? null : <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />}
           </button>
           {error ? <p className="m-0 text-[14px] font-semibold text-danger">{error}</p> : null}
@@ -536,7 +496,6 @@ export function ChatOnboarding({
     );
   }
 
-  const scanAfter = messages.findIndex((m) => m.role === "user" && m.slot === "website");
   const choice = pending && (pending.kind === "choice" || pending.kind === "multi") && !busy;
   const composerOn = pending && pending.kind !== "summary" && pending.kind !== "done";
 
@@ -571,7 +530,6 @@ export function ChatOnboarding({
         {messages.map((m, i) => (
           <div key={i} className="flex flex-col gap-3">
             {m.role === "assistant" ? <AssistantMessage text={m.text} /> : <UserMessage text={m.text} />}
-            {i === scanAfter ? <ScanLine scan={scan} site={site || m.text} /> : null}
           </div>
         ))}
         {streaming !== null ? (
@@ -610,7 +568,7 @@ export function ChatOnboarding({
               disabled={finishing}
               className="w-full cursor-pointer rounded-full border-none bg-ink px-6 py-4 text-[16px] font-bold text-white transition-transform duration-150 active:scale-[0.98] disabled:opacity-60 sm:w-auto sm:self-start"
             >
-              {finishing ? "One sec…" : "Go to dashboard"}
+              {finishing ? "One sec…" : planSet ? "Go to dashboard" : "Book your call"}
             </button>
           </div>
         ) : null}

@@ -15,7 +15,6 @@ import {
 import { companyPlanAccess } from "@/lib/admin/billing";
 import { getAdminData } from "@/lib/admin/data";
 import { deriveSetupStatus } from "@/lib/admin/setup";
-import { createServiceClient } from "@/lib/supabase/service";
 
 export default async function AdminLayout({
   children,
@@ -46,34 +45,19 @@ export default async function AdminLayout({
       />
     );
   }
-  /* The onboarding chat comes first: it learns the company and asks what it
-     is looking for (run it on Noni, or have the Noni team run it). */
+  /* The onboarding chat comes first, then the call with the founders: the
+     dashboard opens once the company has started the plan agreed on it
+     (/start), or ops has put it on a plan or marked it a pilot. A renewal
+     that failed keeps the dashboard open with the payment strip. */
   if (isCompanyAdmin(profile) && !profile?.onboarded) redirect("/onboarding");
-  /* Running it themselves: the dashboard opens right away so they can look
-     around; Pick your plan is a setup step there, behind the paywall strip.
-     Noni team runs it: nothing opens until the call with the founders (the
-     workspace opens once ops puts the company on Done for you). */
   const access = await companyPlanAccess(profile?.active_company_id ?? "");
-  if (!access.entitled && access.status !== "past_due" && access.status !== "unpaid") {
-    const { data: row } = await createServiceClient()
-      .from("companies")
-      .select("intake")
-      .eq("id", profile?.active_company_id ?? "")
-      .maybeSingle();
-    if ((row?.intake as { campaigns_run_by?: unknown } | null)?.campaigns_run_by === "noni") redirect("/start");
-  }
+  if (!access.entitled && access.status !== "past_due" && access.status !== "unpaid") redirect("/start");
 
   const data = await getAdminData(profile?.active_company_id ?? "");
   const setup = deriveSetupStatus(data);
-  /* Paywall strip (design_handoff_pricing_plans): no plan and not an
-     ops-run pilot, or a renewal Stripe could not charge. */
+  /* A renewal Stripe could not charge. */
   const sub = data.billing.subscription;
-  const planBanner =
-    sub.status === "past_due" || sub.status === "unpaid"
-      ? ("payment_failed" as const)
-      : sub.status === "none" && !(await companyPlanAccess(data.company.id)).pilot
-        ? ("paywall" as const)
-        : null;
+  const planBanner = sub.status === "past_due" || sub.status === "unpaid" ? ("payment_failed" as const) : null;
   const people: AdminSearchPerson[] = [...data.managers, ...data.creators].map(
     (m) => ({ id: m.id, name: m.name, role: m.role, status: m.status }),
   );

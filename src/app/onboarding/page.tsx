@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { peekBrainIngest } from "@/app/admin/brain/knowledge-actions";
 import { ChatOnboarding } from "@/components/admin/onboarding/ChatOnboarding";
+import { companyPlanAccess } from "@/lib/admin/billing";
 import { getSessionProfile, isCompanyAdmin } from "@/lib/auth";
 import { isOnboardingTester } from "@/lib/onboarding-tester";
 import { createClient } from "@/lib/supabase/server";
@@ -41,13 +42,14 @@ export default async function OnboardingPage() {
     if (name) await supabase.from("profiles").update({ full_name: name }).eq("id", userId);
   }
 
-  const [scan, { data: company }] = await Promise.all([
+  const [scan, { data: company }, access] = await Promise.all([
     peekBrainIngest(),
     createServiceClient()
       .from("companies")
       .select("onboarding_chat")
       .eq("id", profile!.active_company_id!)
       .maybeSingle(),
+    companyPlanAccess(profile!.active_company_id!),
   ]);
   const chat = company?.onboarding_chat as { messages?: unknown[] } | null;
   const { profile: named } = await getSessionProfile();
@@ -57,6 +59,7 @@ export default async function OnboardingPage() {
       companyId={profile!.active_company_id!}
       email={email}
       initialScan={scan.ok ? scan.data : null}
+      planSet={access.entitled}
       canRestart={isOnboardingTester(email)}
       fresh={!chat?.messages?.length}
       firstName={named?.full_name?.trim().split(/\s+/)[0] ?? ""}
