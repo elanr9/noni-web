@@ -1,28 +1,19 @@
 import { redirect } from "next/navigation";
-import { BriefsIndexView } from "@/components/manager/briefs/BriefsIndexView";
+
+import { BriefsLibraryView } from "@/components/manager/briefs/library/BriefsLibraryView";
 import { getSessionProfile } from "@/lib/auth";
-import { listBriefWeeks, listCampaignManagers } from "@/lib/manager/briefs";
-import { getManagerContext } from "@/lib/manager/context";
+import { loadBriefLibrary } from "@/lib/manager/brief-library-server";
 
-/* The Briefs tab: week list plus calendar view, ported from the mobile
-   calendar screen. The layout gate already verified the campaign manager
-   role; reads run on the service client scoped by the session company. */
-export default async function ManagerBriefsPage() {
+export const dynamic = "force-dynamic";
+/* Fill in with AI and Upload brief wait on the writer. */
+export const maxDuration = 300;
+
+/* The Briefs tab: the company's library of templates and outlines, the
+   same as the app. The layout gate already verified the manager. */
+export default async function ManagerBriefsPage({ searchParams }: { searchParams: Promise<{ open?: string }> }) {
   const { profile } = await getSessionProfile();
-  if (!profile?.active_company_id) redirect("/login?next=/manager");
-  const companyId = profile.active_company_id;
-  const [context, weeks, managers] = await Promise.all([
-    getManagerContext(companyId),
-    listBriefWeeks(companyId),
-    listCampaignManagers(companyId),
-  ]);
-
-  return (
-    <BriefsIndexView
-      weeks={weeks}
-      managers={managers}
-      meId={profile?.id ?? ""}
-      showSales={context.access.viewFinancials}
-    />
-  );
+  const companyId = profile?.active_company_id;
+  if (!companyId) redirect("/login?next=/manager/briefs");
+  const [briefs, sp] = await Promise.all([loadBriefLibrary(companyId), searchParams]);
+  return <BriefsLibraryView initial={briefs} companyId={companyId} initialOpen={sp.open ?? null} />;
 }

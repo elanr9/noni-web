@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  CalendarDays,
   ChartColumn,
   CircleUserRound,
   Clapperboard,
+  FileText,
   FolderOpen,
   ListChecks,
   Menu,
@@ -35,7 +35,7 @@ const NAV_SECTIONS: ReadonlyArray<{ label: string; items: NavItem[] }> = [
     label: "Workspace",
     items: [
       { href: "/manager", label: "Review", icon: ListChecks },
-      { href: "/manager/briefs", label: "Briefs", icon: CalendarDays },
+      { href: "/manager/briefs", label: "Briefs", icon: FileText },
       { href: "/manager/market", label: "Market", icon: Store },
       { href: "/manager/scout", label: "Scout", icon: Radar },
       { href: "/manager/creators", label: "Creators", icon: Users },
