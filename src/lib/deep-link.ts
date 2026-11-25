@@ -27,7 +27,7 @@ export function parseDeepLink(raw: unknown): DeepLink | null {
 
 const MANAGER_ROUTES: Record<string, (id: string) => string> = {
   review: (id) => `/manager/review/${id}`,
-  week: (id) => `/manager/briefs/week/${id}`,
+  week: () => "/manager/briefs",
   chat: (id) => `/manager/creators/${id}/chat`,
   creator: (id) => `/manager/creators/${id}`,
   music: (id) => `/manager/music/${id}`,

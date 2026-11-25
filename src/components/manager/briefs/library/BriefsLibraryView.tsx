@@ -28,6 +28,7 @@ import {
   saveBriefs,
   writeImportPost,
 } from "@/app/manager/briefs/library-actions";
+import { markLibraryItemUsed } from "@/app/manager/library/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { Card, Field, Modal, PageHead, Pill, TextArea } from "@/components/kit";
 import {
@@ -401,6 +402,17 @@ type Draft =
   | { kind: "Guided"; type: "Long Text"; lt: LongTextState }
   | { kind: "Outline"; type: BriefType; o: { title: string; notes: string; link: string } };
 
+export type BriefSeed = { title: string; link: string; itemId: string | null };
+
+/* A new draft that starts from a Library idea or link. */
+function seededDraft(type: BriefType, kind: BriefKind, seed: BriefSeed | null): Draft {
+  const d = draftFor(type, kind);
+  if (!seed) return d;
+  if ("g" in d) return { ...d, g: { ...d.g, title: seed.title, link: seed.link } };
+  if ("lt" in d) return { ...d, lt: { ...d.lt, title: seed.title } };
+  return { ...d, o: { ...d.o, title: seed.title, link: seed.link } };
+}
+
 function draftFor(type: BriefType, kind: BriefKind, b?: Brief): Draft {
   if (kind === "Outline") return { kind, type, o: { title: b?.title ?? "", notes: b?.notes ?? "", link: b?.link ?? "" } };
   if (type === "Long Text") return { kind: "Guided", type, lt: b ? longTextOf(b) : { title: "", onScreen: "", notes: LONG_TEXT_NOTES, doc: null } };
@@ -414,11 +426,13 @@ function draftTitle(d: Draft): string {
 function BriefEditor({
   existing,
   start,
+  seed = null,
   onClose,
   onSaved,
 }: {
   existing: Brief | null;
   start: { type: BriefType; kind: BriefKind } | null;
+  seed?: BriefSeed | null;
   onClose: () => void;
   onSaved: (list: Brief[], id: string) => void;
 }) {
@@ -474,6 +488,7 @@ function BriefEditor({
       setError(r.error);
       return;
     }
+    if (seed?.itemId && !existing) void markLibraryItemUsed(seed.itemId);
     onSaved(r.data, id);
   };
 
@@ -515,7 +530,7 @@ function BriefEditor({
                 key={o.k}
                 type="button"
                 onClick={() => {
-                  setD(draftFor(type, o.k));
+                  setD(seededDraft(type, o.k, seed));
                   setStep("compose");
                 }}
                 className="flex cursor-pointer flex-col items-start gap-3 rounded-[16px] border border-line bg-white p-4 text-left transition-[transform,border-color] hover:-translate-y-0.5 hover:border-blue-300"
@@ -548,7 +563,7 @@ function BriefEditor({
             <div className="flex-1">
               <Field label="Title" value={title} onChange={(e) => setTitle(e.target.value.slice(0, 140))} autoFocus={!existing} />
             </div>
-            <Pill variant="tint" icon={Sparkles} loading={filling} disabled={!title.trim() && !("o" in d && d.o.link)} onClick={() => void fill()}>
+            <Pill variant="tint" icon={Sparkles} loading={filling} disabled={!title.trim() && !("o" in d && d.o.link) && !("g" in d && d.g.link)} onClick={() => void fill()}>
               {filling ? "Writing" : "Fill in with AI"}
             </Pill>
           </div>
@@ -797,7 +812,17 @@ function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClo
 
 /* ------------------------------------------------------------ page */
 
-export function BriefsLibraryView({ initial, companyId, initialOpen = null }: { initial: Brief[]; companyId: string; initialOpen?: string | null }) {
+export function BriefsLibraryView({
+  initial,
+  companyId,
+  initialOpen = null,
+  seed = null,
+}: {
+  initial: Brief[];
+  companyId: string;
+  initialOpen?: string | null;
+  seed?: BriefSeed | null;
+}) {
   const [briefs, setBriefs] = useState(initial);
   const [lane, setLane] = useState<Lane>("Guided");
   const [q, setQ] = useState("");
@@ -806,7 +831,13 @@ export function BriefsLibraryView({ initial, companyId, initialOpen = null }: { 
   const PER_PAGE = usePerPage();
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState<string | null>(initialOpen);
-  const [editing, setEditing] = useState<{ brief: Brief | null } | null>(null);
+  const [editing, setEditing] = useState<{ brief: Brief | null } | null>(seed ? { brief: null } : null);
+  const [seeded, setSeeded] = useState<BriefSeed | null>(seed);
+
+  /* A reload should not reopen New brief. */
+  useEffect(() => {
+    if (seed) window.history.replaceState(null, "", "/manager/briefs");
+  }, [seed]);
   const [uploading, setUploading] = useState(false);
   const [fresh, setFresh] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -1015,9 +1046,14 @@ export function BriefsLibraryView({ initial, companyId, initialOpen = null }: { 
         <BriefEditor
           existing={editing.brief}
           start={null}
-          onClose={() => setEditing(null)}
+          seed={editing.brief ? null : seeded}
+          onClose={() => {
+            setEditing(null);
+            setSeeded(null);
+          }}
           onSaved={(next, id) => {
             setEditing(null);
+            setSeeded(null);
             setOpen(null);
             saved(next, [id], editing.brief ? "Saved" : "Brief saved");
           }}

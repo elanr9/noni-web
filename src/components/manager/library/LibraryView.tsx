@@ -3,8 +3,8 @@
 /* The /manager Library tab, porting the mobile Library screen
    (noni/app/(admin)/(tabs)/library.tsx): Ideas, References, Media and Our
    posts lanes. Ideas and references split into Unused and Used, remember
-   the last post made from them, and every row offers Make post, which
-   generates into an empty slot of the week being planned. */
+   how often they were used, and every row offers Make brief, which opens
+   New brief in Briefs with the idea or link filled in. */
 import {
   ArrowUpDown,
   Images,
@@ -26,10 +26,8 @@ import {
   deleteLibraryItem,
   loadLibraryItems,
   loadOurPosts,
-  makePostFromLibrary,
   resolveOurPostThumbnail,
   updateLibraryItemText,
-  type MakeSource,
   type OurPostRef,
 } from "@/app/manager/library/actions";
 import { Card, Modal, PageHead, Pill, Tabs } from "@/components/kit";
@@ -45,7 +43,6 @@ import type {
 
 const LIBRARY_PAGE_SIZE = 50;
 
-import { MakePostModal, type MakeTarget } from "./MakePostModal";
 import { SubTabs } from "./SubTabs";
 
 const LANES = ["Ideas", "References", "Media", "Our posts"] as const;
@@ -135,23 +132,6 @@ function canMake(row: Row): boolean {
   return Boolean(row.item.url || row.item.text);
 }
 
-function sourceLabelFor(row: Row): string {
-  if (row.kind === "our_post") return `“${row.post.title ?? row.post.hook ?? "this post"}”`;
-  if (row.item.source === "reference") {
-    const handle = handleOf(row.item.url);
-    return [handle ? `@${handle}` : (row.item.text ?? "this reference"), platformOf(row.item.url)]
-      .filter(Boolean)
-      .join(" · ");
-  }
-  const text = row.item.text ?? "";
-  return `“${text.length > 80 ? `${text.slice(0, 77)}…` : text}”`;
-}
-
-function preferredFamilyFor(row: Row): BriefFormat | null {
-  if (row.kind !== "our_post") return null;
-  return row.post.family === "photo_carousel" ? "photo_carousel" : "video";
-}
-
 interface MakeProps {
   busy: boolean;
   disabled: boolean;
@@ -168,7 +148,7 @@ function MakeButton({ make }: { make: MakeProps }) {
       onClick={make.onClick}
       className={make.busy ? "[&_svg]:animate-spin" : ""}
     >
-      Make post
+      Make brief
     </Pill>
   );
 }
@@ -555,8 +535,6 @@ export function LibraryView({ initialIdeas, initialCounts, creators, postTypes }
   const [confirmDelete, setConfirmDelete] = useState<LibraryItem | null>(null);
   const [killNote, setKillNote] = useState<string | null>(null);
 
-  const [makeFrom, setMakeFrom] = useState<Row | null>(null);
-  const [makeBusyKey, setMakeBusyKey] = useState<string | null>(null);
 
   const queryVersion = useRef(0);
   const firstLoad = useRef(true);
@@ -637,8 +615,8 @@ export function LibraryView({ initialIdeas, initialCounts, creators, postTypes }
     setSub(next);
   }
 
-  function openBrief(briefId: string) {
-    router.push(`/manager/briefs/${briefId}`);
+  function openBrief() {
+    router.push("/manager/briefs");
   }
 
   function patchItem(id: string, patch: Partial<LibraryItem>) {
@@ -719,57 +697,26 @@ export function LibraryView({ initialIdeas, initialCounts, creators, postTypes }
       .finally(() => enriching.current.delete(post.post_id));
   }
 
-  async function buildPost(row: Row, target: MakeTarget) {
-    const { slot, postType } = target;
-    const source: MakeSource =
-      row.kind === "item" ? { kind: "item", itemId: row.item.id } : { kind: "our_post", post: toPostRef(row.post) };
-    setMakeBusyKey(rowKey(row));
-    const result = await makePostFromLibrary({
-      source,
-      briefId: slot.briefId,
-      postTypeId: postType.id,
-      postTypeKey: postType.key,
-      family: slot.family,
-    });
-    setMakeBusyKey(null);
-    if (!result.ok) {
-      flash(result.error);
-      return;
-    }
-    if (result.kind === "kill") {
-      setMakeFrom(null);
-      setKillNote(result.killReason);
-      return;
-    }
-    const now = new Date().toISOString();
+  /* New brief opens in Briefs with the idea or link already in it. */
+  function makeBrief(row: Row) {
+    const p = new URLSearchParams({ new: "1" });
     if (row.kind === "item") {
-      const source: LibrarySource = row.item.source === "reference" ? "reference" : "idea";
-      if (sub === "unused") {
-        setRows((prev) => prev.filter((r) => rowKey(r) !== row.item.id));
-        if (row.item.used_count === 0) bumpCounts(source, "unused", "used");
-      } else {
-        patchItem(row.item.id, {
-          used_count: row.item.used_count + 1,
-          last_used_at: now,
-          last_brief_id: slot.briefId,
-        });
-      }
+      p.set("title", (row.item.source === "reference" && row.item.url ? "" : (row.item.text ?? "")).slice(0, 140));
+      if (row.item.url) p.set("link", row.item.url);
+      p.set("item", row.item.id);
     } else {
-      patchPost(row.post.post_id, { used_count: (row.post.used_count ?? 0) + 1 });
+      p.set("title", (row.post.title ?? row.post.hook ?? "").slice(0, 140));
+      if (row.post.post_url) p.set("link", row.post.post_url);
     }
-    setMakeFrom(null);
-    flash(
-      `Made into ${slot.family === "photo_carousel" ? "Slideshow" : "Reel"} ${String(slot.laneIndex).padStart(2, "0")}`,
-    );
-    openBrief(result.briefId);
+    router.push(`/manager/briefs?${p.toString()}`);
   }
 
   function makeFor(row: Row): MakeProps | null {
     if (!canMake(row)) return null;
     return {
-      busy: makeBusyKey === rowKey(row),
-      disabled: makeBusyKey !== null,
-      onClick: () => setMakeFrom(row),
+      busy: false,
+      disabled: false,
+      onClick: () => makeBrief(row),
     };
   }
 
@@ -823,7 +770,7 @@ export function LibraryView({ initialIdeas, initialCounts, creators, postTypes }
                 item={row.item}
                 onSaveText={(text) => onSaveIdeaText(row.item, text)}
                 onDelete={() => setConfirmDelete(row.item)}
-                onOpenBrief={briefId ? () => openBrief(briefId) : undefined}
+                onOpenBrief={briefId ? openBrief : undefined}
                 make={makeFor(row)}
               />
             );
@@ -841,7 +788,7 @@ export function LibraryView({ initialIdeas, initialCounts, creators, postTypes }
               key={row.item.id}
               item={row.item}
               onDelete={() => setConfirmDelete(row.item)}
-              onOpenBrief={briefId ? () => openBrief(briefId) : undefined}
+              onOpenBrief={briefId ? openBrief : undefined}
               make={makeFor(row)}
             />
           );
@@ -952,20 +899,6 @@ export function LibraryView({ initialIdeas, initialCounts, creators, postTypes }
           ) : null}
         </>
       )}
-
-      {makeFrom !== null ? (
-        <MakePostModal
-          sourceLabel={sourceLabelFor(makeFrom)}
-          preferredFamily={preferredFamilyFor(makeFrom)}
-          busy={makeBusyKey !== null}
-          onPick={(target) => void buildPost(makeFrom, target)}
-          onOpenWeek={(campaignId) => {
-            setMakeFrom(null);
-            router.push(`/manager/briefs/week/${campaignId}`);
-          }}
-          onClose={() => setMakeFrom(null)}
-        />
-      ) : null}
 
       {confirmDelete !== null ? (
         <Modal

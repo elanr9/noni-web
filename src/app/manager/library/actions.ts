@@ -7,26 +7,12 @@
 
 import { revalidatePath } from "next/cache";
 
-import { fillBrief, saveBrief } from "@/app/manager/briefs/actions";
-import {
-  parsePointMedia,
-  parseTextOverlay,
-  type BriefDraft,
-  type BriefFormat,
-  type BriefWeekSummary,
-  type Json,
-  type PostType,
-} from "@/components/manager/briefs/lib";
 import { getSessionProfile, canManageCampaigns } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
-import { listPostTypes } from "@/lib/manager/briefs";
 import {
   countLibraryItems,
-  currentPlanningWeek,
-  listEmptyWeekSlots,
   listLibraryItems,
   listOurPosts,
-  type EmptyWeekSlot,
   type LibraryCounts,
   type LibraryItem,
   type LibrarySource,
@@ -34,7 +20,6 @@ import {
   type OurPost,
   type OurPostsSort,
 } from "@/lib/manager/library";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 type Gate =
@@ -304,294 +289,23 @@ export async function resolveOurPostThumbnail(post: OurPostRef): Promise<Thumbna
   }
 }
 
-// ---------------------------------------------------------------------------
-// Make post: the planning week's empty slots, then a fill into one of them.
-
-export type MakeTargetsResult =
-  | {
-      ok: true;
-      week: BriefWeekSummary | null;
-      slots: EmptyWeekSlot[];
-      postTypes: PostType[];
-    }
-  | { ok: false; error: string };
-
-export async function loadMakeTargets(): Promise<MakeTargetsResult> {
+/** A brief was saved from this idea or reference: count the use. */
+export async function markLibraryItemUsed(itemId: string): Promise<LibraryActionResult> {
   const gate = await requireManager();
   if (!gate.ok) return gate;
-  try {
-    const [week, postTypes] = await Promise.all([
-      currentPlanningWeek(gate.companyId),
-      listPostTypes(gate.companyId),
-    ]);
-    const slots = week ? await listEmptyWeekSlots(gate.companyId, week.campaign.id) : [];
-    return { ok: true, week, slots, postTypes };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Could not load this week." };
-  }
-}
-
-export type MakeSource =
-  | { kind: "item"; itemId: string }
-  | { kind: "our_post"; post: OurPostRef };
-
-export type MakePostResult =
-  | { ok: true; kind: "made"; briefId: string }
-  | { ok: true; kind: "kill"; killReason: string }
-  | { ok: false; error: string };
-
-/** The editor stores the body and its hashtags merged into briefs.caption. */
-function mergeCaption(caption: string, hashtags: string[]): string {
-  const body = caption.replace(/#\w+/g, " ").replace(/\s+/g, " ").trim();
-  const tags = hashtags.map((t) => (t.startsWith("#") ? t : `#${t}`)).join(" ");
-  return [body, tags].filter(Boolean).join("\n\n");
-}
-
-type RawPortResponse = Partial<Omit<BriefDraft, "point_media">> & {
-  point_media?: unknown;
-  error?: string;
-  kill_reason?: string;
-};
-
-type PortOutcome =
-  | { kind: "draft"; draft: BriefDraft }
-  | { kind: "kill"; killReason: string }
-  | { kind: "error"; error: string };
-
-/** brief-assist port_format: a finished post of ours ported into the target type. */
-async function portDraft(sourceBriefId: string, postTypeKey: string): Promise<PortOutcome> {
-  const { data, error } = await callEdgeFunction<RawPortResponse>("brief-assist", {
-    action: "port_format",
-    brief_id: sourceBriefId,
-    target_post_type: postTypeKey,
-  });
-  if (error !== null) return { kind: "error", error };
-  if (data.error) return { kind: "error", error: data.error };
-  if (data.kill_reason) return { kind: "kill", killReason: data.kill_reason };
-  if (!data.title) return { kind: "error", error: "Draft came back incomplete." };
-  return {
-    kind: "draft",
-    draft: {
-      title: data.title,
-      format: data.format === "photo_carousel" ? "photo_carousel" : "video",
-      hook_options: data.hook_options ?? [],
-      talking_points: data.talking_points ?? [],
-      point_media: parsePointMedia(data.point_media),
-      hashtags: data.hashtags ?? [],
-      search_phrase: data.search_phrase ?? null,
-      point_count: data.point_count ?? null,
-      target_words: data.target_words ?? 380,
-      script: data.script ?? null,
-      caption: data.caption ?? "",
-      why_it_works: data.why_it_works ?? "",
-      cta: data.cta ?? null,
-      post_type_id: data.post_type_id ?? null,
-      overlay_labels: data.overlay_labels ?? [],
-      generation_id: data.generation_id ?? null,
-      warnings: data.warnings ?? [],
-      example_url: data.example_url ?? "",
-      example_transcript: data.example_transcript ?? null,
-    },
-  };
-}
-
-/** Pictures follow their point across a port; storage objects are shared by path. */
-async function carryScreenshots(
-  companyId: string,
-  sourceBriefId: string,
-  targetBriefId: string,
-): Promise<void> {
   const service = createServiceClient();
-  const { count } = await service
-    .from("briefs")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", companyId)
-    .in("id", [sourceBriefId, targetBriefId]);
-  if (count !== 2) return;
-  const [source, target] = await Promise.all([
-    service
-      .from("brief_segments")
-      .select("talking_point_index, screenshot_url, screenshot_x, screenshot_y, screenshot_width")
-      .eq("brief_id", sourceBriefId)
-      .not("screenshot_url", "is", null),
-    service
-      .from("brief_segments")
-      .select("id, talking_point_index")
-      .eq("brief_id", targetBriefId)
-      .is("screenshot_url", null),
-  ]);
-  await Promise.all(
-    (target.data ?? []).map(async (row) => {
-      if (row.talking_point_index === null) return;
-      const from = (source.data ?? []).find(
-        (s) => s.talking_point_index === row.talking_point_index,
-      );
-      if (!from) return;
-      await service
-        .from("brief_segments")
-        .update({
-          screenshot_url: from.screenshot_url,
-          screenshot_x: from.screenshot_x,
-          screenshot_y: from.screenshot_y,
-          screenshot_width: from.screenshot_width,
-        })
-        .eq("id", row.id);
-    }),
-  );
-}
-
-/**
- * A port writes the draft into the slot the way fillBrief does for ideas and
- * links: row, derived clips, carried pictures, then the AI snapshot.
- */
-async function portIntoSlot(params: {
-  companyId: string;
-  sourceBriefId: string;
-  briefId: string;
-  postTypeId: string;
-  postTypeKey: string;
-  family: BriefFormat;
-  textOverlay: Json;
-}): Promise<MakePostResult> {
-  const outcome = await portDraft(params.sourceBriefId, params.postTypeKey);
-  if (outcome.kind === "error") return { ok: false, error: outcome.error };
-  if (outcome.kind === "kill") return { ok: true, kind: "kill", killReason: outcome.killReason };
-
-  const { draft } = outcome;
-  const slideshow = params.family === "photo_carousel";
-  const saved = await saveBrief(
-    params.briefId,
-    {
-      title: draft.title,
-      format: params.family,
-      hook: slideshow ? null : (draft.hook_options[0] ?? null),
-      hook_options: slideshow ? [] : draft.hook_options,
-      talking_points: draft.talking_points,
-      hashtags: draft.hashtags,
-      search_phrase: draft.search_phrase,
-      point_count: draft.talking_points.length,
-      target_words: draft.target_words,
-      script: draft.script,
-      caption: mergeCaption(draft.caption, draft.hashtags) || null,
-      why_it_works: draft.why_it_works || null,
-      cta: slideshow ? null : draft.cta,
-      post_type_id: params.postTypeId,
-      kill_reason: null,
-      generation_id: draft.generation_id,
-      example_url: draft.example_url || null,
-      text_overlay: parseTextOverlay(params.textOverlay),
-      subtitles: true,
-    },
-    { deriveSegments: true, overlayLabels: draft.overlay_labels },
-  );
-  if (!saved.ok) return saved;
-
-  await createServiceClient()
-    .from("briefs")
-    .update({ example_transcript: draft.example_transcript })
-    .eq("company_id", params.companyId)
-    .eq("id", params.briefId);
-  await carryScreenshots(params.companyId, params.sourceBriefId, params.briefId);
-
-  const session = await createClient();
-  await session.rpc("snapshot_ai_brief", { p_brief_id: params.briefId, p_source_kind: "port" });
-  return { ok: true, kind: "made", briefId: params.briefId };
-}
-
-async function fillIntoSlot(
-  briefId: string,
-  source: { query?: string; url?: string; context?: string },
-  postTypeKey: string,
-): Promise<MakePostResult> {
-  const result = await fillBrief({ briefId, ...source, postTypeKey, saveIdea: false });
-  if (!result.ok) return result;
-  if (result.kind === "kill") return { ok: true, kind: "kill", killReason: result.killReason };
-  return { ok: true, kind: "made", briefId };
-}
-
-/** Increment usage and remember the post it became; never deletes. */
-async function markItemUsed(item: LibraryItem, briefId: string): Promise<void> {
-  await createServiceClient()
+  const { data: item } = await service
     .from("library_items")
-    .update({
-      used_count: item.used_count + 1,
-      last_used_at: new Date().toISOString(),
-      last_brief_id: briefId,
-    })
-    .eq("id", item.id);
-}
-
-/**
- * Generates the whole post into the chosen empty slot and marks the source
- * row used, the way mobile fillPostSlot does. The source post, if there is
- * one, is never touched.
- */
-export async function makePostFromLibrary(params: {
-  source: MakeSource;
-  briefId: string;
-  postTypeId: string;
-  postTypeKey: string;
-  family: BriefFormat;
-}): Promise<MakePostResult> {
-  const gate = await requireManager();
-  if (!gate.ok) return gate;
-  const service = createServiceClient();
-
-  const { data: slot } = await service
-    .from("briefs")
-    .select("id, text_overlay")
+    .select("id, used_count")
     .eq("company_id", gate.companyId)
-    .eq("id", params.briefId)
+    .eq("id", itemId)
     .maybeSingle();
-  if (!slot) return { ok: false, error: "Post not found." };
-
-  let result: MakePostResult;
-  let item: LibraryItem | null = null;
-
-  if (params.source.kind === "item") {
-    const { data } = await service
-      .from("library_items")
-      .select("*")
-      .eq("company_id", gate.companyId)
-      .eq("id", params.source.itemId)
-      .maybeSingle();
-    if (!data) return { ok: false, error: "That library item is gone." };
-    item = data;
-    if (data.url) {
-      result = await fillIntoSlot(
-        params.briefId,
-        { url: data.url, context: data.notes ?? undefined },
-        params.postTypeKey,
-      );
-    }
-    else if (data.text) result = await fillIntoSlot(params.briefId, { query: data.text }, params.postTypeKey);
-    else return { ok: false, error: "Nothing to make a post from." };
-  } else {
-    const post = params.source.post;
-    if (post.brief_id) {
-      result = await portIntoSlot({
-        companyId: gate.companyId,
-        sourceBriefId: post.brief_id,
-        briefId: params.briefId,
-        postTypeId: params.postTypeId,
-        postTypeKey: params.postTypeKey,
-        family: params.family,
-        textOverlay: slot.text_overlay,
-      });
-    } else if (post.post_url) {
-      result = await fillIntoSlot(params.briefId, { url: post.post_url }, params.postTypeKey);
-    } else return { ok: false, error: "Nothing to make a post from." };
-  }
-
-  if (!result.ok || result.kind !== "made") return result;
-
-  if (item) await markItemUsed(item, params.briefId);
-  else if (params.source.kind === "our_post") {
-    const ourPost = await findOrCreateOurPostItem(gate.companyId, gate.userId, params.source.post);
-    await markItemUsed(ourPost, params.briefId);
-  }
-
+  if (!item) return { ok: false, error: "That library item is gone." };
+  const { error } = await service
+    .from("library_items")
+    .update({ used_count: (item.used_count ?? 0) + 1, last_used_at: new Date().toISOString() })
+    .eq("id", item.id);
+  if (error) return { ok: false, error: error.message };
   revalidatePath("/manager/library");
-  revalidatePath("/manager/briefs", "layout");
-  return result;
+  return { ok: true };
 }

@@ -6,13 +6,6 @@
 
 import { cache } from "react";
 
-import {
-  briefRowState,
-  type BriefFormat,
-  type BriefWeekSummary,
-  type PostType,
-} from "@/components/manager/briefs/lib";
-import { listBriefWeeks, listCampaignBriefs } from "@/lib/manager/briefs";
 import type { Database, Tables } from "@/lib/supabase/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -123,41 +116,3 @@ export const listCreatorOptions = cache(
   },
 );
 
-/** The week a manager is planning right now: the newest unpublished week, else the live one. */
-export async function currentPlanningWeek(
-  companyId: string,
-): Promise<BriefWeekSummary | null> {
-  const weeks = await listBriefWeeks(companyId);
-  const byDrop = (a: BriefWeekSummary, b: BriefWeekSummary) =>
-    (b.campaign.drop_date ?? "") < (a.campaign.drop_date ?? "") ? -1 : 1;
-  const next = weeks.filter((w) => w.status === "next").sort(byDrop);
-  if (next[0]) return next[0];
-  return weeks.find((w) => w.status === "current") ?? null;
-}
-
-/** An untouched row in a week: nothing written, not killed. */
-export interface EmptyWeekSlot {
-  briefId: string;
-  family: BriefFormat;
-  /** 1 based position inside its lane, the number the week grid shows. */
-  laneIndex: number;
-  postType: PostType | null;
-}
-
-export async function listEmptyWeekSlots(
-  companyId: string,
-  campaignId: string,
-): Promise<EmptyWeekSlot[]> {
-  const items = await listCampaignBriefs(companyId, campaignId);
-  const laneCounts: Record<BriefFormat, number> = { video: 0, photo_carousel: 0 };
-  const slots: EmptyWeekSlot[] = [];
-  for (const item of items) {
-    const type = item.briefs.post_types;
-    const family: BriefFormat =
-      (type?.family ?? item.briefs.format) === "photo_carousel" ? "photo_carousel" : "video";
-    laneCounts[family] += 1;
-    if (item.briefs.kill_reason || briefRowState(item.briefs, type) !== "empty") continue;
-    slots.push({ briefId: item.briefs.id, family, laneIndex: laneCounts[family], postType: type });
-  }
-  return slots;
-}

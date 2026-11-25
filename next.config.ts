@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "zdcmmzofnrdqbwexuqnm.supabase.co", pathname: "/storage/v1/object/public/scout/**" },
     ],
   },
+  /* Briefs is one library now; the old week and post pages land on it. */
+  async redirects() {
+    return [
+      { source: "/manager/briefs/:path+", destination: "/manager/briefs", permanent: false },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "8mb",
