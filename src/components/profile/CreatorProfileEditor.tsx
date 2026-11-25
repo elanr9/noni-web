@@ -1,11 +1,10 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { Check, CheckCircle2 } from "lucide-react";
 import { useState, useTransition, type ReactNode } from "react";
 
 import { saveProfile } from "@/app/profile/actions";
+import { CreatorShell } from "@/components/creator/CreatorShell";
 import {
   COUNTRIES,
   GENDERS,
@@ -112,14 +111,7 @@ export function CreatorProfileEditor({ initial, name, photo, startTab = "You" }:
   const counts: Partial<Record<Tab, number>> = { Languages: languages.length, Interests: niches.length };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#fbfbfc] font-ops">
-      <header className="flex items-center gap-[9px] px-5 py-4 sm:px-7">
-        <Link href="/" className="flex items-center gap-[9px] no-underline">
-          <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
-          <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
-        </Link>
-      </header>
-
+    <CreatorShell active="profile">
       <main className="mx-auto flex w-full max-w-[680px] flex-1 flex-col px-4 pb-10 sm:px-5">
         <div className="mb-5 flex items-center gap-4">
           {photo ? (
@@ -280,7 +272,7 @@ export function CreatorProfileEditor({ initial, name, photo, startTab = "You" }:
           {error ? <span className="text-[14px] font-semibold text-danger">{error}</span> : null}
         </div>
       </main>
-    </div>
+    </CreatorShell>
   );
 }
 

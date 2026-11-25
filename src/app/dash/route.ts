@@ -8,7 +8,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 
 /* Role router: after sign-in or an account switch, sends each account to
-   its home dashboard. Creators land on their profile. Pending email invites are attached first, like the app
+   its home dashboard. Creators land on their campaigns. Pending email invites are attached first, like the app
    does on launch, so a new membership is in place before routing. */
 export async function GET() {
   const supabase = await createClient();
@@ -19,7 +19,7 @@ export async function GET() {
   if (!profile?.role) redirect("/apply");
   if (isPlatformAdmin(profile)) redirect("/ops");
   if (isCampaignManager(profile)) redirect("/manager");
-  /* Creators work from the app; on the website they get their profile. */
-  if (profile.role === "creator") redirect("/profile");
+  /* Creators make posts in the app; on the website they run their campaigns. */
+  if (profile.role === "creator") redirect("/campaigns");
   redirect("/admin");
 }

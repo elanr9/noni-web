@@ -66,10 +66,10 @@ export function CreatorApproved({ email, name }: { email: string; name: string }
         <GetTheApp email={email} name={name} source="apply" look="ops" showOpenApp={false} onDownload={() => {}} />
       </div>
       <Link
-        href="/profile"
+        href="/campaigns"
         className="inline-flex self-start rounded-full bg-blue-100 px-6 py-3.5 text-[15px] font-bold text-blue-700 no-underline transition-transform duration-[160ms] ease-om hover:-translate-y-px"
       >
-        Edit profile
+        See campaigns
       </Link>
     </Frame>
   );
