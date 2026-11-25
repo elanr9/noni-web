@@ -13,6 +13,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import { refreshScout, startScout, updateScoutCreator } from "@/app/admin/scout/actions";
@@ -43,7 +44,23 @@ const TABS = [
 ] as const satisfies ReadonlyArray<{ key: string; label: string; has: readonly ScoutStatus[] }>;
 type TabKey = (typeof TABS)[number]["key"];
 
-const PER_PAGE = 8;
+/* Two full rows on a laptop (4 or 3 across); a phone pages eight. */
+function usePerPage(): number {
+  const [n, setN] = useState(8);
+  useEffect(() => {
+    const lg = window.matchMedia("(min-width: 1024px)");
+    const xl = window.matchMedia("(min-width: 1280px)");
+    const set = () => setN(xl.matches ? 8 : lg.matches ? 6 : 8);
+    set();
+    lg.addEventListener("change", set);
+    xl.addEventListener("change", set);
+    return () => {
+      lg.removeEventListener("change", set);
+      xl.removeEventListener("change", set);
+    };
+  }, []);
+  return n;
+}
 
 function PlatformMark({ platform, size = 13 }: { platform: ScoutPlatform; size?: number }) {
   return platform === "tiktok" ? (
@@ -63,14 +80,13 @@ function Face({ c, size }: { c: ScoutCreator; size: number }) {
   const [broken, setBroken] = useState(false);
   const letter = (c.name || c.handle).replace(/[^a-z0-9]/i, "").slice(0, 1).toUpperCase() || "?";
   return c.avatar_url && !broken ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <Image
       src={c.avatar_url}
       alt=""
       width={size}
       height={size}
       onError={() => setBroken(true)}
-      className="shrink-0 rounded-full object-cover"
+      className="shrink-0 rounded-full bg-fill-quiet object-cover"
       style={{ width: size, height: size }}
     />
   ) : (
@@ -94,8 +110,14 @@ function Cover({ url, cover, views, className = "" }: { url: string; cover: stri
       className={`group/cover relative block overflow-hidden rounded-[10px] bg-fill-quiet ${className}`}
     >
       {cover && !broken ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={cover} alt="" onError={() => setBroken(true)} className="h-full w-full object-cover transition-transform duration-300 group-hover/cover:scale-105" />
+        <Image
+          src={cover}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 110px, 30vw"
+          onError={() => setBroken(true)}
+          className="object-cover transition-transform duration-300 group-hover/cover:scale-105"
+        />
       ) : (
         <span className="flex h-full w-full items-center justify-center text-slate-300">
           <Play size={18} />
@@ -154,7 +176,7 @@ function CreatorCard({
 
   return (
     <Card pad={0} lift onClick={onOpen} className="relative flex h-full min-h-0 cursor-pointer flex-col overflow-hidden">
-      <div className="grid min-h-[96px] flex-1 grid-cols-3 gap-1 p-1.5 pb-0">
+      <div className="grid h-[150px] grid-cols-3 gap-1 p-1.5 pb-0 lg:h-auto lg:min-h-[96px] lg:flex-1">
         {covers.length
           ? covers.map((v) => <Cover key={v.url} url={v.url} cover={v.cover} views={v.views} className="h-full" />)
           : [0, 1, 2].map((i) => <span key={i} className="rounded-[10px] bg-fill-quiet" />)}
@@ -316,9 +338,9 @@ function CreatorModal({
 
         {c.why ? <p className="m-0 text-[14px] font-semibold leading-[1.45] text-ink">{c.why}</p> : null}
 
-        {c.videos.length ? (
+        {c.videos.some((v) => v.cover) ? (
           <div className="grid grid-cols-6 gap-1.5">
-            {c.videos.slice(0, 6).map((v) => (
+            {c.videos.filter((v) => v.cover).slice(0, 6).map((v) => (
               <Cover key={v.url} url={v.url} cover={v.cover} views={v.views} className="aspect-[3/4]" />
             ))}
           </div>
@@ -440,7 +462,8 @@ function SearchForm({
             {p === "tiktok" ? "TikTok" : "Instagram"}
           </button>
         ))}
-        <span className="mx-1 h-5 w-px bg-line" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
         {SIZES.map((s) => (
           <button key={s.key} type="button" className={chip(size === s.key)} onClick={() => setSize(s.key)}>
             {s.label}
@@ -504,9 +527,9 @@ function RunStrip({ data, accent }: { data: ScoutData; accent: string }) {
   const terms = [...(r.plan.tiktok_queries ?? []), ...(r.plan.tiktok_hashtags ?? []).map((h) => `#${h}`), ...(r.plan.instagram_hashtags ?? []).map((h) => `#${h}`)];
   const unique = [...new Set(terms)];
   return (
-    <Card pad={0} className="mb-4 flex shrink-0 items-center gap-6 px-5 py-3.5">
+    <Card pad={0} className="mb-4 flex shrink-0 flex-col gap-4 px-5 py-3.5 md:flex-row md:items-center md:gap-6">
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {STEPS.map((s, i) => (
             <span key={s} className="flex items-center gap-2">
               <span
@@ -557,6 +580,7 @@ export function ScoutView({
 }) {
   const [data, setData] = useState(initial);
   const [tab, setTab] = useState<TabKey>("match");
+  const PER_PAGE = usePerPage();
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState<string | null>(initialOpen);
   const [searching, setSearching] = useState(false);
@@ -666,7 +690,7 @@ export function ScoutView({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-120px)] min-h-[560px] flex-col">
+    <div className="flex flex-col lg:h-[calc(100dvh-120px)] lg:min-h-[560px]">
       {head}
       {data.run && (running || data.run.status === "failed") ? (
         data.run.status === "failed" ? (
@@ -681,7 +705,8 @@ export function ScoutView({
         )
       ) : null}
 
-      <div className="mb-3 flex shrink-0 items-center gap-2">
+      <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
+        <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 [scrollbar-width:none]">
         {TABS.filter((t) => t.key !== "applied" || counts.applied > 0).map((t) => (
           <button
             key={t.key}
@@ -690,14 +715,14 @@ export function ScoutView({
               setTab(t.key);
               setPage(0);
             }}
-            className={`cursor-pointer rounded-full border px-4 py-1.5 text-[13.5px] font-bold transition-colors ${
+            className={`shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-4 py-1.5 text-[13.5px] font-bold transition-colors ${
               tab === t.key ? "border-ink bg-ink text-white" : "border-line bg-white text-slate-500 hover:text-ink"
             }`}
           >
             {t.label} <span className="tabular-nums opacity-70">{counts[t.key]}</span>
           </button>
         ))}
-        <span className="flex-1" />
+        </div>
         {error ? <span className="text-[13px] font-semibold text-danger">{error}</span> : null}
         {pages > 1 ? (
           <span className="flex items-center gap-1.5 text-[13px] font-bold text-slate-500">
@@ -727,7 +752,10 @@ export function ScoutView({
       </div>
 
       {shown.length ? (
-        <div key={`${tab}-${safePage}`} className="grid min-h-0 flex-1 auto-rows-[minmax(0,1fr)] grid-cols-2 gap-3 lg:grid-cols-4">
+        <div
+          key={`${tab}-${safePage}`}
+          className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:auto-rows-[minmax(0,1fr)] lg:grid-cols-3 xl:grid-cols-4"
+        >
           {shown.map((c, i) => (
             <div key={c.id} className="h-full min-h-0 animate-om-pop" style={{ animationDelay: `${i * 35}ms` } as CSSProperties}>
               <CreatorCard
@@ -741,7 +769,7 @@ export function ScoutView({
           ))}
         </div>
       ) : (
-        <Card pad={0} className="flex flex-1 items-center justify-center">
+        <Card pad={0} className="flex min-h-[240px] flex-1 items-center justify-center">
           <span className="text-[14px] font-semibold text-slate-400">
             {running ? "Nothing here yet." : "Nothing here."}
           </span>
