@@ -1,6 +1,6 @@
 "use client";
 
-import { Inbox,
+import { Briefcase, Inbox,
   CircleUserRound,
   Gauge,
   LayoutGrid,
@@ -26,6 +26,7 @@ import type { Company, Invite, Person } from "@/lib/ops/types";
 
 const NAV = [
   { href: "/ops", label: "Overview", icon: Gauge },
+  { href: "/ops/leads", label: "Leads", icon: Briefcase },
   { href: "/ops/companies", label: "Companies", icon: LayoutGrid },
   { href: "/ops/users", label: "Users", icon: Users },
   { href: "/ops/applications", label: "Applications", icon: Inbox },

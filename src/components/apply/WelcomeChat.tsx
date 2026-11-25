@@ -19,7 +19,7 @@ import { ASK_NAME, askKind, KIND_ANSWER, SIGN_IN_FIRST } from "@/lib/welcome-cha
 
 type Line = { from: "noni" | "me"; text: string };
 
-function Avatar() {
+export function Avatar() {
   return (
     <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.12)]">
       <Image src="/brand/noni-logo.svg" alt="" width={18} height={18} />
@@ -28,7 +28,7 @@ function Avatar() {
 }
 
 /** One Noni line, typed out after a beat of dots. */
-function NoniLine({ text, live, onDone }: { text: string; live: boolean; onDone: () => void }) {
+export function NoniLine({ text, live, onDone }: { text: string; live: boolean; onDone: () => void }) {
   const [shown, setShown] = useState(live ? 0 : text.length);
   const done = useRef(onDone);
   useEffect(() => {

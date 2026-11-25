@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { sendSignInLink } from "./actions";
 
 function LoginForm() {
   const params = useSearchParams();
@@ -14,8 +15,22 @@ function LoginForm() {
         "Sign-in failed. Try again, or use the same browser where you started login."
       : null;
 
-  const [busy, setBusy] = useState<OAuthProvider | null>(null);
+  const [busy, setBusy] = useState<OAuthProvider | "email" | null>(null);
   const [error, setError] = useState<string | null>(authError);
+  const [email, setEmail] = useState("");
+  const [sentTo, setSentTo] = useState<string | null>(null);
+
+  async function emailLink() {
+    setBusy("email");
+    setError(null);
+    const r = await sendSignInLink(email, next);
+    setBusy(null);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    setSentTo(email.trim().toLowerCase());
+  }
 
   async function signInWith(provider: OAuthProvider) {
     setBusy(provider);
@@ -73,11 +88,49 @@ function LoginForm() {
           Welcome back
         </h1>
 
+        {sentTo ? (
+          <div className="mt-6 rounded-2xl bg-soft px-4 py-4 text-center">
+            <p className="m-0 text-[15px] font-semibold text-ink">Check your inbox</p>
+            <p className="m-0 mt-1 text-[13px] text-muted">{sentTo}</p>
+          </div>
+        ) : (
+          <form
+            className="mt-6 flex flex-col gap-2.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void emailLink();
+            }}
+          >
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Work email"
+              className="w-full rounded-full border border-line bg-white px-5 py-3 text-[15px] font-medium text-ink outline-none focus:border-accent"
+            />
+            <button
+              type="submit"
+              disabled={busy !== null || !email.trim()}
+              className="w-full cursor-pointer rounded-full border-none bg-ink px-5 py-3 text-[15px] font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              {busy === "email" ? "Sending…" : "Email me a sign-in link"}
+            </button>
+          </form>
+        )}
+
+        <div className="mt-5 flex items-center gap-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+          <span className="h-px flex-1 bg-line" />
+          Creators
+          <span className="h-px flex-1 bg-line" />
+        </div>
+
         <button
           type="button"
           disabled={busy !== null}
           onClick={() => void signInWith("google")}
-          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-full border border-line bg-white px-5 py-3 text-[15px] font-semibold text-ink transition hover:bg-soft disabled:opacity-50"
+          className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-full border border-line bg-white px-5 py-3 text-[15px] font-semibold text-ink transition hover:bg-soft disabled:opacity-50"
         >
           <GoogleLogo />
           {busy === "google" ? "Opening Google…" : "Continue with Google"}
@@ -93,7 +146,7 @@ function LoginForm() {
       <p className="mt-5 text-center text-[13px] text-muted">
         New to Noni?{" "}
         <Link href="/apply" className="font-semibold text-accent hover:text-accent-deep">
-          Create an account
+          Get started
         </Link>
       </p>
     </div>

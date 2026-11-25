@@ -76,3 +76,50 @@ export async function acceptInvite(token: string): Promise<AcceptResult> {
     switched: !switchError,
   };
 }
+
+/** A company admin opening their invite is signed in from the link itself:
+    the token was emailed to that address, so it proves the inbox, the same
+    way a sign-in link does. Works only while the invite is unused and in
+    date; after that they sign in from /login. Signs out any other account
+    in this browser first. */
+export async function continueInvite(token: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const service = createServiceClient();
+  const { data: invite } = await service
+    .from("company_invites")
+    .select("email, invited_name, role, accepted_at, expires_at")
+    .eq("token", token)
+    .maybeSingle();
+  if (!invite || invite.role !== "company_admin") return { ok: false, error: "This invite link is not valid." };
+  if (invite.accepted_at) return { ok: false, error: "This invite was already used. Sign in instead." };
+  if (Date.parse(invite.expires_at) < Date.now()) return { ok: false, error: "This invite has expired. Ask your Noni contact for a new one." };
+
+  const email = String(invite.email).trim().toLowerCase();
+  const name = typeof invite.invited_name === "string" ? invite.invited_name.trim() : "";
+
+  /* The account is made confirmed; an existing one (say from Google) is reused. */
+  const created = await service.auth.admin.createUser({
+    email,
+    email_confirm: true,
+    ...(name ? { user_metadata: { full_name: name } } : {}),
+  });
+  if (created.error && !/already|registered|exists/i.test(created.error.message)) {
+    return { ok: false, error: created.error.message };
+  }
+
+  const { data: link, error: linkError } = await service.auth.admin.generateLink({ type: "magiclink", email });
+  const hash = link?.properties?.hashed_token;
+  if (linkError || !hash) return { ok: false, error: linkError?.message ?? "Sign in did not start. Try again." };
+
+  const supabase = await createClient();
+  await supabase.auth.signOut({ scope: "local" });
+  const { error: verifyError } = await supabase.auth.verifyOtp({ type: "magiclink", token_hash: hash });
+  if (verifyError) return { ok: false, error: verifyError.message };
+
+  if (name) {
+    const { data: me } = await supabase.auth.getUser();
+    if (me.user) {
+      await service.from("profiles").update({ full_name: name }).eq("id", me.user.id).or("full_name.is.null,full_name.eq.");
+    }
+  }
+  return { ok: true };
+}

@@ -19,6 +19,18 @@ export default async function OnboardingPage() {
   if (!isCompanyAdmin(profile)) redirect("/admin");
   if (profile?.onboarded) redirect("/admin");
 
+  /* A company ops set up from a Get started lead (or one already set up by
+     another admin) has its answers: no chat, straight on. */
+  const { data: setUp } = await createServiceClient()
+    .from("companies")
+    .select("onboarded_at")
+    .eq("id", profile!.active_company_id!)
+    .maybeSingle();
+  if (setUp?.onboarded_at) {
+    await createServiceClient().from("profiles").update({ onboarded: true }).eq("id", userId);
+    redirect("/admin");
+  }
+
   const supabase = await createClient();
   const { data: userRes } = await supabase.auth.getUser();
   const email = userRes.user?.email?.toLowerCase() ?? "";

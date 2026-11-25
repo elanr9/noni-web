@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 
 import { markCallBooked, startPlanCheckout } from "@/app/start/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
-import { themeTextColor } from "@/lib/media-library-shared";
+import { calendlySrc, isCalendlyBooked } from "@/lib/calendly";
 
 /* Where a company waits between the onboarding chat and its dashboard.
    - call: book the call with the founders (Calendly, inline). Every company
@@ -21,21 +21,6 @@ import { themeTextColor } from "@/lib/media-library-shared";
 export type StartStep = "call" | "booked" | "offer" | "paid";
 
 const NONI_BLUE = "#1BA6EE";
-
-/* The founders' Calendly as an inline embed, filled in with who they are.
-   embed_domain + embed_type make Calendly post its events (event_scheduled)
-   back to this page. */
-function calendlySrc(url: string, host: string, who: { name: string; email: string; color: string }): string {
-  const u = new URL(url);
-  u.searchParams.set("embed_domain", host);
-  u.searchParams.set("embed_type", "Inline");
-  u.searchParams.set("hide_gdpr_banner", "1");
-  u.searchParams.set("hide_event_type_details", "1");
-  u.searchParams.set("primary_color", who.color.replace("#", ""));
-  if (who.name) u.searchParams.set("name", who.name);
-  if (who.email) u.searchParams.set("email", who.email);
-  return u.toString();
-}
 
 export function StartFlow({
   companyId,
@@ -80,9 +65,7 @@ export function StartFlow({
   useEffect(() => {
     if (step !== "call") return;
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== "https://calendly.com") return;
-      const data = e.data as { event?: string } | null;
-      if (data?.event !== "calendly.event_scheduled") return;
+      if (!isCalendlyBooked(e)) return;
       setStep("booked");
       void markCallBooked(companyId);
     };
@@ -184,7 +167,7 @@ export function StartFlow({
               onClick={() => void start()}
               disabled={starting}
               className="group inline-flex cursor-pointer items-center gap-2 rounded-full border-none px-9 py-[18px] text-[18px] font-bold transition-[transform,filter] duration-150 hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:scale-[0.96] disabled:opacity-60"
-              style={{ backgroundColor: accent, color: themeTextColor(accent) }}
+              style={{ backgroundColor: accent, color: "#FFFFFF" }}
             >
               {starting ? "One sec…" : "Start subscription"}
               {starting ? null : <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />}

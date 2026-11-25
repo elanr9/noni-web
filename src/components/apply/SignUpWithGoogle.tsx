@@ -21,14 +21,21 @@ function GoogleLogo() {
   );
 }
 
-export function SignUpWithGoogle({ preselect }: { preselect: ApplyKind | null }) {
+export function SignUpWithGoogle({
+  preselect,
+  carry = "",
+}: {
+  preselect: ApplyKind | null;
+  /** What was already said in the Get started chat (name, asked flags), as query params. */
+  carry?: string;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const signUp = async () => {
     setBusy(true);
     setError(null);
-    const next = preselect ? `/apply?as=${preselect}` : "/apply";
+    const next = preselect ? `/apply?as=${preselect}${carry}` : "/apply";
     const { data, error: oauthError } = await createClient().auth.signInWithOAuth({
       provider: "google",
       options: {

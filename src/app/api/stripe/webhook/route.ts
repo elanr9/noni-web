@@ -104,6 +104,12 @@ export async function POST(request: Request): Promise<Response> {
           error =
             (await writeBilling(companyId, { offer_plan: null })) ??
             (await scheduleFirstBudgetBill(companyId));
+          /* The ops pipeline shows the lead as subscribed. */
+          await createServiceClient()
+            .from("company_leads")
+            .update({ status: "subscribed", subscribed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+            .eq("company_id", companyId)
+            .eq("status", "invited");
         }
       }
       break;

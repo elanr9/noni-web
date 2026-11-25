@@ -1,6 +1,8 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { ApplyChooser } from "@/components/apply/ApplyChooser";
+import { GetStartedChat } from "@/components/apply/GetStartedChat";
 import { SignUpWithGoogle } from "@/components/apply/SignUpWithGoogle";
 import { WelcomeChat } from "@/components/apply/WelcomeChat";
 import { ChatDone, CreatorApproved, InReview, NotAccepted } from "@/components/apply/ApplyStatus";
@@ -8,18 +10,19 @@ import { ChatOnboarding } from "@/components/admin/onboarding/ChatOnboarding";
 import { parseKind, type ApplyKind, type ApplyState, type MyApplication } from "@/lib/applications";
 import { callEdgeFunction } from "@/lib/edge";
 import { createClient } from "@/lib/supabase/server";
+import { BOOKING_URL } from "@/lib/site-config";
 import { introOf } from "@/lib/welcome-chat";
 
 export const metadata = { title: "Join Noni" };
 export const dynamic = "force-dynamic";
 
-/* The front door (Get started). Signed out, a plain sign-up card with
-   Google (SignUpWithGoogle); the chat never shows before sign in. Back here
-   signed in, the chat starts fresh (WelcomeChat): Noni asks their name
-   (always, whatever Google gave), then company or creator.
-   A company gets its workspace straight away and carries on in the
-   onboarding chat; a creator carries on in the creator chat and waits for
-   review (/ops/applications). The first lines are carried into either chat.
+/* The front door (Get started). Signed out, one chat with no account
+   (GetStartedChat): Noni asks their name, then company or creator.
+   - Company: the questions for the call, saved as a lead, then the
+     founders' Calendly in the chat. Companies never make an account here;
+     ops invites them after the call (/ops/leads).
+   - Creator: the Google sign-up card, then the creator chat (these first
+     lines carried in) and review (/ops/applications).
    People who already have a Noni account are sent to it. */
 export default async function ApplyPage({
   searchParams,
@@ -37,7 +40,14 @@ export default async function ApplyPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return <SignUpWithGoogle preselect={wanted} />;
+  const host = (await headers()).get("host") ?? "usenoni.app";
+  if (!user) {
+    if (wanted === "creator") {
+      const carry = told ? `&name=${encodeURIComponent(told)}&asked=${params.asked === "1" ? 1 : 0}&named=${params.named === "1" ? 1 : 0}` : "";
+      return <SignUpWithGoogle preselect="creator" carry={carry} />;
+    }
+    return <GetStartedChat bookingUrl={BOOKING_URL} host={host} />;
+  }
 
   const email = user.email?.toLowerCase() ?? "";
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
@@ -63,17 +73,9 @@ export default async function ApplyPage({
      still asks their name first (always, whatever Google gave). */
   if (!told && !app && !state.data.has_profile) return <WelcomeChat signedIn preselect={kind} />;
 
-  /* A company is let straight in: its workspace is made now and the
-     onboarding chat (the first thing every company does) asks the rest. */
-  if (kind === "company") {
-    const joined = await callEdgeFunction<{ company_id: string | null }>("apply-chat", {
-      action: "join_company",
-      kind: "company",
-      ...(told ? { name: told, intro } : {}),
-    });
-    if (joined.error !== null) return <ApplyChooser signedIn preselect="company" />;
-    redirect("/onboarding");
-  }
+  /* A company never gets an account from here: the same lead chat as
+     signed out, then the call. */
+  if (kind === "company") return <GetStartedChat bookingUrl={BOOKING_URL} host={host} startName={told || name} />;
 
   if (!app || (app.status === "rejected" && again)) {
     const started = await callEdgeFunction<{ application: MyApplication }>("apply-chat", {

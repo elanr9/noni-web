@@ -5,54 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Card, Label, Pill } from "@/components/kit";
-import { createClient } from "@/lib/supabase/client";
-import { acceptInvite } from "./actions";
+import { acceptInvite, continueInvite } from "./actions";
 
-/* Company-admin invite screens from design_handoff_admin_app_web
-   (AdminOnbFlow.jsx step 0): the "You're invited" landing with Get started
-   with Google, and the wrong-Google-account gate that shows the invited
-   address and offers an account switch. */
-
-function GoogleG({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true">
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-      />
-    </svg>
-  );
-}
-
-function GoogleButton({
-  children,
-  onClick,
-}: {
-  children: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-pill border border-line bg-white px-5 py-3.5 text-[14.5px] font-bold text-ink shadow-card transition-colors duration-[160ms] ease-om hover:bg-fill-quiet"
-    >
-      <GoogleG /> {children}
-    </button>
-  );
-}
+/* Company-admin invite screens: the landing, where Continue signs them in
+   from the invite link itself (no Google, no password), and the
+   wrong-account gate, which signs in as the invited address instead. */
 
 function InviteShell({ children }: { children: React.ReactNode }) {
   return (
@@ -72,38 +29,6 @@ function InviteShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* Starts Google OAuth and returns to the invite's accept route. The invited
-   email rides along as a login hint; switching signs the current session
-   out first and forces the Google account picker. */
-async function startGoogleSignIn(
-  token: string,
-  invitedEmail: string,
-  switchAccount: boolean,
-): Promise<string | null> {
-  const supabase = createClient();
-  /* This browser only, so the other account stays signed in on the app. */
-  if (switchAccount) await supabase.auth.signOut({ scope: "local" });
-  const next = `/invite/${token}/accept`;
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      skipBrowserRedirect: true,
-      queryParams: switchAccount
-        ? { prompt: "select_account" }
-        : { login_hint: invitedEmail },
-    },
-  });
-  if (error) return error.message;
-  if (!data.url) return "Google sign-in did not return a redirect URL.";
-  // Ensure the PKCE verifier cookie was written before leaving the page.
-  if (!document.cookie.includes("code-verifier")) {
-    return "Could not save sign-in cookies. Allow cookies for this site and try again.";
-  }
-  window.location.assign(data.url);
-  return null;
-}
-
 export function AdminInviteLanding({
   token,
   companyName,
@@ -113,45 +38,37 @@ export function AdminInviteLanding({
   companyName: string;
   invitedEmail: string;
 }) {
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onGoogle() {
+  async function onContinue() {
     setBusy(true);
     setError(null);
-    const message = await startGoogleSignIn(token, invitedEmail, false);
-    if (message) {
+    const r = await continueInvite(token);
+    if (!r.ok) {
       setBusy(false);
-      setError(message);
+      setError(r.error);
+      return;
     }
+    router.replace(`/invite/${token}/accept`);
+    router.refresh();
   }
 
   return (
     <InviteShell>
-      <Image
-        src="/brand/noni-logo.svg"
-        alt=""
-        width={46}
-        height={46}
-        className="mx-auto block"
-      />
-      <Label className="mt-5 block">{"You're invited"}</Label>
-      <h1 className="mb-0 mt-2 text-[25px] font-bold tracking-[-0.6px] text-ink">
-        {`To run ${companyName}'s UGC with Noni!`}
-      </h1>
-      <GoogleButton onClick={busy ? undefined : () => void onGoogle()}>
-        {busy ? "Opening Google…" : "Get started with Google"}
-      </GoogleButton>
-      {error ? (
-        <p className="mb-0 mt-3 text-[12.5px] font-semibold text-danger">
-          {error}
-        </p>
-      ) : null}
-      <p className="mb-0 mt-4 text-[12.5px] font-semibold leading-normal text-slate-400">
-        Use the account this invite was sent to:{" "}
-        <span className="text-ink">{invitedEmail}</span>. Already on Noni with
-        that account? {companyName} is added alongside your other companies.
-      </p>
+      <Image src="/brand/noni-logo.svg" alt="" width={46} height={46} className="mx-auto block" />
+      <h1 className="mb-0 mt-5 text-[25px] font-bold tracking-[-0.6px] text-ink">{`${companyName} on Noni`}</h1>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void onContinue()}
+        className="mt-6 flex w-full cursor-pointer items-center justify-center rounded-pill border-none bg-ink px-5 py-3.5 text-[14.5px] font-bold text-white transition-[transform,opacity] duration-150 active:scale-[0.98] disabled:opacity-60"
+      >
+        {busy ? "One sec…" : "Continue"}
+      </button>
+      {error ? <p className="mb-0 mt-3 text-[12.5px] font-semibold text-danger">{error}</p> : null}
+      <p className="mb-0 mt-4 text-[12.5px] font-semibold leading-normal text-slate-400">{invitedEmail}</p>
     </InviteShell>
   );
 }
@@ -196,14 +113,18 @@ export function AdminInviteGate({
 
   async function onSwitch() {
     setError(null);
-    const message = await startGoogleSignIn(token, invitedEmail, true);
-    if (message) setError(message);
+    const r = await continueInvite(token);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    router.refresh();
   }
 
   if (wrongAccount) {
     return (
       <InviteShell>
-        <Label className="block">Wrong Google account</Label>
+        <Label className="block">Wrong account</Label>
         <h1 className="mb-0 mt-2 text-[25px] font-bold tracking-[-0.6px] text-ink">
           This invite was sent to another address
         </h1>
@@ -212,9 +133,9 @@ export function AdminInviteGate({
           <span className="text-ink">{invitedEmail}</span>. You are signed in
           as <span className="text-ink">{currentEmail}</span>.
         </p>
-        <GoogleButton onClick={() => void onSwitch()}>
-          Switch account
-        </GoogleButton>
+        <Pill className="mt-6 w-full" onClick={() => void onSwitch()}>
+          {`Continue as ${invitedEmail}`}
+        </Pill>
         {error ? (
           <p className="mb-0 mt-3 text-[12.5px] font-semibold text-danger">
             {error}
@@ -247,8 +168,7 @@ export function AdminInviteGate({
         </>
       ) : (
         <p className="mb-0 mt-3 text-[13.5px] font-semibold leading-[1.55] text-slate-400">
-          Adding {companyName} to this Google account as its company admin. Any
-          companies you already work with stay on your account.
+          Any companies you already work with stay on your account.
         </p>
       )}
     </InviteShell>
