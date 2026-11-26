@@ -21,6 +21,57 @@ function GoogleLogo() {
   );
 }
 
+/** The last step of the creator chat: the answers are in, Google saves them.
+    Comes back to /apply, which moves the guest draft onto the new account. */
+export function GoogleToFinish({ next }: { next: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const go = async () => {
+    setBusy(true);
+    setError(null);
+    const { data, error: oauthError } = await createClient().auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        skipBrowserRedirect: true,
+      },
+    });
+    if (oauthError || !data.url) {
+      setBusy(false);
+      setError(oauthError?.message ?? "Google sign in did not start. Try again.");
+      return;
+    }
+    window.location.assign(data.url);
+  };
+
+  return (
+    <div className="flex flex-col items-start gap-3">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void go()}
+        className="inline-flex cursor-pointer items-center gap-2.5 rounded-full border border-line bg-white px-6 py-3.5 text-[16px] font-bold text-ink shadow-card transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.96] disabled:opacity-50"
+      >
+        <GoogleLogo />
+        {busy ? "Opening Google…" : "Continue with Google"}
+      </button>
+      <p className="m-0 text-[12px] leading-relaxed text-slate-400">
+        By continuing you agree to the{" "}
+        <Link href="/terms" className="text-slate-500 underline">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="text-slate-500 underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+      {error ? <p className="m-0 rounded-xl bg-red-50 px-3.5 py-2.5 text-[13px] font-medium text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
 export function SignUpWithGoogle({
   preselect,
   carry = "",

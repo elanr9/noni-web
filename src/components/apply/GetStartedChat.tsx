@@ -14,8 +14,8 @@ import { ASK_NAME, askKind, KIND_ANSWER } from "@/lib/welcome-chat";
 
 /* Get started, signed out. One conversation, no account:
    name, then company or creator.
-   - Creator: on to the Google sign-up card (/apply?as=creator), and the
-     creator chat after it.
+   - Creator: on to the creator chat as a guest (/apply?as=creator); Google
+     is its last step.
    - Company: the questions the call needs, saved on a lead as they are
      answered (app/apply/company/actions), then the founders' Calendly right
      in the chat. Companies never make an account here; ops invites them

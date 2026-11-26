@@ -63,7 +63,7 @@ export function CreatorApproved({ email, name }: { email: string; name: string }
         </p>
       </div>
       <div className="rounded-[20px] border border-line bg-white p-5">
-        <GetTheApp email={email} name={name} source="apply" look="ops" showOpenApp={false} onDownload={() => {}} />
+        <GetTheApp email={email} name={name} source="apply" look="ops" showOpenApp={false} />
       </div>
       <Link
         href="/campaigns"
