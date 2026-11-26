@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSignature,
+  MessageCircle,
   Pencil,
   Search,
   Send,
@@ -27,6 +28,7 @@ import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { Card, Chip, Field, Modal, PageHead, Pill, TextArea } from "@/components/kit";
 import { NICHES } from "@/lib/creator-profile";
 import { CampaignCard, type CardCampaign } from "@/components/campaign/CampaignCard";
+import { MessageThread } from "@/components/campaign/MessageThread";
 import { CARD_COLORS, DEFAULT_TERMS, TERM_FLOORS, cardColor, payLines, postsPerDayLabel, withTerms } from "@/lib/campaign-terms";
 import {
   AGE_BANDS,
@@ -83,7 +85,7 @@ function usePerPage(): number {
   return n;
 }
 
-function Face({ c, size }: { c: MarketCreator; size: number }) {
+export function Face({ c, size }: { c: MarketCreator; size: number }) {
   const [broken, setBroken] = useState(false);
   const name = c.full_name?.trim() || "Creator";
   if (c.photo && !broken) {
@@ -110,7 +112,7 @@ function Face({ c, size }: { c: MarketCreator; size: number }) {
   );
 }
 
-function MatchPill({ c }: { c: MarketCreator }) {
+export function MatchPill({ c }: { c: MarketCreator }) {
   if (!c.match_score) return null;
   const strong = c.match_score >= 80;
   return (
@@ -125,7 +127,7 @@ function MatchPill({ c }: { c: MarketCreator }) {
   );
 }
 
-function Stats({ c }: { c: MarketCreator }) {
+export function Stats({ c }: { c: MarketCreator }) {
   const items = [
     { label: "Views", value: compactCount(c.total_views) },
     { label: "Earned", value: dollars(c.total_earned_cents) },
@@ -143,7 +145,7 @@ function Stats({ c }: { c: MarketCreator }) {
   );
 }
 
-function Niches({ niches, wanted, max = 3, oneLine = false }: { niches: string[]; wanted: string[]; max?: number; oneLine?: boolean }) {
+export function Niches({ niches, wanted, max = 3, oneLine = false }: { niches: string[]; wanted: string[]; max?: number; oneLine?: boolean }) {
   if (niches.length === 0) return null;
   const shown = [...niches].sort((a, b) => Number(wanted.includes(b)) - Number(wanted.includes(a))).slice(0, max);
   return (
@@ -267,7 +269,7 @@ function PillPicker<K extends string>({
   );
 }
 
-function SmallLabel({ children }: { children: ReactNode }) {
+export function SmallLabel({ children }: { children: ReactNode }) {
   return <div className="mb-1.5 text-[12px] font-extrabold uppercase tracking-[0.06em] text-slate-400">{children}</div>;
 }
 
@@ -512,6 +514,7 @@ function CreatorModal({
 }) {
   const name = c.full_name?.trim() || "Creator";
   const [writing, setWriting] = useState(false);
+  const [talking, setTalking] = useState(false);
   const [message, setMessage] = useState("");
   const [contract, setContract] = useState<{ title: string | null; body: string | null; signedName: string | null; signedAt: string | null } | null>(null);
   const [contractError, setContractError] = useState<string | null>(null);
@@ -538,6 +541,14 @@ function CreatorModal({
         <div className="mt-3 text-[13px] font-bold text-slate-500">
           Signed by {contract.signedName ?? name} {shortDay(contract.signedAt) ? `on ${shortDay(contract.signedAt)}` : ""}
         </div>
+      </Modal>
+    );
+  }
+
+  if (talking && c.application_id) {
+    return (
+      <Modal title={name} onClose={() => setTalking(false)} width={520}>
+        <MessageThread applicationId={c.application_id} placeholder={`Message ${name.split(" ")[0]}`} className="h-[52vh]" />
       </Modal>
     );
   }
@@ -627,8 +638,11 @@ function CreatorModal({
       <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
         {c.application_status === "applied" && c.application_id ? (
           <>
+            <Pill variant="tint" size="sm" icon={MessageCircle} onClick={() => setTalking(true)}>
+              Message
+            </Pill>
             <Pill variant="ghost" size="sm" icon={FileSignature} onClick={() => void showContract()}>
-              Signed agreement
+              Agreement
             </Pill>
             <span className="flex-1" />
             <Pill variant="quiet" disabled={busy} onClick={() => onDecide(false)}>
@@ -638,8 +652,14 @@ function CreatorModal({
               Accept
             </Pill>
           </>
-        ) : c.application_status === "invited" ? (
-          <Chip tone="blue">Invited</Chip>
+        ) : c.application_status === "invited" && c.application_id ? (
+          <>
+            <Chip tone="blue">Invited</Chip>
+            <span className="flex-1" />
+            <Pill variant="tint" icon={MessageCircle} onClick={() => setTalking(true)}>
+              Message
+            </Pill>
+          </>
         ) : c.is_member ? (
           <Chip tone="green">On your team</Chip>
         ) : listing ? (

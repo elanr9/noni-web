@@ -127,23 +127,25 @@ export async function loadMarket(): Promise<Result<MarketData>> {
   }
 }
 
-/** Creators waiting on a yes or no, for the Review page. */
-export async function loadApplicants(): Promise<MarketCreator[]> {
+/** Creators waiting on a yes or no, for the Review page, and the niches the campaign asked for. */
+export async function loadApplicants(): Promise<{ rows: MarketCreator[]; wanted: string[] }> {
+  const none = { rows: [], wanted: [] };
   const g = await gate();
-  if (!g.ok) return [];
+  if (!g.ok) return none;
   try {
     const supabase = await createClient();
     const { data } = await supabase
       .from("marketplace_listings" as never)
-      .select("id")
+      .select("id, niches")
       .eq("company_id", g.companyId)
       .order("created_at", { ascending: true })
       .limit(1);
-    const id = ((data ?? []) as unknown as { id: string }[])[0]?.id;
-    if (!id) return [];
-    return (await queryCreators({ listingId: id, scope: "applicants", sort: "match", limit: 50 })).rows;
+    const listing = ((data ?? []) as unknown as { id: string; niches: string[] | null }[])[0];
+    if (!listing) return none;
+    const page = await queryCreators({ listingId: listing.id, scope: "applicants", sort: "match", limit: 50 });
+    return { rows: page.rows, wanted: listing.niches ?? [] };
   } catch {
-    return [];
+    return none;
   }
 }
 

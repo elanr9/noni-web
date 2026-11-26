@@ -3,24 +3,29 @@
 import {
   AtSign,
   Check,
+  ChevronLeft,
   ChevronRight,
   CircleUserRound,
   Images,
-  Inbox,
   Music2,
   Play,
   UserRoundPlus,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { Children, useState, type ReactNode } from "react";
+
+import type { ThreadMessage } from "@/app/messages/actions";
 
 import { decideApplication } from "@/app/manager/market/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
 
 import { ElsewhereStrip } from "@/components/CompanySwitcher";
-import { Avatar, Card, Chip, Label, PageHead, Pill } from "@/components/kit";
-import { compactCount, creatorFactLine, dollars, mainHandle, type MarketCreator } from "@/lib/manager/market";
+import { Avatar, Chip, Label, PageHead, Pill } from "@/components/kit";
+import type { MarketCreator } from "@/lib/manager/market";
+
+import { ApplicantsLane } from "./ApplicantsLane";
 import type {
   AccountQueueItem,
   MusicQueueItem,
@@ -47,7 +52,7 @@ function LaneTabs({
   onSelect: (lane: Lane) => void;
 }) {
   return (
-    <div className="mb-4 flex items-center gap-1">
+    <div className="mb-4 flex shrink-0 items-center gap-1">
       {LANES.map((lane) => {
         const isActive = lane === active;
         return (
@@ -62,13 +67,15 @@ function LaneTabs({
             }`}
           >
             {lane}
-            <span
-              className={`inline-flex min-w-[20px] items-center justify-center px-1.5 py-px text-[11px] font-extrabold rounded-pill ${
-                isActive ? "bg-white text-blue-700" : "bg-fill-quiet text-slate-400"
-              }`}
-            >
-              {counts[lane]}
-            </span>
+            {counts[lane] > 0 ? (
+              <span
+                className={`inline-flex min-w-[20px] items-center justify-center px-1.5 py-px text-[11px] font-extrabold rounded-pill ${
+                  isActive ? "bg-blue-500 text-white" : "bg-fill-quiet text-slate-500"
+                }`}
+              >
+                {counts[lane]}
+              </span>
+            ) : null}
           </button>
         );
       })}
@@ -140,62 +147,77 @@ function AccountQueueRow({ row }: { row: AccountQueueItem }) {
   );
 }
 
-function ApplicantRow({ c, busy, onDecide }: { c: MarketCreator; busy: boolean; onDecide: (accept: boolean) => void }) {
-  const name = c.full_name?.trim() || "Creator";
-  const stats = [
-    creatorFactLine(c) || mainHandle(c),
-    c.followers ? `${compactCount(c.followers)} followers` : null,
-    c.total_views ? `${compactCount(c.total_views)} views` : null,
-    c.total_earned_cents ? `${dollars(c.total_earned_cents)} earned` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+/* An empty lane fills the page: one mark, two words, one thing to do. */
+function EmptyLane({
+  icon: Icon,
+  title,
+  tone = "blue",
+  action,
+  href,
+}: {
+  icon: LucideIcon;
+  title: string;
+  tone?: "blue" | "green";
+  action?: string;
+  href?: string;
+}) {
+  const router = useRouter();
   return (
-    <div className="flex animate-om-pop items-center gap-3.5 border border-line bg-white p-4 shadow-card rounded-ops-md">
-      {c.photo ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={c.photo} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
-      ) : (
-        <Avatar name={name} size={40} />
-      )}
-      <Link href="/manager/market" className="min-w-0 flex-1 no-underline">
-        <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-bold text-ink">{name}</span>
-        <span className="mt-[3px] block overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] font-semibold text-slate-400">
-          {stats || "New to Noni"}
-        </span>
-      </Link>
-      {c.match_score != null ? <Chip tone="blue">{Math.round(c.match_score)}%</Chip> : null}
-      <Pill variant="quiet" size="sm" disabled={busy} onClick={() => onDecide(false)}>
-        Decline
-      </Pill>
-      <Pill size="sm" icon={Check} loading={busy} onClick={() => onDecide(true)}>
-        Accept
-      </Pill>
+    <div className="flex min-h-[340px] flex-1 flex-col items-center justify-center gap-5 border border-line bg-white shadow-card rounded-ops-md">
+      <span
+        className={`flex h-[76px] w-[76px] animate-om-bounce items-center justify-center rounded-full ${
+          tone === "green" ? "bg-green-soft text-green" : "bg-blue-100 text-blue-600"
+        }`}
+      >
+        <Icon size={34} strokeWidth={2.4} />
+      </span>
+      <span className="text-[22px] font-extrabold tracking-[-0.3px] text-ink">{title}</span>
+      {action && href ? (
+        <Pill icon={ChevronRight} onClick={() => router.push(href)}>
+          {action}
+        </Pill>
+      ) : null}
     </div>
   );
 }
 
-function EmptyLane({
-  icon: Icon,
-  title,
-  body,
-}: {
-  icon: LucideIcon;
-  title: string;
-  body?: string;
-}) {
+const ROWS = 6;
+
+/* A lane never scrolls: six rows, then the next page. */
+function Paged({ children }: { children: ReactNode }) {
+  const rows = Children.toArray(children);
+  const [page, setPage] = useState(0);
+  const pages = Math.max(1, Math.ceil(rows.length / ROWS));
+  const at = Math.min(page, pages - 1);
   return (
-    <Card pad={0} className="flex flex-col items-center gap-2.5 px-6 py-12 text-center">
-      <span className="inline-flex h-11 w-11 items-center justify-center bg-fill-quiet rounded-pill">
-        <Icon size={19} className="text-slate-400" />
-      </span>
-      <span className="text-[14.5px] font-bold text-ink">{title}</span>
-      {body ? (
-        <span className="max-w-[380px] text-[13px] font-semibold leading-relaxed text-slate-400">
-          {body}
-        </span>
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+      {rows.slice(at * ROWS, at * ROWS + ROWS)}
+      {pages > 1 ? (
+        <div className="mt-auto flex shrink-0 items-center justify-center gap-3 pt-1">
+          <button
+            type="button"
+            aria-label="Previous"
+            disabled={at === 0}
+            onClick={() => setPage(at - 1)}
+            className="flex h-9 w-9 cursor-pointer items-center justify-center border border-line bg-white text-ink rounded-pill disabled:cursor-default disabled:opacity-30"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-[12.5px] font-bold tabular-nums text-slate-400">
+            {at + 1} of {pages}
+          </span>
+          <button
+            type="button"
+            aria-label="Next"
+            disabled={at >= pages - 1}
+            onClick={() => setPage(at + 1)}
+            className="flex h-9 w-9 cursor-pointer items-center justify-center border border-line bg-white text-ink rounded-pill disabled:cursor-default disabled:opacity-30"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
       ) : null}
-    </Card>
+    </div>
   );
 }
 
@@ -204,11 +226,19 @@ export function ReviewHome({
   music,
   accounts,
   applicants = [],
+  wanted = [],
+  sampleThread,
+  startTalking,
 }: {
   posts: PostQueueItem[];
   music: MusicQueueItem[];
   accounts: AccountQueueItem[];
   applicants?: MarketCreator[];
+  /** Niches the campaign asked for, to mark the ones a creator shares. */
+  wanted?: string[];
+  /** Fixed messages for the /internal preview. */
+  sampleThread?: ThreadMessage[];
+  startTalking?: boolean;
 }) {
   const [lane, setLane] = useState<Lane>(posts.length === 0 && applicants.length > 0 ? "Creators" : "Posts");
   const [waiting, setWaiting] = useState(applicants);
@@ -236,17 +266,8 @@ export function ReviewHome({
 
   const total = posts.length + waiting.length + music.length + pendingAccounts.length;
   return (
-    <div>
-      <PageHead
-        title="Review"
-        right={
-          total === 0 ? (
-            <Chip tone="green">All clear</Chip>
-          ) : (
-            <Chip tone="blue">{total} waiting</Chip>
-          )
-        }
-      />
+    <div className="flex flex-col lg:h-[calc(100dvh-120px)] lg:min-h-[560px]">
+      <PageHead title="Review" right={total > 0 ? <Chip tone="blue">{total} waiting</Chip> : null} />
       <ElsewhereStrip />
 
       <LaneTabs
@@ -262,12 +283,9 @@ export function ReviewHome({
 
       {lane === "Posts" ? (
         posts.length === 0 ? (
-          <EmptyLane
-            icon={Inbox}
-            title="Nothing to review"
-          />
+          <EmptyLane icon={Check} tone="green" title="All caught up" action="Open briefs" href="/manager/briefs" />
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <Paged>
             {posts.map((row) => (
               <QueueRow
                 key={row.assignmentId}
@@ -300,27 +318,29 @@ export function ReviewHome({
                 }
               />
             ))}
-          </div>
+          </Paged>
         )
       ) : lane === "Creators" ? (
         waiting.length === 0 ? (
-          <EmptyLane icon={UserRoundPlus} title="No one waiting" />
+          <EmptyLane icon={UserRoundPlus} title="No one waiting" action="Find creators" href="/manager/scout" />
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {error ? <span className="text-[13px] font-semibold text-danger">{error}</span> : null}
-            {waiting.map((c) => (
-              <ApplicantRow key={c.creator_id} c={c} busy={busyId === c.creator_id} onDecide={(accept) => void decide(c, accept)} />
-            ))}
-          </div>
+          <>
+            {error ? <span className="mb-2 shrink-0 text-[13px] font-semibold text-danger">{error}</span> : null}
+            <ApplicantsLane
+              applicants={waiting}
+              busyId={busyId}
+              wanted={wanted}
+              sampleThread={sampleThread}
+              startTalking={startTalking}
+              onDecide={(c, accept) => void decide(c, accept)}
+            />
+          </>
         )
       ) : lane === "Music" ? (
         music.length === 0 ? (
-          <EmptyLane
-            icon={Music2}
-            title="No songs waiting"
-          />
+          <EmptyLane icon={Music2} title="No songs waiting" />
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <Paged>
             {music.map((row) => (
               <QueueRow
                 key={row.assignmentId}
@@ -342,13 +362,10 @@ export function ReviewHome({
                 }
               />
             ))}
-          </div>
+          </Paged>
         )
       ) : accounts.length === 0 ? (
-        <EmptyLane
-          icon={CircleUserRound}
-          title="No accounts to approve"
-        />
+        <EmptyLane icon={CircleUserRound} title="No accounts waiting" />
       ) : (
         <div className="flex flex-col gap-2.5">
           {pendingAccounts.map((row) => (

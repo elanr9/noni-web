@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, MessageCircle, X } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 
 import { leave, signAndApply, withdraw } from "@/app/campaigns/actions";
+import { loadUnread } from "@/app/messages/actions";
+import { MessageThread } from "@/components/campaign/MessageThread";
 import {
   campaignTodo,
   groupCampaigns,
@@ -477,6 +479,7 @@ function SignStep({ l, signed, setSigned }: { l: FeedListing; signed: string; se
 function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: string; missing: string[]; onClose: () => void }) {
   const s = useSign(l, name);
   const invited = l.application_status === "invited";
+  const [talking, setTalking] = useState(false);
   const blocked = missing.length > 0 && !invited;
   return (
     <Panel
@@ -501,10 +504,18 @@ function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: str
           <button type="button" disabled className={PRIMARY}>
             Full
           </button>
-        ) : (
-          <button type="button" onClick={() => s.setStep("sign")} className={PRIMARY}>
-            {invited ? "Join" : "Apply"}
-          </button>
+        ) : talking ? undefined : (
+          <div className="flex flex-col gap-2">
+            <button type="button" onClick={() => s.setStep("sign")} className={PRIMARY}>
+              {invited ? "Join" : "Apply"}
+            </button>
+            {invited && l.application_id ? (
+              <button type="button" onClick={() => setTalking(true)} className={`${QUIET} gap-2`}>
+                <MessageCircle size={17} />
+                Messages
+              </button>
+            ) : null}
+          </div>
         )
       }
     >
@@ -513,6 +524,14 @@ function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: str
         <Done label={invited ? "You are in" : "Applied"} />
       ) : s.step === "sign" ? (
         <SignStep l={l} signed={s.signed} setSigned={s.setSigned} />
+      ) : talking && l.application_id ? (
+        <div className="flex h-[calc(100dvh-150px)] flex-col">
+          <button type="button" onClick={() => setTalking(false)} className="mb-3 inline-flex cursor-pointer items-center gap-1 self-start border-0 bg-transparent p-0 text-[14px] font-bold text-slate-500 hover:text-ink">
+            <ChevronLeft size={16} />
+            Campaign
+          </button>
+          <MessageThread applicationId={l.application_id} placeholder={`Message ${l.company_name}`} className="flex-1" />
+        </div>
       ) : (
         <>
           {invited && l.invite_message ? <p className="m-0 mb-4 rounded-[14px] bg-[#efeafd] px-4 py-3 text-[15px] text-ink">“{l.invite_message}”</p> : null}
@@ -528,7 +547,19 @@ function CampaignPanel({ c, listing, name, missing, onClose }: { c: CreatorCampa
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [left, setLeft] = useState(false);
+  const [talking, setTalking] = useState(false);
+  const [unread, setUnread] = useState(0);
   const [busy, start] = useTransition();
+
+  const threadId = c.kind === "applied" ? c.application_id : null;
+  useEffect(() => {
+    if (!threadId) return;
+    let live = true;
+    void loadUnread([threadId]).then((u) => live && setUnread(u[threadId] ?? 0));
+    return () => {
+      live = false;
+    };
+  }, [threadId]);
 
   // An invite is a listing to sign.
   if (c.kind === "invited" && listing) return <ListingPanel l={listing} name={name} missing={missing} onClose={onClose} />;
@@ -566,8 +597,13 @@ function CampaignPanel({ c, listing, name, missing, onClose }: { c: CreatorCampa
         </button>
         {error ? <p className="m-0 text-center text-[13px] font-semibold text-danger">{error}</p> : null}
       </div>
-    ) : c.kind === "applied" && c.application_id ? (
+    ) : talking ? undefined : c.kind === "applied" && c.application_id ? (
       <div className="flex flex-col gap-2">
+        <button type="button" onClick={() => setTalking(true)} className={PRIMARY}>
+          <MessageCircle size={18} />
+          Messages
+          {unread > 0 ? <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[12px] font-extrabold text-blue-600">{unread}</span> : null}
+        </button>
         <button type="button" disabled={busy} onClick={() => act(() => withdraw(c.application_id!))} className={`${QUIET} ${confirm ? "border-danger text-danger" : ""}`}>
           {busy ? "Withdrawing" : confirm ? "Click again to withdraw" : "Withdraw"}
         </button>
@@ -583,6 +619,14 @@ function CampaignPanel({ c, listing, name, missing, onClose }: { c: CreatorCampa
       <PanelHead id={c.company_id} company={c.company_name} title={c.title} chip={chip} />
       {left ? (
         <Done label={c.kind === "active" ? "Left" : "Withdrawn"} />
+      ) : talking && threadId ? (
+        <div className="flex h-[calc(100dvh-150px)] flex-col">
+          <button type="button" onClick={() => setTalking(false)} className="mb-3 inline-flex cursor-pointer items-center gap-1 self-start border-0 bg-transparent p-0 text-[14px] font-bold text-slate-500 hover:text-ink">
+            <ChevronLeft size={16} />
+            Campaign
+          </button>
+          <MessageThread applicationId={threadId} placeholder={`Message ${c.company_name}`} className="flex-1" />
+        </div>
       ) : c.kind === "active" ? (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap gap-1.5">

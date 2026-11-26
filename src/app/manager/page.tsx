@@ -19,7 +19,8 @@ export default async function ManagerReviewPage() {
       posts={queues.posts}
       music={queues.music}
       accounts={queues.accounts}
-      applicants={applicants}
+      applicants={applicants.rows}
+      wanted={applicants.wanted}
     />
   );
 }
