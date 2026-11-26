@@ -10,6 +10,7 @@ import {
   Play,
   Plus,
   Search,
+  SlidersHorizontal,
   Undo2,
   X,
 } from "lucide-react";
@@ -18,20 +19,33 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 
 import { refreshScout, startScout, updateScoutCreator } from "@/app/admin/scout/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
-import { Card, Chip, Modal, PageHead, Pill } from "@/components/kit";
+import { Card, Chip, Modal, PageHead, Pill, SortDropdown } from "@/components/kit";
 import {
   ACTIVE_RUN,
+  NO_FILTERS,
+  SCOUT_SORTS,
+  SIZE_BANDS,
   compact,
+  filterCount,
   joinUrl,
+  lastPosted,
+  passes,
+  perWeek,
   profileUrl,
+  rankOf,
+  sortScout,
   type ScoutCreator,
   type ScoutData,
+  type ScoutFilters,
   type ScoutPlatform,
+  type ScoutSort,
   type ScoutStatus,
 } from "@/lib/scout";
 
 /* Scout: creators Noni found for this company. One screen, no scroll:
-   a run's progress on top, then the board paged eight at a time.
+   a run's progress on top, then the board paged eight at a time, sorted
+   and filtered by what a company picks on: size, how often they post,
+   engagement, who they are.
    Message copies Noni's drafted DM (with the creator's own join link) and
    opens their profile, so the company sends it from its own account. */
 
@@ -135,7 +149,49 @@ function Cover({ url, cover, views, className = "" }: { url: string; cover: stri
 
 function scoreTone(score: number | null): "green" | "blue" | "slate" {
   if (score === null) return "slate";
-  return score >= 85 ? "green" : score >= 60 ? "blue" : "slate";
+  return score >= 80 ? "green" : score >= 60 ? "blue" : "slate";
+}
+
+const KIND_LABEL = { ugc: "UGC", creator: "Creator", niche: "In the niche" } as const;
+const GENDER_LABEL = { female: "Women", male: "Men" } as const;
+const AGE_LABEL = { "18-24": "18 to 24", "25-34": "25 to 34", "35+": "35 and up" } as const;
+
+/* Which number the current sort is ranking on, so the card can light it. */
+const SORT_STAT: Record<ScoutSort, "followers" | "posts" | "engagement" | null> = {
+  Best: null,
+  Smallest: "followers",
+  Biggest: "followers",
+  "Most active": "posts",
+  "Most engaged": "engagement",
+};
+
+function Stats({ c, lit, accent, wide = false }: { c: ScoutCreator; lit: "followers" | "posts" | "engagement" | null; accent: string; wide?: boolean }) {
+  const cells: { key: string; value: string; label: string }[] = [
+    { key: "followers", value: c.followers !== null ? compact(c.followers) : "", label: "Followers" },
+    { key: "posts", value: perWeek(c.posts_per_week), label: wide ? "Posts a week" : "Posts/wk" },
+    { key: "engagement", value: c.engagement_rate !== null ? `${c.engagement_rate}%` : "", label: wide ? "Engagement" : "Eng. rate" },
+    ...(wide
+      ? [
+          { key: "last", value: lastPosted(c.last_post_at), label: "Last post" },
+          { key: "views", value: c.median_views !== null ? compact(c.median_views) : "", label: "Median views" },
+        ]
+      : []),
+  ];
+  return (
+    <div className={`grid gap-1.5 ${wide ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-3"}`}>
+      {cells.map((x) => (
+        <span key={x.key} className="flex min-w-0 flex-col rounded-[10px] bg-fill-quiet px-2 py-1.5">
+          <span
+            className="truncate text-[14px] font-bold tabular-nums leading-[1.25] text-ink"
+            style={lit === x.key && x.value ? { color: accent } : undefined}
+          >
+            {x.value || <span className="text-slate-300">·</span>}
+          </span>
+          <span className="truncate text-[10px] font-semibold leading-[1.3] text-slate-400">{x.label}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function ago(iso: string | null): string {
@@ -154,17 +210,24 @@ function CreatorCard({
   c,
   accent,
   link,
+  lit,
   onOpen,
   onMove,
 }: {
   c: ScoutCreator;
   accent: string;
   link: string;
+  lit: "followers" | "posts" | "engagement" | null;
   onOpen: () => void;
   onMove: (status: ScoutStatus) => void;
 }) {
   const [burst, setBurst] = useState(false);
   const covers = c.videos.slice(0, 3);
+  const rank = rankOf(c);
+  const posted = lastPosted(c.last_post_at);
+  const under = [c.kind ? KIND_LABEL[c.kind] : null, posted ? (posted === "Today" ? "Posted today" : `Posted ${posted} ago`) : null]
+    .filter(Boolean)
+    .join(" · ");
 
   const message = () => {
     const text = messageFor(c, link);
@@ -176,7 +239,7 @@ function CreatorCard({
 
   return (
     <Card pad={0} lift onClick={onOpen} className="relative flex h-full min-h-0 cursor-pointer flex-col overflow-hidden">
-      <div className="grid h-[150px] grid-cols-3 gap-1 p-1.5 pb-0 lg:h-auto lg:min-h-[96px] lg:flex-1">
+      <div className="grid h-[150px] grid-cols-3 gap-1 p-1.5 pb-0 lg:h-auto lg:min-h-[72px] lg:flex-1">
         {covers.length
           ? covers.map((v) => <Cover key={v.url} url={v.url} cover={v.cover} views={v.views} className="h-full" />)
           : [0, 1, 2].map((i) => <span key={i} className="rounded-[10px] bg-fill-quiet" />)}
@@ -190,12 +253,12 @@ function CreatorCard({
               <PlatformMark platform={c.platform} />
               <span className="truncate">@{c.handle}</span>
             </span>
-            <span className="block truncate text-[12px] font-semibold text-slate-400">
-              {c.followers !== null ? `${compact(c.followers)} followers` : c.name ?? ""}
-            </span>
+            <span className="block truncate text-[12px] font-semibold text-slate-400">{under || c.name || ""}</span>
           </span>
-          {c.score !== null ? <Chip tone={scoreTone(c.score)}>{c.score}</Chip> : null}
+          {rank !== null ? <Chip tone={scoreTone(rank)}>{rank}</Chip> : null}
         </div>
+
+        {c.source === "search" ? <Stats c={c} lit={lit} accent={accent} /> : null}
 
         <p className="m-0 line-clamp-2 min-h-[36px] text-[13px] font-semibold leading-[1.38] text-slate-600">
           {c.why ?? (c.source === "link" ? "Applied with your join link" : "")}
@@ -304,6 +367,10 @@ function CreatorModal({
   const [copied, setCopied] = useState(false);
   const dirty = dm !== shownDm;
   const stored = (text: string) => text.split(link).join("{link}");
+  const rank = rankOf(c);
+  const who = [c.kind ? KIND_LABEL[c.kind] : null, c.gender ? GENDER_LABEL[c.gender] : null, c.age ? AGE_LABEL[c.age] : null, c.on_camera ? "On camera" : null].filter(
+    (x): x is string => Boolean(x),
+  );
 
   const send = () => {
     if (dirty) onSaveDm(stored(dm));
@@ -327,14 +394,12 @@ function CreatorModal({
             >
               <PlatformMark platform={c.platform} size={15} />@{c.handle}
             </a>
-            <span className="block text-[13px] font-semibold text-slate-400">
-              {[c.name, c.followers !== null ? `${compact(c.followers)} followers` : null, c.median_views !== null ? `${compact(c.median_views)} median views` : null]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
+            <span className="block truncate text-[13px] font-semibold text-slate-400">{c.name ?? ""}</span>
           </span>
-          {c.score !== null ? <Chip tone={scoreTone(c.score)} className="mr-10">{c.score}</Chip> : null}
+          {rank !== null ? <Chip tone={scoreTone(rank)} className="mr-10">{rank}</Chip> : null}
         </div>
+
+        {c.source === "search" ? <Stats c={c} lit={null} accent={accent} wide /> : null}
 
         {c.why ? <p className="m-0 text-[14px] font-semibold leading-[1.45] text-ink">{c.why}</p> : null}
 
@@ -346,8 +411,13 @@ function CreatorModal({
           </div>
         ) : null}
 
-        {c.bio || c.tags.length ? (
+        {c.bio || c.tags.length || who.length ? (
           <div className="flex flex-wrap items-center gap-1.5">
+            {who.map((t) => (
+              <Chip key={t} tone="blue">
+                {t}
+              </Chip>
+            ))}
             {c.tags.map((t) => (
               <Chip key={t} tone="slate">
                 {t}
@@ -384,6 +454,75 @@ function CreatorModal({
               <Mail size={16} /> Email
             </a>
           ) : null}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ------------------------------------------------------------------ filters */
+
+const FILTER_GROUPS = [
+  { key: "platform", label: "Platform", options: [["tiktok", "TikTok"], ["instagram", "Instagram"]] },
+  { key: "size", label: "Followers", options: SIZE_BANDS.map((b) => [b.key, b.label]) },
+  { key: "activity", label: "Posting", options: [["week", "Posted this week"], ["often", "3 or more a week"]] },
+  { key: "kind", label: "Type", options: [["ugc", "UGC"], ["creator", "Creator"], ["niche", "In the niche"]] },
+  { key: "gender", label: "Gender", options: [["female", "Women"], ["male", "Men"]] },
+  { key: "age", label: "Age", options: [["18-24", "18 to 24"], ["25-34", "25 to 34"], ["35+", "35 and up"]] },
+  { key: "more", label: "More", options: [["camera", "On camera"], ["email", "Has email"]] },
+] as const satisfies ReadonlyArray<{ key: keyof ScoutFilters; label: string; options: ReadonlyArray<readonly [string, string]> }>;
+
+function FilterPanel({
+  filters,
+  onChange,
+  count,
+  accent,
+  onClose,
+}: {
+  filters: ScoutFilters;
+  onChange: (f: ScoutFilters) => void;
+  /** People left on the open tab with these filters. */
+  count: number;
+  accent: string;
+  onClose: () => void;
+}) {
+  const toggle = (group: keyof ScoutFilters, value: string) => {
+    const cur = filters[group] as string[];
+    onChange({ ...filters, [group]: cur.includes(value) ? cur.filter((x) => x !== value) : [...cur, value] } as ScoutFilters);
+  };
+  return (
+    <Modal title="Filters" onClose={onClose} width={600}>
+      <div className="flex flex-col gap-4">
+        {FILTER_GROUPS.map((g) => (
+          <div key={g.key} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <span className="w-[84px] shrink-0 text-[12px] font-semibold text-slate-400">{g.label}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {g.options.map(([value, label]) => {
+                const on = (filters[g.key] as string[]).includes(value);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggle(g.key, value)}
+                    className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-[13.5px] font-bold transition-[transform,colors] active:scale-95 ${
+                      on ? "border-ink bg-ink text-white" : "border-line bg-white text-slate-500 hover:text-ink"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        <div className="mt-1 flex items-center gap-2.5">
+          <Pill variant="quiet" disabled={filterCount(filters) === 0} onClick={() => onChange(NO_FILTERS)}>
+            Clear
+          </Pill>
+          <Pill onClick={onClose} className="flex-1" style={{ backgroundColor: accent, boxShadow: "none" }}>
+            Show {count.toLocaleString()}
+          </Pill>
         </div>
       </div>
     </Modal>
@@ -584,6 +723,9 @@ export function ScoutView({
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState<string | null>(initialOpen);
   const [searching, setSearching] = useState(false);
+  const [sort, setSort] = useState<ScoutSort>("Best");
+  const [filters, setFilters] = useState<ScoutFilters>(NO_FILTERS);
+  const [filtering, setFiltering] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -601,25 +743,48 @@ export function ScoutView({
     return () => window.clearInterval(t);
   }, [running, pull]);
 
+  const nFilters = filterCount(filters);
+
+  /* Filters narrow every tab, so the counts say what is left. */
+  const kept = useMemo(
+    () => (nFilters ? data.creators.filter((c) => passes(c, filters)) : data.creators),
+    [data.creators, filters, nFilters],
+  );
+
   const counts = useMemo(() => {
     const m = {} as Record<TabKey, number>;
-    for (const t of TABS) m[t.key] = data.creators.filter((c) => (t.has as readonly ScoutStatus[]).includes(c.status)).length;
+    for (const t of TABS) m[t.key] = kept.filter((c) => (t.has as readonly ScoutStatus[]).includes(c.status)).length;
     return m;
-  }, [data.creators]);
+  }, [kept]);
 
+  /* Contacted and Joined read newest first until a sort is picked. */
   const list = useMemo(() => {
     const t = TABS.find((x) => x.key === tab)!;
-    const rows = data.creators.filter((c) => (t.has as readonly ScoutStatus[]).includes(c.status));
-    if (tab === "contacted" || tab === "joined") {
-      rows.sort((a, b) => Date.parse(b.contacted_at ?? b.created_at) - Date.parse(a.contacted_at ?? a.created_at));
+    const rows = kept.filter((c) => (t.has as readonly ScoutStatus[]).includes(c.status));
+    if (sort === "Best" && (tab === "contacted" || tab === "joined")) {
+      return rows.sort((a, b) => Date.parse(b.contacted_at ?? b.created_at) - Date.parse(a.contacted_at ?? a.created_at));
     }
-    return rows;
-  }, [data.creators, tab]);
+    return sortScout(rows, sort);
+  }, [kept, tab, sort]);
 
   const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
   const safePage = Math.min(page, pages - 1);
   const shown = list.slice(safePage * PER_PAGE, safePage * PER_PAGE + PER_PAGE);
   const openCreator = data.creators.find((c) => c.id === open) ?? null;
+
+  /* Left and right arrows turn the page. */
+  const layered = Boolean(open) || searching || filtering;
+  useEffect(() => {
+    if (layered || pages < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || e.altKey || (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable))) return;
+      if (e.key === "ArrowRight") setPage((p) => Math.min(pages - 1, Math.min(p, pages - 1) + 1));
+      if (e.key === "ArrowLeft") setPage((p) => Math.max(0, Math.min(p, pages - 1) - 1));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [layered, pages]);
 
   const move = async (id: string, status: ScoutStatus) => {
     const now = new Date().toISOString();
@@ -706,54 +871,77 @@ export function ScoutView({
       ) : null}
 
       <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
-        <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 [scrollbar-width:none]">
-        {TABS.filter((t) => t.key !== "applied" || counts.applied > 0).map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => {
-              setTab(t.key);
+        <div className="-mx-1 flex w-full min-w-0 gap-2 overflow-x-auto px-1 [scrollbar-width:none] lg:w-auto lg:flex-1">
+          {TABS.filter((t) => t.key !== "applied" || counts.applied > 0).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => {
+                setTab(t.key);
+                setPage(0);
+              }}
+              className={`shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-4 py-1.5 text-[13.5px] font-bold transition-colors ${
+                tab === t.key ? "border-ink bg-ink text-white" : "border-line bg-white text-slate-500 hover:text-ink"
+              }`}
+            >
+              {t.label} <span className="tabular-nums opacity-70">{counts[t.key]}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex w-full items-center gap-2 lg:w-auto">
+          {error ? <span className="text-[13px] font-semibold text-danger">{error}</span> : null}
+          <SortDropdown
+            options={SCOUT_SORTS}
+            value={sort}
+            prefix=""
+            align="left"
+            onSelect={(o) => {
+              setSort(o);
               setPage(0);
             }}
-            className={`shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-4 py-1.5 text-[13.5px] font-bold transition-colors ${
-              tab === t.key ? "border-ink bg-ink text-white" : "border-line bg-white text-slate-500 hover:text-ink"
+          />
+          <button
+            type="button"
+            onClick={() => setFiltering(true)}
+            className={`inline-flex cursor-pointer items-center gap-[7px] whitespace-nowrap rounded-pill border border-line px-3.5 py-2 text-[13px] font-bold shadow-card transition-transform active:scale-95 ${
+              nFilters ? "text-white" : "bg-white text-ink"
             }`}
+            style={nFilters ? { backgroundColor: accent, borderColor: accent } : undefined}
           >
-            {t.label} <span className="tabular-nums opacity-70">{counts[t.key]}</span>
+            <SlidersHorizontal size={13} />
+            Filters{nFilters ? ` ${nFilters}` : ""}
           </button>
-        ))}
-        </div>
-        {error ? <span className="text-[13px] font-semibold text-danger">{error}</span> : null}
-        {pages > 1 ? (
-          <span className="flex items-center gap-1.5 text-[13px] font-bold text-slate-500">
-            <button
-              type="button"
-              aria-label="Previous"
-              disabled={safePage === 0}
-              onClick={() => setPage(safePage - 1)}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-line bg-white text-ink disabled:cursor-default disabled:opacity-35"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="tabular-nums">
-              {safePage + 1} / {pages}
+          {pages > 1 ? (
+            <span className="ml-auto flex items-center gap-1.5 text-[13px] font-bold text-slate-500 lg:ml-1">
+              <button
+                type="button"
+                aria-label="Previous"
+                disabled={safePage === 0}
+                onClick={() => setPage(safePage - 1)}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-line bg-white text-ink disabled:cursor-default disabled:opacity-35"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="tabular-nums">
+                {safePage + 1} / {pages}
+              </span>
+              <button
+                type="button"
+                aria-label="Next"
+                disabled={safePage >= pages - 1}
+                onClick={() => setPage(safePage + 1)}
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-line bg-white text-ink disabled:cursor-default disabled:opacity-35"
+              >
+                <ChevronRight size={16} />
+              </button>
             </span>
-            <button
-              type="button"
-              aria-label="Next"
-              disabled={safePage >= pages - 1}
-              onClick={() => setPage(safePage + 1)}
-              className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-line bg-white text-ink disabled:cursor-default disabled:opacity-35"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </span>
-        ) : null}
+          ) : null}
+        </div>
       </div>
 
       {shown.length ? (
         <div
-          key={`${tab}-${safePage}`}
+          key={`${tab}-${sort}-${nFilters}-${safePage}`}
           className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:auto-rows-[minmax(0,1fr)] lg:grid-cols-3 xl:grid-cols-4"
         >
           {shown.map((c, i) => (
@@ -762,6 +950,7 @@ export function ScoutView({
                 c={c}
                 accent={accent}
                 link={joinUrl(origin, data.joinSlug, c.code)}
+                lit={SORT_STAT[sort]}
                 onOpen={() => setOpen(c.id)}
                 onMove={(s) => void move(c.id, s)}
               />
@@ -769,10 +958,15 @@ export function ScoutView({
           ))}
         </div>
       ) : (
-        <Card pad={0} className="flex min-h-[240px] flex-1 items-center justify-center">
+        <Card pad={0} className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-3">
           <span className="text-[14px] font-semibold text-slate-400">
-            {running ? "Nothing here yet." : "Nothing here."}
+            {nFilters ? "No one matches." : running ? "Nothing here yet." : "Nothing here."}
           </span>
+          {nFilters ? (
+            <Pill size="sm" variant="quiet" onClick={() => setFilters(NO_FILTERS)}>
+              Clear filters
+            </Pill>
+          ) : null}
         </Card>
       )}
 
@@ -784,6 +978,19 @@ export function ScoutView({
           onClose={() => setOpen(null)}
           onSaveDm={(dm) => void saveDm(openCreator.id, dm)}
           onMove={(s) => void move(openCreator.id, s)}
+        />
+      ) : null}
+
+      {filtering ? (
+        <FilterPanel
+          filters={filters}
+          onChange={(f) => {
+            setFilters(f);
+            setPage(0);
+          }}
+          count={list.length}
+          accent={accent}
+          onClose={() => setFiltering(false)}
         />
       ) : null}
 
