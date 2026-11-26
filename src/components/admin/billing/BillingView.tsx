@@ -33,26 +33,6 @@ import { money } from "./AmountModal";
 import { PlanPicker, TIER_LABEL } from "./PlanPicker";
 import { SignupTrackingCard } from "./SignupTrackingCard";
 
-const MONTH_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-/** "Resets Sep 1": creator spend resets on the 1st of next month. */
-function resetsLabel(): string {
-  const now = new Date();
-  return `Resets ${MONTH_SHORT[(now.getMonth() + 1) % 12]} 1`;
-}
 
 type Section = "plan" | "budget" | "stripe";
 
@@ -527,7 +507,7 @@ export function BillingView({
                     />
                   </span>
                   <span className="whitespace-nowrap text-[13px] font-semibold text-slate-400">
-                    {money(billing.spentThisMonth)} spent · {resetsLabel()}
+                    {money(billing.spentThisMonth)} spent this month
                   </span>
                 </div>
               </Card>

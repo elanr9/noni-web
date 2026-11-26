@@ -364,15 +364,14 @@ export function CompanyBilling({
       <Card pad={22}>
         <Label className="mb-1 block">Creator budget</Label>
         <p className="m-0 text-[13px] font-semibold leading-[1.5] text-slate-400">
-          Billed every month once the plan is running. Leftover rolls over: each bill is the budget minus what is
-          still on the balance. Charged to their card, or emailed as an invoice without one.
+          Sent each month from Invoices. Leftover carries over: each invoice is the budget minus what is still on
+          the balance. Charged to their card, or emailed as an invoice without one.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13.5px] font-semibold text-ink">
           <span>Balance {money(b.balance ?? 0)}</span>
-          <span>{b.nextBill ? `Next bill ${b.nextBill}` : hasPlan ? "No bill scheduled" : "Starts with the plan"}</span>
           {hasPlan && b.monthly > 0 ? (
             <Pill size="sm" variant="quiet" icon={Receipt} disabled={busy !== null} onClick={() => void billNow()}>
-              {busy === "billNow" ? "Billing…" : "Bill now"}
+              {busy === "billNow" ? "Sending…" : `Send ${monthName}`}
             </Pill>
           ) : null}
         </div>
