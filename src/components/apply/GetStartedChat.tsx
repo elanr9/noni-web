@@ -235,6 +235,7 @@ export function GetStartedChat({
               href={bookingLink(bookingUrl, fullName, email)}
               target="_blank"
               rel="noreferrer"
+              onClick={() => setPhase("booked")}
               className="group inline-flex items-center gap-2 rounded-full bg-blue-500 px-7 py-4 text-[16px] font-bold text-white no-underline shadow-[0_10px_24px_rgba(59,130,246,0.3)] transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.96]"
             >
               <CalendarDays size={18} strokeWidth={2.4} />
@@ -253,10 +254,18 @@ export function GetStartedChat({
               <Burst colors={[BLUE, "#22C55E", "#FBBF24", BLUE]} count={30} reach={170} />
               <Check size={40} strokeWidth={3.5} />
             </span>
-            <h1 className="display m-0 text-[40px] font-bold leading-[1.08] tracking-[-1.4px] text-ink">
-              You&apos;re booked, {ctx.first}!
-            </h1>
-            <p className="m-0 text-[17px] font-semibold text-slate-500">The invite is in {email}.</p>
+            <h1 className="display m-0 text-[40px] font-bold leading-[1.08] tracking-[-1.4px] text-ink">Done, {ctx.first}!</h1>
+            <p className="m-0 text-[17px] font-semibold text-slate-500">We&apos;re excited to connect soon!</p>
+            {bookingUrl ? (
+              <a
+                href={bookingLink(bookingUrl, fullName, email)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[14px] font-bold text-blue-600 no-underline hover:underline"
+              >
+                Open the booking page
+              </a>
+            ) : null}
           </div>
         ) : null}
 
