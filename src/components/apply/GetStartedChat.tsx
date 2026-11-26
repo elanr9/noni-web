@@ -1,15 +1,14 @@
 "use client";
 
-import { ArrowUp, Building2, Check, Video } from "lucide-react";
+import { ArrowUp, ArrowUpRight, Building2, CalendarDays, Check, Video } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { finishLead, markLeadBooked, saveLeadAnswer, type LeadField } from "@/app/apply/company/actions";
+import { finishLead, saveLeadAnswer, type LeadField } from "@/app/apply/company/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { NoniLine } from "@/components/apply/WelcomeChat";
-import { calendlySrc, isCalendlyBooked } from "@/lib/calendly";
 import { ASK_NAME, askKind, KIND_ANSWER } from "@/lib/welcome-chat";
 
 /* Get started, signed out. One conversation, no account:
@@ -17,8 +16,9 @@ import { ASK_NAME, askKind, KIND_ANSWER } from "@/lib/welcome-chat";
    - Creator: on to the creator chat as a guest (/apply?as=creator); Google
      is its last step.
    - Company: the questions the call needs, saved on a lead as they are
-     answered (app/apply/company/actions), then the founders' Calendly right
-     in the chat. Companies never make an account here; ops invites them
+     answered (app/apply/company/actions): work email, company, website
+     and role, nothing else; the rest is asked on the call. It ends on a
+     button that opens the founders' booking page in a new tab. Companies never make an account here; ops invites them
      after the call (/ops/leads). */
 
 type Line = { from: "noni" | "me"; text: string };
@@ -46,47 +46,6 @@ const ASKS: Ask[] = [
     text: () => "What's your role there?",
     options: ["Founder", "Marketing", "Growth", "Something else"].map((v) => ({ value: v, label: v })),
   },
-  {
-    key: "goal",
-    kind: "choice",
-    text: () => "What should the videos do first?",
-    options: [
-      { value: "signups", label: "Sign ups and sales" },
-      { value: "audience", label: "A bigger audience" },
-      { value: "trust", label: "Trust in the brand" },
-    ],
-  },
-  {
-    key: "platforms",
-    kind: "multi",
-    text: () => "Where should they post?",
-    options: [
-      { value: "tiktok", label: "TikTok" },
-      { value: "instagram", label: "Instagram Reels" },
-      { value: "youtube", label: "YouTube Shorts" },
-    ],
-  },
-  {
-    key: "creators_wanted",
-    kind: "choice",
-    text: () => "How many creators do you want posting?",
-    options: [
-      { value: "1-5", label: "1 to 5" },
-      { value: "5-10", label: "5 to 10" },
-      { value: "10-25", label: "10 to 25" },
-      { value: "25+", label: "25 or more" },
-    ],
-  },
-  {
-    key: "launch",
-    kind: "choice",
-    text: () => "When do you want the first videos live?",
-    options: [
-      { value: "this_week", label: "This week" },
-      { value: "this_month", label: "Within a month" },
-      { value: "exploring", label: "Just exploring" },
-    ],
-  },
 ];
 
 const KIND_OPTIONS: Option[] = [
@@ -100,17 +59,29 @@ function wwwHost(url: string): string {
   return host.startsWith("www.") ? host : `www.${host}`;
 }
 
+/** The founders' booking page with their name and email filled in. */
+function bookingLink(url: string, name: string, email: string): string {
+  try {
+    const u = new URL(url);
+    if (name) u.searchParams.set("name", name);
+    if (email) u.searchParams.set("email", email);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 function firstOf(name: string): string {
   return name.trim().split(/\s+/)[0] ?? name;
 }
 
 export function GetStartedChat({
   bookingUrl,
-  host,
   startName = "",
 }: {
   bookingUrl: string | null;
-  host: string;
+  /** No longer used: the calendar opens in its own tab. */
+  host?: string;
   /** Already said (a signed-in person who picked company): skip name and kind. */
   startName?: string;
 }) {
@@ -151,18 +122,6 @@ export function GetStartedChat({
   useEffect(() => {
     if (typed && settled) box.current?.focus({ preventScroll: true });
   }, [typed, settled, step]);
-
-  /* Calendly confirms the booking. */
-  useEffect(() => {
-    if (phase !== "call") return;
-    const onMessage = (e: MessageEvent) => {
-      if (!isCalendlyBooked(e)) return;
-      setPhase("booked");
-      if (leadId) void markLeadBooked(leadId);
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [phase, leadId]);
 
   const next = useCallback(
     (mine: string, nextCtx: Ctx) => {
@@ -271,12 +230,17 @@ export function GetStartedChat({
         {phase === "leaving" ? <NoniLine text="" live={false} onDone={() => {}} /> : null}
 
         {phase === "call" && bookingUrl ? (
-          <div className="h-[680px] w-full overflow-hidden rounded-[24px] border border-line bg-white shadow-[0_12px_32px_rgba(15,23,42,0.08)] animate-om-rise">
-            <iframe
-              title="Book a call with Noni"
-              src={calendlySrc(bookingUrl, host, { name: fullName, email, color: BLUE })}
-              className="h-full w-full border-0"
-            />
+          <div className="pl-[46px] animate-om-rise">
+            <a
+              href={bookingLink(bookingUrl, fullName, email)}
+              target="_blank"
+              rel="noreferrer"
+              className="group inline-flex items-center gap-2 rounded-full bg-blue-500 px-7 py-4 text-[16px] font-bold text-white no-underline shadow-[0_10px_24px_rgba(59,130,246,0.3)] transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.96]"
+            >
+              <CalendarDays size={18} strokeWidth={2.4} />
+              Book a call
+              <ArrowUpRight size={18} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+            </a>
           </div>
         ) : null}
         {phase === "call" && !bookingUrl ? (
