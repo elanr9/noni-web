@@ -20,7 +20,7 @@ import { prepareMedia, uploadToLibrary } from "@/lib/media-library-upload";
 /* Getting a company's product into Noni, one thing per screen so there is
    never a choice of where to go. Two onboarding steps open it: "Add
    screenshots" runs a screenshot then a screen recording for each top
-   feature, with a spare card on each screen for more, and "Pick
+   feature, with a toggle in the header to move between the two, and "Pick
    your color" opens on the color of the text on its posts. Each screen is a title, the
    slots to fill and one button. Files upload as they are dropped, with no
    naming step; they can be named later in the Media library. */
@@ -30,8 +30,6 @@ const STEPS = ["shots", "recording", "color", "done"] as const;
 type Step = (typeof STEPS)[number];
 
 const SHOT_SLOTS = 3;
-/** The spare card's target: files added through it are not for a feature. */
-const MORE = "\u0000more";
 const ACCEPT: Record<MediaKind, string> = {
   screenshot: "image/jpeg,image/png,image/webp,image/heic,image/heif",
   recording: "video/mp4,video/quicktime",
@@ -72,8 +70,7 @@ export function MediaSetup({
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  /* The card that opened the file picker: a feature's, so its file is saved
-     under that name, or the spare one (MORE), whose files are saved unnamed. */
+  /* The feature card that opened the file picker, so its file is saved under that name. */
   const target = useRef<string | null>(null);
   /* Uploads run one after another: the library names files by the clock. */
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -91,13 +88,14 @@ export function MediaSetup({
 
   /* Each file shows at once from the device and uploads behind it. A file
      for a feature card is named for that feature; more files, and dropped
-     ones, fill the empty feature cards in order, then land as extras. Files
-     from the spare card are always extras. */
+     ones, fill the empty feature cards in order. */
   const add = (files: FileList | File[], forFeature: string | null = null) => {
     setError(null);
     const open = features.filter((f) => !fileFor(current, f) && f !== forFeature);
-    const names = forFeature === MORE ? [] : forFeature ? [forFeature, ...open] : open;
-    for (const [n, file] of Array.from(files).entries()) {
+    const names = forFeature ? [forFeature, ...open] : open;
+    let list = Array.from(files);
+    if (features.length > 0) list = list.slice(0, names.length);
+    for (const [n, file] of list.entries()) {
       const title = names[n] ?? null;
       const check = checkMediaFile(file);
       if (!check.ok) {
@@ -183,7 +181,7 @@ export function MediaSetup({
         <button
           key={`empty-${i}`}
           type="button"
-          aria-label={feature === MORE ? "Add more" : (feature ?? undefined)}
+          aria-label={feature ?? undefined}
           onClick={() => {
             target.current = feature;
             input.current?.click();
@@ -228,14 +226,12 @@ export function MediaSetup({
     );
   };
 
-  /* The cards of a screen: one per feature with its name under it, then the
-     extras, then a spare card so there is always room for one more. With no
-     features, plain cards. The row pages sideways so the screen never scrolls. */
+  /* The cards of a screen: one per feature with its name under it, then any
+     unnamed files already in the library. With no features, plain cards. */
   const cards = (list: Slot[], wide: boolean, min: number) => {
     const label = wide ? "w-[169px]" : "w-[146px]";
     return (
-      <div className="max-w-full overflow-x-auto px-1 pb-3 pt-1">
-        <div className="mx-auto flex w-max items-start gap-4">
+      <div className="flex flex-wrap items-start justify-center gap-4">
           {features.length > 0 ? (
             <>
               {features.map((feature, i) => (
@@ -247,14 +243,10 @@ export function MediaSetup({
                 </div>
               ))}
               {extrasOf(list).map((s, i) => slot(s, i, wide))}
-              {slot(undefined, features.length, wide, MORE)}
             </>
           ) : (
-            Array.from({ length: Math.max(min, list.length + 1) }, (_, i) =>
-              slot(list[i], i, wide, list[i] ? null : MORE),
-            )
+            Array.from({ length: Math.max(min, list.length) }, (_, i) => slot(list[i], i, wide))
           )}
-        </div>
       </div>
     );
   };
@@ -277,6 +269,27 @@ export function MediaSetup({
         <BackButton disabled={leaving} onClick={back} />
         <Image src="/brand/noni-logo.svg" alt="" width={26} height={26} />
         <span className="text-[18px] font-bold tracking-[-0.6px] text-ink">noni</span>
+        <span className="flex-1" />
+        {step === "shots" || step === "recording" ? (
+          <span className="inline-flex rounded-full bg-[#EEF1F5] p-1">
+            {(["shots", "recording"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={step === key}
+                onClick={() => {
+                  setError(null);
+                  setStep(key);
+                }}
+                className={`cursor-pointer rounded-full border-none px-4 py-2 text-[14px] font-bold transition-colors duration-150 ${
+                  step === key ? "bg-white text-ink shadow-card" : "bg-transparent text-ink/50 hover:text-ink"
+                }`}
+              >
+                {key === "shots" ? "Screenshots" : "Recordings"}
+              </button>
+            ))}
+          </span>
+        ) : null}
         <span className="flex-1" />
         <span className="flex items-center gap-1.5" aria-hidden>
           {(start === "color" ? [] : STEPS.slice(0, 2)).map((key, i) =>
@@ -345,7 +358,7 @@ export function MediaSetup({
             <button
               type="button"
               disabled={!filled(recs) || uploading}
-              onClick={() => setStep("done")}
+              onClick={() => setStep(filled(shots) ? "done" : "shots")}
               className={primary}
               style={primaryStyle}
             >
