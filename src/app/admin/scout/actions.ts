@@ -28,8 +28,9 @@ export async function startScout(input: {
   seeds: string[];
   minFollowers: number | null;
   maxFollowers: number | null;
-  /** Who the search must reach, from the board's filters. */
+  /** Who the search must reach, from the board's filters: in words and as values. */
   want?: string;
+  filters?: { gender: string[]; age: string[]; kind: string[]; on_camera: boolean };
 }): Promise<{ ok: true; data: ScoutData } | { ok: false; error: string }> {
   const g = await gate(input.companyId);
   if (!g.ok) return g;
@@ -42,6 +43,7 @@ export async function startScout(input: {
     min_followers: input.minFollowers,
     max_followers: input.maxFollowers,
     want: input.want || undefined,
+    filters: input.filters,
   });
   if (r.error !== null) return { ok: false, error: r.error };
   const data = await loadScout(g.companyId);
@@ -61,6 +63,29 @@ export async function refreshScout(companyId?: string): Promise<{ ok: true; data
     await callEdgeFunction("scout", { action: "tick", run_id: run.id });
   }
   return { ok: true, data };
+}
+
+/* The first message is written when the company opens someone, not for
+   every match a search finds. */
+export async function writeScoutMessage(input: {
+  companyId?: string;
+  id: string;
+}): Promise<{ ok: true; dm: string | null; email_subject: string | null; email_body: string | null } | { ok: false; error: string }> {
+  const g = await gate(input.companyId);
+  if (!g.ok) return g;
+  const { data: row } = await createServiceClient()
+    .from("scout_creators")
+    .select("id")
+    .eq("id", input.id)
+    .eq("company_id", g.companyId)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "Creator not found." };
+  const r = await callEdgeFunction<{ dm: string | null; email_subject: string | null; email_body: string | null }>("scout", {
+    action: "write",
+    creator_id: input.id,
+  });
+  if (r.error !== null) return { ok: false, error: r.error };
+  return { ok: true, dm: r.data.dm, email_subject: r.data.email_subject, email_body: r.data.email_body };
 }
 
 const NEXT: Partial<Record<ScoutStatus, ScoutStatus[]>> = {

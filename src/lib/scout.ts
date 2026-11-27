@@ -33,7 +33,8 @@ export type ScoutVideo = {
 
 export type ScoutCreator = {
   id: string;
-  source: "search" | "link";
+  /** search: read from the platform for this company. pool: someone Scout already knew. link: applied with the join link. */
+  source: "search" | "pool" | "link";
   platform: ScoutPlatform;
   handle: string;
   name: string | null;
@@ -295,6 +296,7 @@ export function searchFromFilters(f: ScoutFilters): {
   minFollowers: number | null;
   maxFollowers: number | null;
   want: string;
+  filters: { gender: string[]; age: string[]; kind: string[]; on_camera: boolean };
 } {
   const bands = SIZE_BANDS.filter((b) => f.size.includes(b.key));
   const want: string[] = [];
@@ -318,7 +320,22 @@ export function searchFromFilters(f: ScoutFilters): {
     minFollowers: bands.length ? Math.min(...bands.map((b) => b.min)) : null,
     maxFollowers: bands.length ? Math.min(5_000_000, Math.max(...bands.map((b) => b.max))) : null,
     want: want.join(" "),
+    filters: { gender: [...f.gender], age: [...f.age], kind: [...f.kind], on_camera: f.more.includes("camera") },
   };
+}
+
+/* What typing in the search box matches: their handle, name, bio, tags, why
+   they fit and the captions of their videos. Every word has to be there. */
+export function searchText(c: ScoutCreator): string {
+  return [c.handle, c.name, c.bio, c.tags.join(" "), c.why, c.kind, ...c.videos.map((v) => v.caption)]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+export function matchesText(haystack: string, query: string): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return words.every((w) => haystack.includes(w));
 }
 
 export function perWeek(n: number | null): string {

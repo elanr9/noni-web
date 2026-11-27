@@ -17,7 +17,7 @@ import {
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
-import { refreshScout, startScout, updateScoutCreator } from "@/app/admin/scout/actions";
+import { refreshScout, startScout, updateScoutCreator, writeScoutMessage } from "@/app/admin/scout/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { Card, Chip, Modal, PageHead, Pill, SortDropdown } from "@/components/kit";
 import {
@@ -28,6 +28,8 @@ import {
   compact,
   filterCount,
   joinUrl,
+  matchesText,
+  searchText,
   lastPosted,
   passes,
   perWeek,
@@ -232,6 +234,11 @@ function CreatorCard({
 
   const message = () => {
     const text = messageFor(c, link);
+    // No message yet: it is written when they are opened.
+    if (!text) {
+      onOpen();
+      return;
+    }
     if (text) void navigator.clipboard?.writeText(text).catch(() => undefined);
     window.open(profileUrl(c.platform, c.handle), "_blank", "noopener");
     setBurst(true);
@@ -259,7 +266,7 @@ function CreatorCard({
           {rank !== null ? <Chip tone={scoreTone(rank)}>{rank}</Chip> : null}
         </div>
 
-        {c.source === "search" ? <Stats c={c} lit={lit} accent={accent} /> : null}
+        {c.source !== "link" ? <Stats c={c} lit={lit} accent={accent} /> : null}
 
         <p className="m-0 line-clamp-2 min-h-[36px] text-[13px] font-semibold leading-[1.38] text-slate-600">
           {c.why ?? (c.source === "link" ? "Applied with your join link" : "")}
@@ -354,6 +361,7 @@ function CreatorModal({
   onClose,
   onSaveDm,
   onMove,
+  onWrite,
 }: {
   c: ScoutCreator;
   accent: string;
@@ -361,7 +369,18 @@ function CreatorModal({
   onClose: () => void;
   onSaveDm: (dm: string) => void;
   onMove: (status: ScoutStatus) => void;
+  /** Writes their first message; called once when a match with none is opened. */
+  onWrite: () => void;
 }) {
+  /* The message is written the moment someone is opened. The modal is
+     keyed on it, so it shows the text as soon as it lands. */
+  const writing = c.dm === null && c.status === "match";
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!writing || asked.current) return;
+    asked.current = true;
+    onWrite();
+  }, [writing, onWrite]);
   /* Shown with their real link; saved back with the {link} placeholder. */
   const shownDm = (c.dm ?? "").replace(/\{link\}/g, link);
   const [dm, setDmText] = useState(shownDm);
@@ -400,7 +419,7 @@ function CreatorModal({
           {rank !== null ? <Chip tone={scoreTone(rank)} className="mr-10">{rank}</Chip> : null}
         </div>
 
-        {c.source === "search" ? <Stats c={c} lit={null} accent={accent} wide /> : null}
+        {c.source !== "link" ? <Stats c={c} lit={null} accent={accent} wide /> : null}
 
         {c.why ? <p className="m-0 text-[14px] font-semibold leading-[1.45] text-ink">{c.why}</p> : null}
 
@@ -435,6 +454,8 @@ function CreatorModal({
               value={dm}
               onChange={(e) => setDmText(e.target.value)}
               rows={4}
+              disabled={writing}
+              placeholder={writing ? "Writing" : undefined}
               className="box-border w-full resize-none rounded-ops-sm border border-line bg-white px-3.5 py-2.5 text-[14.5px] font-semibold leading-[1.45] text-ink outline-none focus:border-blue-500"
             />
           </label>
@@ -442,7 +463,7 @@ function CreatorModal({
 
         <div className="flex items-center gap-2.5">
           {c.status === "match" || c.status === "contacted" || c.status === "replied" ? (
-            <Pill icon={copied ? Check : MessageCircle} onClick={send} className="flex-1" style={{ backgroundColor: accent, boxShadow: "none" }}>
+            <Pill icon={copied ? Check : MessageCircle} loading={writing} disabled={writing} onClick={send} className="flex-1" style={{ backgroundColor: accent, boxShadow: "none" }}>
               {copied ? "Copied" : "Copy and open profile"}
             </Pill>
           ) : null}
@@ -636,15 +657,14 @@ function SearchForm({
 
 /* ------------------------------------------------------------------ progress */
 
-const STEPS = ["Searching", "Reading profiles", "Watching videos", "Writing messages"];
+const STEPS = ["Searching", "Reading profiles", "Watching videos"];
 
 function stepOf(data: ScoutData): number {
   const r = data.run;
   if (!r) return 0;
   if (r.status === "planning" || r.status === "searching") return 0;
   if (r.status === "enriching") return 1;
-  const c = r.counts;
-  return (c.vetted ?? 0) < (c.shortlisted ?? 0) ? 2 : 3;
+  return 2;
 }
 
 function Counter({ value, label }: { value: number; label: string }) {
@@ -756,6 +776,10 @@ export function ScoutView({
 
   const nFilters = filterCount(filters);
   const [finding, setFinding] = useState(false);
+  /* Typing narrows the board at once; Enter searches TikTok and Instagram for it. */
+  const [query, setQuery] = useState("");
+  const typed = query.trim();
+  const haystacks = useMemo(() => new Map(data.creators.map((c) => [c.id, searchText(c)])), [data.creators]);
 
   /* A new search for exactly the people the filters ask for. The filters
      stay on, so the matches land in this view as they are vetted. */
@@ -763,7 +787,7 @@ export function ScoutView({
     if (finding || running) return;
     setFinding(true);
     setError(null);
-    const r = await startScout({ companyId, brief: data.run?.brief ?? "", seeds: [], ...searchFromFilters(filters) });
+    const r = await startScout({ companyId, brief: typed || (data.run?.brief ?? ""), seeds: [], ...searchFromFilters(filters) });
     setFinding(false);
     if (!r.ok) {
       setError(r.error);
@@ -777,8 +801,11 @@ export function ScoutView({
 
   /* Filters narrow every tab, so the counts say what is left. */
   const kept = useMemo(
-    () => (nFilters ? data.creators.filter((c) => passes(c, filters)) : data.creators),
-    [data.creators, filters, nFilters],
+    () =>
+      nFilters || typed
+        ? data.creators.filter((c) => (!nFilters || passes(c, filters)) && (!typed || matchesText(haystacks.get(c.id) ?? "", typed)))
+        : data.creators,
+    [data.creators, filters, nFilters, typed, haystacks],
   );
 
   const counts = useMemo(() => {
@@ -833,6 +860,23 @@ export function ScoutView({
     }
   };
 
+  const write = useCallback(
+    async (id: string) => {
+      const r = await writeScoutMessage({ companyId, id });
+      if (!r.ok) {
+        // Never left spinning: an empty message they can type themselves.
+        setData((d) => ({ ...d, creators: d.creators.map((c) => (c.id === id && c.dm === null ? { ...c, dm: "" } : c)) }));
+        setError(r.error);
+        return;
+      }
+      setData((d) => ({
+        ...d,
+        creators: d.creators.map((c) => (c.id === id ? { ...c, dm: r.dm ?? "", email_subject: r.email_subject, email_body: r.email_body } : c)),
+      }));
+    },
+    [companyId],
+  );
+
   const saveDm = async (id: string, dm: string) => {
     setData((d) => ({ ...d, creators: d.creators.map((c) => (c.id === id ? { ...c, dm } : c)) }));
     await updateScoutCreator({ companyId, id, dm });
@@ -860,9 +904,29 @@ export function ScoutView({
             {linkCopied ? "Copied" : "Join link"}
           </Pill>
           {data.run ? (
-            <Pill size="sm" icon={Plus} disabled={running} onClick={() => setSearching(true)} style={{ backgroundColor: accent, boxShadow: "none" }}>
-              New search
-            </Pill>
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (typed) void findMore();
+              }}
+            >
+              <label className="flex h-[38px] w-[260px] max-w-[46vw] items-center gap-2 rounded-pill border border-line bg-white px-3.5 shadow-card focus-within:border-blue-500">
+                <Search size={15} className="shrink-0 text-slate-400" />
+                <input
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(0);
+                  }}
+                  placeholder="Search creators"
+                  className="min-w-0 flex-1 border-none bg-transparent text-[14px] font-semibold text-ink outline-none placeholder:text-slate-400"
+                />
+              </label>
+              <Pill size="sm" icon={Plus} disabled={running} onClick={() => setSearching(true)} style={{ backgroundColor: accent, boxShadow: "none" }}>
+                New search
+              </Pill>
+            </form>
           ) : null}
         </div>
       }
@@ -971,7 +1035,7 @@ export function ScoutView({
 
       {shown.length ? (
         <div
-          key={`${tab}-${sort}-${nFilters}-${safePage}`}
+          key={`${tab}-${sort}-${nFilters}-${typed}-${safePage}`}
           className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:auto-rows-[minmax(0,1fr)] lg:grid-cols-3 xl:grid-cols-4"
         >
           {shown.map((c, i) => (
@@ -990,17 +1054,24 @@ export function ScoutView({
       ) : (
         <Card pad={0} className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-3">
           <span className="text-[14px] font-semibold text-slate-400">
-            {nFilters ? "No one matches." : running ? "Nothing here yet." : "Nothing here."}
+            {nFilters || typed ? "No one matches." : running ? "Nothing here yet." : "Nothing here."}
           </span>
-          {nFilters ? (
+          {nFilters || typed ? (
             <span className="flex items-center gap-2">
               {running ? null : (
                 <Pill size="sm" icon={Search} loading={finding} onClick={() => void findMore()} style={{ backgroundColor: accent, boxShadow: "none" }}>
                   Find more
                 </Pill>
               )}
-              <Pill size="sm" variant="quiet" onClick={() => setFilters(NO_FILTERS)}>
-                Clear filters
+              <Pill
+                size="sm"
+                variant="quiet"
+                onClick={() => {
+                  setFilters(NO_FILTERS);
+                  setQuery("");
+                }}
+              >
+                Clear
               </Pill>
             </span>
           ) : null}
@@ -1009,7 +1080,9 @@ export function ScoutView({
 
       {openCreator ? (
         <CreatorModal
+          key={`${openCreator.id}-${openCreator.dm === null ? "writing" : "written"}`}
           c={openCreator}
+          onWrite={() => void write(openCreator.id)}
           accent={accent}
           link={joinUrl(origin, data.joinSlug, openCreator.code)}
           onClose={() => setOpen(null)}
