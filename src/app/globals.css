@@ -209,6 +209,38 @@ body {
   }
 }
 
+/* The celebration card: lands small, overshoots, settles. */
+@keyframes om-celebrate {
+  0% {
+    opacity: 0;
+    transform: scale(0.6) translateY(24px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.05) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Confetti: thrown out to (--dx, --dy), then drops while it spins. */
+@keyframes om-confetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(0.6);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(var(--dx), var(--dy)) rotate(calc(var(--spin) * 0.6)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--dx) * 1.15), calc(var(--dy) + 150px)) rotate(var(--spin)) scale(0.9);
+  }
+}
+
 @keyframes om-rise {
   from {
     opacity: 0;

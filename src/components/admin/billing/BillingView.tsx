@@ -116,7 +116,7 @@ export function BillingView({
   const lockedStep = (id: Section): boolean =>
     simulated ? false : id !== "plan" && !active;
   /* Open on the step that is up next, until the admin picks one. */
-  const upNext: Section = !active ? "plan" : !billing.stripeConnected ? "stripe" : !budgetDone ? "budget" : "plan";
+  const upNext: Section = !active ? "plan" : !billing.stripeConnected ? "stripe" : "plan";
   const wanted: Section =
     (tourTarget && TOUR_SECTION[tourTarget]) || section || upNext;
   const shown: Section = lockedStep(wanted) ? upNext : wanted;
@@ -172,9 +172,9 @@ export function BillingView({
 
   return (
     <div>
-      {/* The three sections are steps in order: a plan first, then the
-          connections (Stripe and Supabase), then the creator budget. The later two stay locked until
-          the company has a plan. */}
+      {/* Two steps in order: a plan first, then the connections (Stripe and
+          Supabase). Budget is a plain tab, never a step: Noni sets it on the
+          call and invoices it. Both stay locked until the company has a plan. */}
       <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="inline-flex max-w-full flex-wrap border border-line bg-white p-1 shadow-[0_1px_2px_rgba(15,23,32,0.04)] rounded-pill">
           {SECTIONS.map((s, i) => {
@@ -201,6 +201,7 @@ export function BillingView({
                       : "cursor-pointer bg-transparent text-slate-500"
                 }`}
               >
+                {s.id === "budget" ? null : (
                 <span
                   className={`inline-flex h-[18px] w-[18px] items-center justify-center text-[11px] font-bold rounded-pill ${
                     on
@@ -218,6 +219,7 @@ export function BillingView({
                     i + 1
                   )}
                 </span>
+                )}
                 {s.label}
               </button>
             );
@@ -572,11 +574,6 @@ export function BillingView({
               )}
             </Card>
             <SignupTrackingCard />
-            <div className="flex justify-end md:col-span-2">
-              <Pill size="sm" variant="quiet" icon={ArrowRight} onClick={() => setSection("budget")}>
-                Next: budget
-              </Pill>
-            </div>
           </div>
         ) : null}
 
