@@ -58,7 +58,7 @@ export function CompaniesView({ companies }: { companies: Company[] }) {
       <Card pad={0} className="overflow-hidden">
         {shown.length === 0 ? (
           <p className="m-0 px-5 py-[22px] text-[13.5px] font-semibold text-slate-400">
-            No companies yet. New company sends the first invite.
+            No companies yet.
           </p>
         ) : null}
         {shown.map((c, i) => (

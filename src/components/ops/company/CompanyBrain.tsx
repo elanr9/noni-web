@@ -73,8 +73,7 @@ export function CompanyBrain({
       {docs.length === 0 ? (
         <Card pad={22}>
           <p className="m-0 text-[13.5px] font-semibold text-slate-400">
-            No brain docs yet. Product and Audience docs appear once the
-            company fills in its brand brain in the app.
+            No brain docs yet.
           </p>
         </Card>
       ) : (
@@ -126,7 +125,7 @@ export function CompanyBrain({
         ) : null}
         {accounts.length === 0 && !adding ? (
           <p className="m-0 border-t border-line px-5 py-[13px] text-[13px] font-semibold text-slate-400">
-            No inspiration accounts yet. Add a handle to seed trend sourcing.
+            No inspiration accounts yet.
           </p>
         ) : null}
         {accounts.map((a, i) => (

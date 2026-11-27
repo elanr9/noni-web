@@ -65,7 +65,7 @@ export function PostsView({
         ) : posts.length === 0 ? (
           <Card pad={22}>
             <p className="m-0 text-[13.5px] font-semibold text-slate-400">
-              No posts yet. They appear here the moment your creators publish.
+              No posts yet.
             </p>
           </Card>
         ) : (

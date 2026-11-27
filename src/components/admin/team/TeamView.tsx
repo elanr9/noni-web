@@ -96,10 +96,6 @@ function InviteModal({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="name@company.com"
           />
-          <p className="m-0 text-[12.5px] font-semibold text-slate-400">
-            Already on Noni with another company? That is fine. Accepting adds
-            yours and they keep the rest.
-          </p>
           {error ? (
             <PlanBlockMessage error={error.text} upgrade={error.upgrade} canOpenBilling />
           ) : null}
@@ -118,13 +114,11 @@ function InviteModal({
 
 function TeamSection({
   label,
-  hint,
   people,
   inviteLabel,
   onInvite,
 }: {
   label: string;
-  hint: string;
   people: Member[];
   inviteLabel: string;
   onInvite: () => void;
@@ -139,9 +133,6 @@ function TeamSection({
             {label}
             {people.length ? ` · ${people.length}` : ""}
           </Label>
-          <span className="mt-[3px] block text-[13px] font-semibold text-slate-400">
-            {hint}
-          </span>
         </span>
         <Pill size="sm" variant="tint" icon={Plus} onClick={onInvite}>
           {inviteLabel}
@@ -149,8 +140,7 @@ function TeamSection({
       </div>
       {people.length === 0 ? (
         <p className="m-0 border-t border-line px-5 py-3.5 text-[13.5px] font-semibold text-slate-400">
-          Nobody yet. Invites land by email and new sign-ins arrive already in
-          the right role.
+          Nobody yet.
         </p>
       ) : (
         people.map((p) => (
@@ -231,7 +221,6 @@ export function TeamView({
         <div data-tour="team-managers" className={tab === "Managers" ? undefined : "hidden"}>
           <TeamSection
             label="Campaign managers"
-            hint="They run weekly briefs and keep creators on pace. Company admins can be campaign managers too."
             people={managers}
             inviteLabel="Invite manager"
             onInvite={() => setInviting("Campaign manager")}
@@ -271,7 +260,6 @@ export function TeamView({
         <div data-tour="team-creators" className={tab === "Creators" ? undefined : "hidden"}>
           <TeamSection
             label="Creators"
-            hint="They record. Company admins and campaign managers can be creators too."
             people={creators}
             inviteLabel="Invite creator"
             onInvite={() => setInviting("Creator")}

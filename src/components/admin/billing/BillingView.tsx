@@ -433,7 +433,7 @@ export function BillingView({
             {!active ? (
               <Card pad={16} className="flex flex-wrap items-center gap-3">
                 <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-ink">
-                  You have no plan yet. Pick one to start running creators.
+                  You have no plan yet.
                 </span>
                 <Pill size="sm" onClick={() => setSection("plan")}>
                   Pick a plan

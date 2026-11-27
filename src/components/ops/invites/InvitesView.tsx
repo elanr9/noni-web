@@ -38,7 +38,7 @@ export function InvitesView({ invites: initial }: { invites: Invite[] }) {
       <Card pad={0} className="overflow-hidden">
         {invites.length === 0 ? (
           <p className="m-0 px-5 py-[22px] text-[13.5px] font-semibold text-slate-400">
-            No invites yet. New company sends the first one.
+            No invites yet.
           </p>
         ) : null}
         {invites.map((iv, i) => (

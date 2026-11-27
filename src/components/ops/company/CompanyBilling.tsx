@@ -446,7 +446,7 @@ export function CompanyBilling({
         <Label className="block px-5 pb-1.5 pt-4">Paid invoices</Label>
         {b.topups.length === 0 ? (
           <p className="m-0 border-t border-line px-5 py-[13px] text-[13px] font-semibold text-slate-400">
-            Nothing paid yet. Paid budget invoices show up here.
+            Nothing paid yet.
           </p>
         ) : null}
         {b.topups.map((t, i) => (

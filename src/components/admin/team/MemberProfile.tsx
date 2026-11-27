@@ -240,7 +240,7 @@ export function MemberProfile({
                 <Label className="block px-5 pb-2 pt-4">Briefs this week</Label>
                 {briefs.length === 0 ? (
                   <p className="m-0 px-5 pb-[18px] pt-1 text-[13.5px] font-semibold text-slate-400">
-                    No briefs yet. They appear here as campaigns kick off.
+                    No briefs yet.
                   </p>
                 ) : (
                   briefs.map((b) => (

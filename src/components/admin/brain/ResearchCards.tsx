@@ -535,8 +535,7 @@ export function ReferenceLearningCard({ initial }: { initial: ReferenceLearning 
 
       {learning && studied.length === 0 ? (
         <Empty>
-          Nothing studied yet. Add reference posts in the Library, or study the ones already
-          there.
+          Nothing studied yet.
         </Empty>
       ) : null}
 

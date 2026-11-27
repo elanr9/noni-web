@@ -275,8 +275,7 @@ function FeaturesCard({
       ) : null}
       {features.length === 0 ? (
         <p className="m-0 border-t border-line px-5 py-3.5 text-[13.5px] font-semibold text-slate-400">
-          No features yet. Add a screenshot and one sentence for each thing
-          you sell.
+          No features yet.
         </p>
       ) : null}
       {features.map((feature) => {
@@ -871,8 +870,7 @@ export function BrainView({
         ) : null}
         {accounts.length === 0 && !adding ? (
           <p className="m-0 border-t border-line px-5 py-3.5 text-[13.5px] font-semibold text-slate-400">
-            No accounts yet. Add a TikTok or Instagram handle. We save their
-            best posts for brief generation.
+            No accounts yet.
           </p>
         ) : null}
         {accounts.map((a) => (

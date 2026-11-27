@@ -146,7 +146,7 @@ export function CompanyTestMode({ company }: { company: Company }) {
             </div>
             {state.creators.length === 0 ? (
               <p className="m-0 border-t border-line px-5 py-[13px] text-[13px] font-semibold text-slate-400">
-                No creators yet. They show up once they join.
+                No creators yet.
               </p>
             ) : null}
             {state.creators.map((c) => (
@@ -166,7 +166,7 @@ export function CompanyTestMode({ company }: { company: Company }) {
             <Label className="block px-5 pb-1.5 pt-4">Live posts</Label>
             {state.posts.length === 0 ? (
               <p className="m-0 border-t border-line px-5 py-[13px] text-[13px] font-semibold text-slate-400">
-                No live posts yet. A post shows up here once it is published.
+                No live posts yet.
               </p>
             ) : null}
             {state.posts.map((p) => (

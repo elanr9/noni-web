@@ -23,7 +23,7 @@ export function CompanyPosts({
     return (
       <Card pad={22}>
         <p className="m-0 text-[13.5px] font-semibold text-slate-400">
-          Nothing published yet. Posts land here once creators start posting.
+          Nothing published yet.
         </p>
       </Card>
     );
