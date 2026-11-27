@@ -19,7 +19,7 @@ export default async function AdminOnboardingPage() {
 
   return (
     <div>
-      <PageHead title={`Hey ${firstName}, take a few minutes to set up your company so we can get your UGC started!`} />
+      <PageHead title={`Hey ${firstName}, take a few minutes to get set up!`} />
       <SetupChecklist
         companyId={data.company.id}
         companyName={data.company.name}
