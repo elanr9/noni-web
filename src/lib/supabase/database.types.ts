@@ -1385,6 +1385,29 @@ export type Database = {
           },
         ]
       }
+      platform_stripe_companies: {
+        Row: {
+          company_id: string
+          created_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_stripe_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_billing: {
         Row: {
           auto_top_up: boolean

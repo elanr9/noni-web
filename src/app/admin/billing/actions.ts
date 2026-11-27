@@ -33,12 +33,14 @@ import {
   readBillingRow,
   recordCredit,
   runAutoTopUpCheck,
+  runsOnPlatformStripe,
   signConnectState,
   stripePriceIdForPlan,
   STRIPE_NOT_CONFIGURED,
   writeBilling,
   type BillingContext,
 } from "@/lib/admin/billing";
+import { callEdgeFunction } from "@/lib/edge";
 import { isStaleCompany, STALE_COMPANY_ERROR } from "@/lib/stale-company";
 import { MOCK_STRIPE_ACCOUNT_ID } from "@/lib/admin/mock-data";
 import type { SubscriptionPlan } from "@/lib/admin/types";
@@ -456,6 +458,28 @@ export async function startStripeConnect(renderedFor: string): Promise<BillingAc
       stripe_account_id: "acct_simulated_dev",
     });
     if (error) return { ok: false, error };
+    refresh();
+    return { ok: true };
+  }
+
+  /* A company Noni runs itself sells through Noni's own Stripe account,
+     which Stripe Connect cannot link to its own platform. Link it directly.
+     The list is service only, so no customer company can reach this. */
+  if (await runsOnPlatformStripe(ctx.companyId)) {
+    const stripe = getStripe();
+    if (!stripe) return { ok: false, error: "Stripe could not be opened. Try again." };
+    let accountId: string;
+    try {
+      accountId = (await stripe.accounts.retrieve(null)).id;
+    } catch {
+      return { ok: false, error: "Stripe could not be opened. Try again." };
+    }
+    const error = await writeBilling(ctx.companyId, {
+      stripe_connected: true,
+      stripe_account_id: accountId,
+    });
+    if (error) return { ok: false, error };
+    await callEdgeFunction("sync-conversions", { days: 90 }).catch(() => null);
     refresh();
     return { ok: true };
   }

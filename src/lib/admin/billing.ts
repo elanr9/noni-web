@@ -157,6 +157,18 @@ export async function readBillingRow(companyId: string): Promise<BillingRow | nu
 /** Upserts billing columns. Returns an error message, or null on success.
     A missing-column error means the supabase/migrations have not been
     applied yet, so say so instead of leaking SQL. */
+/** Whether Noni runs this company itself and it sells through Noni's own
+    Stripe account (platform_stripe_companies, service role only). */
+export async function runsOnPlatformStripe(companyId: string): Promise<boolean> {
+  const supabase = createServiceClient();
+  const { data } = await supabase
+    .from("platform_stripe_companies")
+    .select("company_id")
+    .eq("company_id", companyId)
+    .maybeSingle();
+  return !!data;
+}
+
 export async function writeBilling(
   companyId: string,
   patch: BillingPatch,
