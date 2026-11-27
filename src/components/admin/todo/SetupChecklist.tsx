@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowRight, Check, Lock } from "lucide-react";
+import { ArrowRight, Check, Lock, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+
+import { saveCompanyLogo } from "@/app/admin/brain/actions";
+import { COMPANY_LOGO_ACCEPT, validateCompanyLogo } from "@/lib/company-logo";
 
 import { Card, Chip, Label, Pill } from "@/components/kit";
 import { useNavigate } from "@/components/motion/NavProgress";
@@ -22,6 +27,31 @@ export function SetupChecklist({
   doneCount: number;
 }) {
   const { go, pending } = useNavigate();
+  const router = useRouter();
+  const logoInput = useRef<HTMLInputElement>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+
+  /* The logo step opens the file picker right here; nothing to navigate to. */
+  const pickLogo = async (file: File | undefined) => {
+    if (!file || logoBusy) return;
+    const invalid = validateCompanyLogo(file);
+    if (invalid) {
+      setLogoError(invalid);
+      return;
+    }
+    setLogoError(null);
+    setLogoBusy(true);
+    const form = new FormData();
+    form.set("logo", file);
+    const result = await saveCompanyLogo(form);
+    setLogoBusy(false);
+    if (!result.ok) {
+      setLogoError(result.error);
+      return;
+    }
+    router.refresh();
+  };
   const current = steps.findIndex((s) => !s.done);
 
   return (
@@ -83,6 +113,24 @@ export function SetupChecklist({
               </span>
               {s.done ? (
                 <Chip tone="green">Done</Chip>
+              ) : isCurrent && s.key === "logo" ? (
+                <span className="flex items-center gap-3">
+                  {logoError ? <span className="text-[13px] font-semibold text-danger">{logoError}</span> : null}
+                  <Pill icon={Upload} loading={logoBusy} onClick={() => logoInput.current?.click()}>
+                    {s.action}
+                  </Pill>
+                  <input
+                    ref={logoInput}
+                    type="file"
+                    accept={COMPANY_LOGO_ACCEPT}
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      void pickLogo(f);
+                    }}
+                  />
+                </span>
               ) : isCurrent ? (
                 <Pill
                   icon={ArrowRight}

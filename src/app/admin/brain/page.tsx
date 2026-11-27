@@ -18,7 +18,6 @@ export default async function AdminBrainPage() {
       website={data.company.website}
       snapshot={snapshot}
       ingest={ingest}
-      accounts={data.inspirationAccounts}
       staff={isPlatformAdmin(profile)}
     />
   );

@@ -28,7 +28,6 @@ export default async function BrainPreviewPage({
         website="fieldvision.ai"
         snapshot={empty ? null : snapshot}
         ingest={empty ? { ok: false, error: "" } : ingest}
-        accounts={empty ? [] : MOCK_DATASET.inspirationAccounts}
         staff
       />
     </AdminShell>
