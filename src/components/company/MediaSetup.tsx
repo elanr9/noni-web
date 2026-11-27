@@ -469,16 +469,10 @@ export function MediaSetup({
               <Check size={40} strokeWidth={3.5} />
             </span>
             <h1 className="display m-0 text-[44px] font-bold leading-[1.05] tracking-[-1.4px] text-ink">
-              {start === "color" ? (
-                "Color set."
-              ) : (
-                <>
-                  <span style={{ color: accent }}>{name}</span> is in.
-                </>
-              )}
+              {start === "color" ? "Color set." : "Your media has been uploaded!"}
             </h1>
             <button type="button" disabled={leaving} onClick={() => go("/admin")} className={primary} style={primaryStyle}>
-              Done
+              Go to dashboard
               <ArrowRight size={19} className="transition-transform duration-150 group-hover:translate-x-1" />
             </button>
           </>
