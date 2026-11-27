@@ -538,8 +538,15 @@ function CreatorModal({
         <div className="max-h-[58vh] overflow-y-auto whitespace-pre-wrap rounded-[12px] bg-fill-quiet p-4 text-[13px] leading-[1.55] text-ink">
           {contract.body}
         </div>
-        <div className="mt-3 text-[13px] font-bold text-slate-500">
-          Signed by {contract.signedName ?? name} {shortDay(contract.signedAt) ? `on ${shortDay(contract.signedAt)}` : ""}
+        <div className="mt-3 flex items-center justify-between gap-3 text-[13px] font-bold text-slate-500">
+          <span>
+            Signed by {contract.signedName ?? name} {shortDay(contract.signedAt) ? `on ${shortDay(contract.signedAt)}` : ""}
+          </span>
+          {c.application_id ? (
+            <a href={`/agreements/${c.application_id}`} target="_blank" rel="noreferrer" className="text-blue-600 no-underline hover:underline">
+              Signed copy
+            </a>
+          ) : null}
         </div>
       </Modal>
     );

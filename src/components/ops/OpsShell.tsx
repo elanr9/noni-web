@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Inbox, Radar,
+import { Briefcase, FileText, Inbox, Radar,
   CircleUserRound,
   Gauge,
   LayoutGrid,
@@ -30,6 +30,7 @@ const NAV = [
   { href: "/ops/leads", label: "Leads", icon: Briefcase },
   { href: "/ops/companies", label: "Companies", icon: LayoutGrid },
   { href: "/ops/invoices", label: "Invoices", icon: Receipt },
+  { href: "/ops/tax", label: "1099s", icon: FileText },
   { href: "/ops/scout", label: "Scout", icon: Radar },
   { href: "/ops/users", label: "Users", icon: Users },
   { href: "/ops/applications", label: "Applications", icon: Inbox },

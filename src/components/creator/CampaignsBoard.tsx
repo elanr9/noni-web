@@ -592,6 +592,11 @@ function CampaignPanel({ c, listing, name, missing, onClose }: { c: CreatorCampa
             Open the app
           </a>
         ) : null}
+        {c.application_id ? (
+          <a href={`/agreements/${c.application_id}`} target="_blank" rel="noreferrer" className={`${QUIET} no-underline`}>
+            Agreement
+          </a>
+        ) : null}
         <button type="button" disabled={busy} onClick={() => act(() => leave(c.company_id))} className={`${QUIET} ${confirm ? "border-danger text-danger" : ""}`}>
           {busy ? "Leaving" : confirm ? "Click again to leave" : "Leave campaign"}
         </button>
