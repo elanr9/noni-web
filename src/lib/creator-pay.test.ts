@@ -34,18 +34,9 @@ describe("creatorPayForPost", () => {
 });
 
 describe("companyCostCents", () => {
-  it("adds the 13% fee and rounds up to the cent", () => {
-    expect(companyCostCents(1000)).toBe(1130);
-    expect(companyCostCents(500)).toBe(565);
-    expect(companyCostCents(100)).toBe(113);
-    expect(companyCostCents(1)).toBe(2);
-    expect(companyCostCents(7)).toBe(8);
-    expect(companyCostCents(0)).toBe(0);
-  });
-
-  it("has no float drift on exact amounts", () => {
-    for (const c of [100, 1000, 10_000, 50_000, 51_000, 123_400]) {
-      expect(companyCostCents(c)).toBe((c * 113) / 100);
+  it("charges exactly what the creator earns, with no fee", () => {
+    for (const c of [0, 1, 7, 100, 500, 1000, 31_000, 123_400]) {
+      expect(companyCostCents(c)).toBe(c);
     }
   });
 });
@@ -98,7 +89,7 @@ describe("weekGuaranteedCost", () => {
     const w = weekGuaranteedCost({ creators: 8, videoPosts: 5, staticPosts: 2 });
     expect(w.postsTotal).toBe(56);
     expect(w.creatorPayCents).toBe(8 * (5 * 1000 + 2 * 500));
-    expect(w.companyCents).toBe(8 * (5 * 1130 + 2 * 565));
+    expect(w.companyCents).toBe(w.creatorPayCents);
   });
 
   it("is zero with no approved creators", () => {

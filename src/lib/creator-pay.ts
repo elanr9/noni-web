@@ -11,8 +11,10 @@
      views. A campaign can set its own higher rates (migration 163).
    - View pay is capped at $300 per post, and only views in the first 30
      days after posting count (checked daily).
-   - The company pays creator pay plus a 13% Noni fee, rounded up to the
-     cent, debited from its credit balance as pay is earned. */
+   - The company's budget pays exactly what the creator earns, debited from
+     its credit balance as pay is earned. Noni takes no fee on creator pay;
+     it earns from subscriptions only (owner decision 2026-11-27, noni
+     migration 174). */
 
 import type { BriefFormat } from "@/components/manager/briefs/lib";
 
@@ -23,12 +25,6 @@ export const VIEW_PAY_CAP_CENTS = 30000;
 /** A post is paid for itself once it has this many views. */
 export const MIN_VIEWS_FOR_POST_PAY = 500;
 export const VIEW_WINDOW_DAYS = 30;
-export const NONI_FEE_RATE = 0.13;
-
-/* Whole percent, so the fee is computed in integer cents with no float
-   drift (1000 * 1.13 is not exactly 1130 in floating point). */
-const FEE_PERCENT = Math.round(NONI_FEE_RATE * 100);
-
 /** Base pay for one live post of this format, in cents. */
 export function basePayCents(format: BriefFormat): number {
   return format === "video" ? VIDEO_POST_CENTS : STATIC_POST_CENTS;
@@ -46,11 +42,9 @@ export function creatorPayForPost(format: BriefFormat, views: number): number {
   return basePayCents(format) + viewPayCents(views);
 }
 
-/** What the company is charged for creator pay, in cents: pay plus the
-    Noni fee, rounded up to the cent. */
+/** What the company is charged for creator pay, in cents: exactly the pay. */
 export function companyCostCents(creatorPayCents: number): number {
-  const c = Math.max(0, Math.round(creatorPayCents));
-  return Math.ceil((c * (100 + FEE_PERCENT)) / 100);
+  return Math.max(0, Math.round(creatorPayCents));
 }
 
 export interface CampaignCostInput {
@@ -63,17 +57,17 @@ export interface CampaignCostInput {
 
 export interface CampaignCostEstimate {
   postsTotal: number;
-  /** Base pay for every post, before the fee. */
+  /** Base pay for every post. */
   baseCreatorCents: number;
   /** View pay if every post gets the average views (per post cap applied). */
   viewCreatorCents: number;
   /** View pay if every post hits the cap. */
   maxViewCreatorCents: number;
-  /** Guaranteed: base pay plus fee, no views. */
+  /** Guaranteed: base pay, no views. */
   companyMinCents: number;
-  /** Base plus estimated view pay, plus fee. */
+  /** Base plus estimated view pay. */
   companyEstimateCents: number;
-  /** Base plus capped view pay on every post, plus fee. */
+  /** Base plus capped view pay on every post. */
   companyMaxCents: number;
 }
 
@@ -98,7 +92,6 @@ export function estimateCampaignCost(input: CampaignCostInput): CampaignCostEsti
     baseCreatorCents,
     viewCreatorCents,
     maxViewCreatorCents,
-    /* Base pay is debited per post, so the fee rounds up per post. */
     companyMinCents:
       videos * companyCostCents(VIDEO_POST_CENTS) +
       statics * companyCostCents(STATIC_POST_CENTS),
@@ -111,13 +104,13 @@ export interface WeekGuaranteedCost {
   /** Posts across every creator: creators x (video + static briefs). */
   postsTotal: number;
   creatorPayCents: number;
-  /** Base pay plus fee, rounded up per post like the SQL debit. */
+  /** What the company's budget pays: the same base pay. */
   companyCents: number;
 }
 
 /** Guaranteed cost of a published week: every receiving creator gets every
     brief in it (publish-campaign), so base pay times the creator count,
-    with the fee rounded up on each post's base pay. View pay is extra. */
+    with no fee on top. View pay is extra. */
 export function weekGuaranteedCost(input: {
   creators: number;
   videoPosts: number;
@@ -135,8 +128,8 @@ export function weekGuaranteedCost(input: {
   };
 }
 
-/** Cents as dollars, with cents shown only when there are any: "$1,130",
-    "$5.65". */
+/** Cents as dollars, with cents shown only when there are any: "$1,000",
+    "$5.50". */
 export function formatCents(cents: number): string {
   const whole = cents % 100 === 0;
   return (
@@ -148,14 +141,11 @@ export function formatCents(cents: number): string {
   );
 }
 
-const FEE_LABEL = `${FEE_PERCENT}%`;
-
 /** One line explaining the pay rules, for UI copy. */
 export const PAY_RULES_LINE =
   `Creators earn ${formatCents(VIDEO_POST_CENTS)} per video and ${formatCents(STATIC_POST_CENTS)} per slideshow once it is live with ${MIN_VIEWS_FOR_POST_PAY} views, ` +
-  `plus ${formatCents(CENTS_PER_1K_VIEWS)} per 1,000 views (up to ${formatCents(VIEW_PAY_CAP_CENTS)} a post, views in the first ${VIEW_WINDOW_DAYS} days). ` +
-  `Noni adds a ${FEE_LABEL} fee.`;
+  `plus ${formatCents(CENTS_PER_1K_VIEWS)} per 1,000 views (up to ${formatCents(VIEW_PAY_CAP_CENTS)} a post, views in the first ${VIEW_WINDOW_DAYS} days).`;
 
 /** Short form for the week page next to the targets. */
 export const BASE_PAY_LINE =
-  `${formatCents(VIDEO_POST_CENTS)} a video, ${formatCents(STATIC_POST_CENTS)} a slideshow, plus ${FEE_LABEL} fee. View pay is extra.`;
+  `${formatCents(VIDEO_POST_CENTS)} a video, ${formatCents(STATIC_POST_CENTS)} a slideshow. View pay is extra.`;
