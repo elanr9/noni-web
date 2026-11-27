@@ -287,6 +287,40 @@ export function passes(c: ScoutCreator, f: ScoutFilters, now = Date.now()): bool
   return true;
 }
 
+/* A search for the people the filters ask for: where to look, how big, and
+   who they must be in plain words for the planner. Posting and email are
+   not searchable, so they stay filters only. */
+export function searchFromFilters(f: ScoutFilters): {
+  platforms: ScoutPlatform[];
+  minFollowers: number | null;
+  maxFollowers: number | null;
+  want: string;
+} {
+  const bands = SIZE_BANDS.filter((b) => f.size.includes(b.key));
+  const want: string[] = [];
+  if (f.gender.length === 1) want.push(f.gender[0] === "female" ? "Only women." : "Only men.");
+  if (f.age.length) {
+    const names = { "18-24": "18 to 24", "25-34": "25 to 34", "35+": "35 and up" } as const;
+    want.push(`Ages ${f.age.map((a) => names[a]).join(" or ")}.`);
+  }
+  if (f.kind.length) {
+    const names = {
+      ugc: "people who already make UGC or brand videos",
+      creator: "small creators who post often",
+      niche: "everyday people who are the niche",
+    } as const;
+    want.push(`Only ${f.kind.map((k) => names[k]).join(", or ")}.`);
+  }
+  if (bands.length && Math.max(...bands.map((b) => b.max)) <= 5_000) want.push("Small accounts, under 5k followers.");
+  if (f.more.includes("camera")) want.push("They show their face on camera.");
+  return {
+    platforms: f.platform.length ? [...f.platform] : ["tiktok", "instagram"],
+    minFollowers: bands.length ? Math.min(...bands.map((b) => b.min)) : null,
+    maxFollowers: bands.length ? Math.min(5_000_000, Math.max(...bands.map((b) => b.max))) : null,
+    want: want.join(" "),
+  };
+}
+
 export function perWeek(n: number | null): string {
   if (n === null) return "";
   if (n > 0 && n < 1) return "<1";

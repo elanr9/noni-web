@@ -37,6 +37,7 @@ import {
   type ScoutCreator,
   type ScoutData,
   type ScoutFilters,
+  searchFromFilters,
   type ScoutPlatform,
   type ScoutSort,
   type ScoutStatus,
@@ -478,6 +479,8 @@ function FilterPanel({
   count,
   accent,
   onClose,
+  onFindMore,
+  finding,
 }: {
   filters: ScoutFilters;
   onChange: (f: ScoutFilters) => void;
@@ -485,6 +488,9 @@ function FilterPanel({
   count: number;
   accent: string;
   onClose: () => void;
+  /** Starts a search for the people these filters ask for; absent while one is running. */
+  onFindMore?: () => void;
+  finding: boolean;
 }) {
   const toggle = (group: keyof ScoutFilters, value: string) => {
     const cur = filters[group] as string[];
@@ -520,6 +526,11 @@ function FilterPanel({
           <Pill variant="quiet" disabled={filterCount(filters) === 0} onClick={() => onChange(NO_FILTERS)}>
             Clear
           </Pill>
+          {onFindMore && filterCount(filters) > 0 ? (
+            <Pill variant="tint" icon={Search} loading={finding} onClick={onFindMore}>
+              Find more
+            </Pill>
+          ) : null}
           <Pill onClick={onClose} className="flex-1" style={{ backgroundColor: accent, boxShadow: "none" }}>
             Show {count.toLocaleString()}
           </Pill>
@@ -744,6 +755,25 @@ export function ScoutView({
   }, [running, pull]);
 
   const nFilters = filterCount(filters);
+  const [finding, setFinding] = useState(false);
+
+  /* A new search for exactly the people the filters ask for. The filters
+     stay on, so the matches land in this view as they are vetted. */
+  const findMore = async () => {
+    if (finding || running) return;
+    setFinding(true);
+    setError(null);
+    const r = await startScout({ companyId, brief: data.run?.brief ?? "", seeds: [], ...searchFromFilters(filters) });
+    setFinding(false);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    setData(r.data);
+    setFiltering(false);
+    setTab("match");
+    setPage(0);
+  };
 
   /* Filters narrow every tab, so the counts say what is left. */
   const kept = useMemo(
@@ -963,9 +993,16 @@ export function ScoutView({
             {nFilters ? "No one matches." : running ? "Nothing here yet." : "Nothing here."}
           </span>
           {nFilters ? (
-            <Pill size="sm" variant="quiet" onClick={() => setFilters(NO_FILTERS)}>
-              Clear filters
-            </Pill>
+            <span className="flex items-center gap-2">
+              {running ? null : (
+                <Pill size="sm" icon={Search} loading={finding} onClick={() => void findMore()} style={{ backgroundColor: accent, boxShadow: "none" }}>
+                  Find more
+                </Pill>
+              )}
+              <Pill size="sm" variant="quiet" onClick={() => setFilters(NO_FILTERS)}>
+                Clear filters
+              </Pill>
+            </span>
           ) : null}
         </Card>
       )}
@@ -991,6 +1028,8 @@ export function ScoutView({
           count={list.length}
           accent={accent}
           onClose={() => setFiltering(false)}
+          onFindMore={running ? undefined : () => void findMore()}
+          finding={finding}
         />
       ) : null}
 

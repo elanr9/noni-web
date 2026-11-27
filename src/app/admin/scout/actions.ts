@@ -28,6 +28,8 @@ export async function startScout(input: {
   seeds: string[];
   minFollowers: number | null;
   maxFollowers: number | null;
+  /** Who the search must reach, from the board's filters. */
+  want?: string;
 }): Promise<{ ok: true; data: ScoutData } | { ok: false; error: string }> {
   const g = await gate(input.companyId);
   if (!g.ok) return g;
@@ -39,6 +41,7 @@ export async function startScout(input: {
     seeds: input.seeds,
     min_followers: input.minFollowers,
     max_followers: input.maxFollowers,
+    want: input.want || undefined,
   });
   if (r.error !== null) return { ok: false, error: r.error };
   const data = await loadScout(g.companyId);
