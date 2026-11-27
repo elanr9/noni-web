@@ -44,8 +44,8 @@ export default async function MediaSetupPage({
       name={snapshot?.sells?.title?.trim() || data.company.name}
       themeColor={themeColor}
       features={features}
-      shots={items.filter((i) => i.kind === "screenshot").map((i) => ({ url: i.previewUrl, title: i.title }))}
-      recordings={items.filter((i) => i.kind === "recording").map((i) => ({ url: i.previewUrl, title: i.title }))}
+      shots={items.filter((i) => i.kind === "screenshot").map((i) => ({ id: i.id, url: i.previewUrl, title: i.title }))}
+      recordings={items.filter((i) => i.kind === "recording").map((i) => ({ id: i.id, url: i.previewUrl, title: i.title }))}
     />
   );
 }

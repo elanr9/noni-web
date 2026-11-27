@@ -79,7 +79,7 @@ export interface AddMediaLibraryInput {
 /** Registers a file the browser already uploaded under <company>/library/. */
 export async function addMediaLibraryItem(
   input: AddMediaLibraryInput,
-): Promise<MediaActionResult> {
+): Promise<{ ok: true; id?: string } | { ok: false; error: string }> {
   const gate = await requireCompanyManager();
   if (!gate.ok) return { ok: false, error: gate.error };
 
@@ -109,11 +109,11 @@ export async function addMediaLibraryItem(
     created_by: gate.userId,
   };
   const supabase = createServiceClient();
-  const { error } = await supabase.from("media_library").insert(row);
+  const { data, error } = await supabase.from("media_library").insert(row).select("id").single();
   if (error) return { ok: false, error: error.message };
 
   revalidateMedia();
-  return { ok: true };
+  return { ok: true, id: data.id };
 }
 
 export async function renameMediaLibraryItem(

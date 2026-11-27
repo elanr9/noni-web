@@ -1,10 +1,10 @@
 "use client";
 
-import { ArrowRight, Check, Plus } from "lucide-react";
+import { ArrowRight, Check, Plus, X } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState, type DragEvent } from "react";
 
-import { addMediaLibraryItem, saveThemeColor } from "@/app/manager/media/actions";
+import { addMediaLibraryItem, removeMediaLibraryItem, saveThemeColor } from "@/app/manager/media/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { PostTextPreview } from "@/components/company/PostTextPreview";
 import { useNavigate } from "@/components/motion/NavProgress";
@@ -35,8 +35,10 @@ const ACCEPT: Record<MediaKind, string> = {
   recording: "video/mp4,video/quicktime",
 };
 
-/** A file in a slot. `title` is the feature a screenshot was asked for. */
-type Slot = { url: string; busy: boolean; title?: string | null };
+/** A file in a slot. `title` is the feature it was asked for; `id` is its library row once saved. */
+type Slot = { url: string; busy: boolean; title?: string | null; id?: string | null };
+/** What opened the file picker: a feature's card, the plus for more, or a filled card being changed. */
+type Target = { feature?: string | null; more?: boolean; replace?: Slot };
 
 const same = (a: string | null | undefined, b: string) => (a ?? "").trim().toLowerCase() === b.trim().toLowerCase();
 
@@ -56,8 +58,8 @@ export function MediaSetup({
   /** The company's top features, one screenshot and one recording each, named under its card. Empty: plain cards. */
   features?: string[];
   /** What is already in the library: preview URLs, and the feature each was added for. */
-  shots: Array<{ url: string; title: string | null }>;
-  recordings: Array<{ url: string; title: string | null }>;
+  shots: Array<{ id: string; url: string; title: string | null }>;
+  recordings: Array<{ id: string; url: string; title: string | null }>;
   /** Open on the color screen, for the "Pick your color" step on its own. */
   start?: "shots" | "color";
 }) {
@@ -70,8 +72,8 @@ export function MediaSetup({
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  /* The feature card that opened the file picker, so its file is saved under that name. */
-  const target = useRef<string | null>(null);
+  /* What opened the file picker, so its file lands in the right place. */
+  const target = useRef<Target>({});
   /* Uploads run one after another: the library names files by the clock. */
   const queue = useRef<Promise<void>>(Promise.resolve());
 
@@ -88,15 +90,19 @@ export function MediaSetup({
 
   /* Each file shows at once from the device and uploads behind it. A file
      for a feature card is named for that feature; more files, and dropped
-     ones, fill the empty feature cards in order. */
-  const add = (files: FileList | File[], forFeature: string | null = null) => {
+     ones, fill the empty feature cards in order. Files from the plus are
+     saved unnamed. A file that takes a filled card's place deletes the old
+     one from the library once it is saved. */
+  const add = (files: FileList | File[], { feature = null, more = false, replace }: Target = {}) => {
     setError(null);
-    const open = features.filter((f) => !fileFor(current, f) && f !== forFeature);
-    const names = forFeature ? [forFeature, ...open] : open;
+    const open = features.filter((f) => !fileFor(current, f) && f !== feature);
+    const names = more ? [] : feature ? [feature, ...open] : open;
     let list = Array.from(files);
-    if (features.length > 0) list = list.slice(0, names.length);
+    if (replace) list = list.slice(0, 1);
+    else if (features.length > 0 && !more) list = list.slice(0, names.length);
     for (const [n, file] of list.entries()) {
       const title = names[n] ?? null;
+      const old = current.filter((s) => (replace ? s.url === replace.url : Boolean(title) && same(s.title, title!)));
       const check = checkMediaFile(file);
       if (!check.ok) {
         setError(check.error);
@@ -108,11 +114,13 @@ export function MediaSetup({
       }
       const url = URL.createObjectURL(file);
       const set = kind === "screenshot" ? setShots : setRecs;
-      set((prev) => [...prev.filter((s) => !(title && same(s.title, title))), { url, busy: true, title }]);
-      const settle = (ok: boolean) =>
+      set((prev) => [...prev.filter((s) => !old.some((o) => o.url === s.url)), { url, busy: true, title }]);
+      const settle = (ok: boolean, id: string | null = null) => {
         set((prev) =>
-          ok ? prev.map((s) => (s.url === url ? { ...s, busy: false } : s)) : prev.filter((s) => s.url !== url),
+          ok ? prev.map((s) => (s.url === url ? { ...s, busy: false, id } : s)) : prev.filter((s) => s.url !== url),
         );
+        if (ok) for (const o of old) if (o.id) void removeMediaLibraryItem(o.id);
+      };
       queue.current = queue.current.then(async () => {
         try {
           const prepared = await prepareMedia(file, check.kind);
@@ -128,13 +136,26 @@ export function MediaSetup({
             height: prepared.height,
           });
           if (!result.ok) setError(result.error);
-          settle(result.ok);
+          settle(result.ok, result.ok ? (result.id ?? null) : null);
         } catch (e) {
           setError(e instanceof Error ? e.message : "Upload failed. Try again.");
           settle(false);
         }
       });
     }
+  };
+
+  const remove = (s: Slot) => {
+    setError(null);
+    (kind === "screenshot" ? setShots : setRecs)((prev) => prev.filter((x) => x.url !== s.url));
+    if (s.id)
+      void removeMediaLibraryItem(s.id).then((result) => {
+        if (!result.ok) setError(result.error);
+      });
+  };
+  const pick = (t: Target) => {
+    target.current = t;
+    input.current?.click();
   };
 
   const onDrop = (e: DragEvent<HTMLElement>) => {
@@ -182,10 +203,7 @@ export function MediaSetup({
           key={`empty-${i}`}
           type="button"
           aria-label={feature ?? undefined}
-          onClick={() => {
-            target.current = feature;
-            input.current?.click();
-          }}
+          onClick={() => pick({ feature })}
           className={`relative flex cursor-pointer items-center justify-center rounded-[22px] border-2 border-dashed bg-white transition-transform duration-150 hover:-translate-y-1 active:scale-[0.97] ${box} ${
             wide ? "w-[169px]" : "w-[146px]"
           }`}
@@ -203,9 +221,28 @@ export function MediaSetup({
     return (
       <div key={s.url} className={`flex items-center justify-center ${box}`}>
         <div
-          aria-label={feature ?? undefined}
-          className="relative overflow-hidden rounded-[6px] shadow-[0_10px_30px_rgba(15,23,42,0.14)] animate-om-bounce"
+          role="button"
+          tabIndex={0}
+          aria-label={feature ?? "Change"}
+          onClick={() => (s.busy ? undefined : pick({ feature, more: !feature, replace: s }))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !s.busy) pick({ feature, more: !feature, replace: s });
+          }}
+          className="relative cursor-pointer overflow-hidden rounded-[6px] shadow-[0_10px_30px_rgba(15,23,42,0.14)] transition-transform duration-150 hover:-translate-y-1 animate-om-bounce"
         >
+          {s.busy ? null : (
+            <button
+              type="button"
+              aria-label="Remove"
+              onClick={(e) => {
+                e.stopPropagation();
+                remove(s);
+              }}
+              className="absolute left-2 top-2 z-10 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-none bg-ink/70 text-white transition-transform duration-150 hover:scale-110 active:scale-95"
+            >
+              <X size={15} strokeWidth={3} />
+            </button>
+          )}
           {kind === "recording" && s.url.startsWith("blob:") ? (
             <video src={s.url} muted playsInline className={`block h-auto w-auto ${fit}`} />
           ) : (
@@ -226,8 +263,8 @@ export function MediaSetup({
     );
   };
 
-  /* The cards of a screen: one per feature with its name under it, then any
-     unnamed files already in the library. With no features, plain cards. */
+  /* The cards of a screen: one per feature with its name under it, then the
+     unnamed extras, then a small plus to add more. With no features, plain cards. */
   const cards = (list: Slot[], wide: boolean, min: number) => {
     const label = wide ? "w-[169px]" : "w-[146px]";
     return (
@@ -247,6 +284,17 @@ export function MediaSetup({
           ) : (
             Array.from({ length: Math.max(min, list.length) }, (_, i) => slot(list[i], i, wide))
           )}
+          <div className={`flex items-center ${wide ? "h-[300px]" : "h-[260px]"}`}>
+            <button
+              type="button"
+              aria-label="Add more"
+              onClick={() => pick({ more: true })}
+              className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-none transition-transform duration-150 hover:scale-110 active:scale-95"
+              style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, white)`, color: accent }}
+            >
+              <Plus size={22} strokeWidth={2.6} />
+            </button>
+          </div>
       </div>
     );
   };
@@ -321,7 +369,7 @@ export function MediaSetup({
         className="hidden"
         onChange={(e) => {
           if (e.target.files) add(e.target.files, target.current);
-          target.current = null;
+          target.current = {};
           e.target.value = "";
         }}
       />
