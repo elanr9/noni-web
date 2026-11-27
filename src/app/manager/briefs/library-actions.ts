@@ -115,8 +115,6 @@ export async function fillWithAi(body: {
 export async function planImport(input: {
   files: { path: string; name: string; mime: string }[];
   links: string[];
-  text: string;
-  count: number;
 }): Promise<Result<{ importId: string; summary: string; posts: PlannedPost[] }>> {
   const g = await gate();
   if (!g.ok) return g;
@@ -125,9 +123,6 @@ export async function planImport(input: {
     action: "plan",
     files: input.files,
     links: input.links,
-    text: input.text,
-    notes: "",
-    count: input.count,
   });
   if (r.error !== null) return { ok: false, error: r.error };
   if (r.data?.error) return { ok: false, error: r.data.error };

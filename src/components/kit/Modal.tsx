@@ -51,7 +51,7 @@ export function Modal({ title, onClose, children, width = 460 }: ModalProps) {
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim animate-om-fade"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim font-ops animate-om-fade"
     >
       <div
         className="relative overflow-y-auto bg-white p-[26px] shadow-raised rounded-ops-xl animate-om-pop"

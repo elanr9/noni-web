@@ -30,7 +30,7 @@ import {
 } from "@/app/manager/briefs/library-actions";
 import { markLibraryItemUsed } from "@/app/manager/library/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
-import { Card, Field, Modal, PageHead, Pill, TextArea } from "@/components/kit";
+import { Card, Field, Modal, PageHead, Pill, SortDropdown, TextArea } from "@/components/kit";
 import {
   BRIEF_TYPES,
   LONG_TEXT_NOTES,
@@ -76,6 +76,8 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "old", label: "Oldest" },
   { key: "az", label: "A to Z" },
 ];
+const ALL_TYPES = "All types";
+const TYPE_OPTIONS: readonly string[] = [ALL_TYPES, ...BRIEF_TYPES];
 const SPARKS = ["#1BA6EE", "#22C55E", "#F59E0B", "#EC4899"];
 
 function usePerPage(): number {
@@ -111,14 +113,14 @@ function SmallLabel({ children }: { children: ReactNode }) {
 
 function Seg<T extends string>({ options, value, onChange }: { options: { key: T; label: string; count?: number }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-1">
       {options.map((o) => (
         <button
           key={o.key}
           type="button"
           onClick={() => onChange(o.key)}
-          className={`shrink-0 cursor-pointer whitespace-nowrap rounded-full border px-4 py-1.5 text-[13.5px] font-bold transition-colors ${
-            value === o.key ? "border-ink bg-ink text-white" : "border-line bg-white text-slate-500 hover:text-ink"
+          className={`shrink-0 cursor-pointer whitespace-nowrap rounded-full px-[15px] py-[7px] text-[13px] font-bold transition-colors ${
+            value === o.key ? "bg-blue-100 text-blue-700" : "bg-transparent text-slate-400 hover:text-ink"
           }`}
         >
           {o.label} {o.count !== undefined ? <span className="tabular-nums opacity-70">{o.count}</span> : null}
@@ -605,7 +607,7 @@ function BriefEditor({
 
 /* ------------------------------------------------------------ upload */
 
-type Source = { id: string; kind: "file"; file: File } | { id: string; kind: "link"; url: string } | { id: string; kind: "text"; text: string };
+type Source = { id: string; kind: "file"; file: File };
 type Written = { index: number; status: "writing" | "done" | "failed"; input?: SaveBriefInput };
 
 const ACCEPT = ".pdf,.docx,.pptx,.xlsx,.rtf,.txt,.md,.csv,image/jpeg,image/png,image/webp";
@@ -614,8 +616,6 @@ const MAX_FILE = 24 * 1024 * 1024;
 function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClose: () => void; onSaved: (list: Brief[], ids: string[]) => void }) {
   const [sources, setSources] = useState<Source[]>([]);
   const [link, setLink] = useState("");
-  const [text, setText] = useState("");
-  const [count, setCount] = useState(6);
   const [phase, setPhase] = useState<"pick" | "reading" | "writing" | "saving">("pick");
   const [plan, setPlan] = useState<{ importId: string; summary: string; posts: PlannedPost[] } | null>(null);
   const [written, setWritten] = useState<Written[]>([]);
@@ -637,11 +637,9 @@ function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClo
   };
 
   const read = async () => {
-    const all = [...sources];
-    if (link.trim()) all.push({ id: uid(), kind: "link", url: link.trim() });
-    if (text.trim()) all.push({ id: uid(), kind: "text", text: text.trim() });
-    if (!all.length) {
-      setError("Add a file, a link or some text.");
+    const url = link.trim();
+    if (!sources.length && !url) {
+      setError("Add a file or a link.");
       return;
     }
     setError(null);
@@ -649,22 +647,15 @@ function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClo
     try {
       const supabase = createClient();
       const files = await Promise.all(
-        all
-          .filter((s): s is Extract<Source, { kind: "file" }> => s.kind === "file")
-          .map(async (s) => {
+        sources.map(async (s) => {
             const safe = s.file.name.replace(/[^A-Za-z0-9._-]+/g, "-").slice(-80) || "file";
             const path = `${companyId}/${uid()}-${safe}`;
             const { error: upErr } = await supabase.storage.from("brief-imports").upload(path, s.file, { contentType: s.file.type || "application/octet-stream" });
             if (upErr) throw new Error(`${s.file.name} did not upload.`);
             return { path, name: s.file.name, mime: s.file.type };
-          }),
+        }),
       );
-      const r = await planImport({
-        files,
-        links: all.flatMap((s) => (s.kind === "link" ? [s.url] : [])),
-        text: all.flatMap((s) => (s.kind === "text" ? [s.text] : [])).join("\n\n"),
-        count,
-      });
+      const r = await planImport({ files, links: url ? [url] : [] });
       if (!r.ok) throw new Error(r.error);
       setPlan(r.data);
       setPhase("writing");
@@ -715,7 +706,7 @@ function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClo
   };
 
   return (
-    <Modal title="Upload brief" onClose={onClose} width={640}>
+    <Modal title="Upload brief" onClose={onClose} width={520}>
       {phase === "pick" || phase === "reading" ? (
         <div className="flex flex-col gap-3">
           <button
@@ -732,11 +723,13 @@ function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClo
               setOver(false);
               addFiles(e.dataTransfer.files);
             }}
-            className={`flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-ops-sm border border-dashed px-4 py-7 text-[13.5px] font-bold transition-colors ${
-              over ? "border-blue-500 bg-blue-50 text-blue-700" : "border-line bg-fill-quiet text-slate-500 hover:text-ink"
+            className={`flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-ops-md border border-dashed px-4 py-10 text-[13.5px] font-bold transition-colors ${
+              over ? "border-blue-500 bg-blue-50 text-blue-700" : "border-line-strong bg-white text-slate-500 hover:border-blue-300 hover:bg-fill-quiet"
             }`}
           >
-            <Upload size={18} />
+            <span className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+              <Upload size={18} />
+            </span>
             PDF, Word, slides, sheets or photos
           </button>
           <input ref={input} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => addFiles(e.target.files)} />
@@ -744,7 +737,7 @@ function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClo
             <div className="flex flex-wrap gap-1.5">
               {sources.map((s) => (
                 <span key={s.id} className="flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-[12.5px] font-bold text-blue-700">
-                  {s.kind === "file" ? s.file.name : ""}
+                  {s.file.name}
                   <button type="button" aria-label="Remove" onClick={() => setSources((l) => l.filter((x) => x.id !== s.id))} className="cursor-pointer">
                     <X size={12} />
                   </button>
@@ -752,12 +745,7 @@ function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClo
               ))}
             </div>
           ) : null}
-          <Field label="Google Doc or Notion link" value={link} onChange={(e) => setLink(e.target.value)} type="url" optional />
-          <TextArea label="Or paste it" value={text} onChange={(e) => setText(e.target.value)} rows={3} optional />
-          <div>
-            <SmallLabel>Posts</SmallLabel>
-            <Seg options={[6, 12, 20].map((n) => ({ key: String(n), label: String(n) }))} value={String(count)} onChange={(v) => setCount(Number(v))} />
-          </div>
+          <Field label="Or a Google Doc or Notion link" value={link} onChange={(e) => setLink(e.target.value)} type="url" />
           {error ? <div className="text-[13px] font-semibold text-danger">{error}</div> : null}
           <div className="mt-2 flex justify-end gap-2">
             <Pill variant="quiet" onClick={onClose}>
@@ -925,7 +913,7 @@ export function BriefsLibraryView({
               }}
             />
             <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-              <label className="flex h-9 min-w-[170px] flex-1 items-center gap-2 rounded-full border border-line bg-white px-3 sm:max-w-[240px]">
+              <label className="flex h-9 min-w-[170px] flex-1 items-center gap-2 rounded-full border border-line bg-white px-3 shadow-card sm:max-w-[240px]">
                 <Search size={15} className="text-slate-400" />
                 <input
                   value={q}
@@ -942,32 +930,24 @@ export function BriefsLibraryView({
                   </button>
                 ) : null}
               </label>
-              <select
-                value={type}
-                onChange={(e) => {
-                  setType(e.target.value as "All" | BriefType);
+              <SortDropdown
+                prefix=""
+                options={TYPE_OPTIONS}
+                value={type === "All" ? ALL_TYPES : type}
+                onSelect={(v) => {
+                  setType(v === ALL_TYPES ? "All" : (v as BriefType));
                   setPage(0);
                 }}
-                className="h-9 cursor-pointer rounded-full border border-line bg-white px-3 text-[13px] font-bold text-ink outline-none"
-              >
-                <option value="All">All types</option>
-                {BRIEF_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
-                className="h-9 cursor-pointer rounded-full border border-line bg-white px-3 text-[13px] font-bold text-ink outline-none"
-              >
-                {SORTS.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+              />
+              <SortDropdown
+                prefix=""
+                options={SORTS.map((x) => x.label)}
+                value={SORTS.find((x) => x.key === sort)?.label ?? SORTS[0].label}
+                onSelect={(v) => {
+                  setSort(SORTS.find((x) => x.label === v)?.key ?? "new");
+                  setPage(0);
+                }}
+              />
               {pages > 1 ? (
                 <span className="flex items-center gap-1.5 text-[13px] font-bold text-slate-500">
                   <button
@@ -999,7 +979,7 @@ export function BriefsLibraryView({
           {shown.length ? (
             <div
               key={`${lane}-${safePage}`}
-              className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:auto-rows-[minmax(0,1fr)] lg:grid-cols-3 xl:grid-cols-4"
+              className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-rows-3 lg:grid-cols-3 xl:grid-cols-4"
             >
               {shown.map((b, i) => (
                 <div key={b.id} className="h-full min-h-0 min-w-0 animate-om-pop" style={{ animationDelay: `${i * 35}ms` } as CSSProperties}>
