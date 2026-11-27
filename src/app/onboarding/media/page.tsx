@@ -28,7 +28,7 @@ export default async function MediaSetupPage({
     peekBrainSnapshot(),
     peekTopFeatures(),
   ]);
-  /* One screenshot per top feature the company picked in the company chat;
+  /* One screenshot and one recording per top feature the company picked in the company chat;
      with no pick yet (three or fewer features), the features themselves. */
   const features = (
     top.length > 0
@@ -45,7 +45,7 @@ export default async function MediaSetupPage({
       themeColor={themeColor}
       features={features}
       shots={items.filter((i) => i.kind === "screenshot").map((i) => ({ url: i.previewUrl, title: i.title }))}
-      recordings={items.filter((i) => i.kind === "recording").map((i) => i.previewUrl)}
+      recordings={items.filter((i) => i.kind === "recording").map((i) => ({ url: i.previewUrl, title: i.title }))}
     />
   );
 }

@@ -19,7 +19,8 @@ import { prepareMedia, uploadToLibrary } from "@/lib/media-library-upload";
 
 /* Getting a company's product into Noni, one thing per screen so there is
    never a choice of where to go. Two onboarding steps open it: "Add
-   screenshots" runs three screenshots then one screen recording, and "Pick
+   screenshots" runs a screenshot then a screen recording for each top
+   feature, with a spare card on each screen for more, and "Pick
    your color" opens on the color of the text on its posts. Each screen is a title, the
    slots to fill and one button. Files upload as they are dropped, with no
    naming step; they can be named later in the Media library. */
@@ -29,6 +30,8 @@ const STEPS = ["shots", "recording", "color", "done"] as const;
 type Step = (typeof STEPS)[number];
 
 const SHOT_SLOTS = 3;
+/** The spare card's target: files added through it are not for a feature. */
+const MORE = "\u0000more";
 const ACCEPT: Record<MediaKind, string> = {
   screenshot: "image/jpeg,image/png,image/webp,image/heic,image/heif",
   recording: "video/mp4,video/quicktime",
@@ -52,24 +55,25 @@ export function MediaSetup({
   /** What people call the product, e.g. "Inkbound". */
   name: string;
   themeColor: string | null;
-  /** The company's top features, one screenshot each, named under its card. Empty: three plain cards. */
+  /** The company's top features, one screenshot and one recording each, named under its card. Empty: plain cards. */
   features?: string[];
-  /** What is already in the library: preview URLs, and a screenshot's name. */
+  /** What is already in the library: preview URLs, and the feature each was added for. */
   shots: Array<{ url: string; title: string | null }>;
-  recordings: string[];
+  recordings: Array<{ url: string; title: string | null }>;
   /** Open on the color screen, for the "Pick your color" step on its own. */
   start?: "shots" | "color";
 }) {
   const { go, pending: leaving } = useNavigate();
   const [step, setStep] = useState<Step>(start);
   const [shots, setShots] = useState<Slot[]>(initialShots.map((s) => ({ ...s, busy: false })));
-  const [recs, setRecs] = useState<Slot[]>(initialRecordings.map((url) => ({ url, busy: false })));
+  const [recs, setRecs] = useState<Slot[]>(initialRecordings.map((s) => ({ ...s, busy: false })));
   const [color, setColor] = useState(themeColor ?? NONI_BLUE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  /* The feature card that opened the file picker, so its file is saved under that name. */
+  /* The card that opened the file picker: a feature's, so its file is saved
+     under that name, or the spare one (MORE), whose files are saved unnamed. */
   const target = useRef<string | null>(null);
   /* Uploads run one after another: the library names files by the clock. */
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -80,20 +84,21 @@ export function MediaSetup({
   const kind: MediaKind = step === "recording" ? "recording" : "screenshot";
   const at = STEPS.indexOf(step);
 
-  /* With features, each card holds the screenshot named for it. */
-  const shotFor = (feature: string) => shots.find((s) => same(s.title, feature));
+  /* With features, each card holds the file named for it; the rest are extras. */
+  const fileFor = (list: Slot[], feature: string) => list.find((s) => same(s.title, feature));
+  const extrasOf = (list: Slot[]) => list.filter((s) => !features.some((f) => same(s.title, f)));
+  const current = kind === "screenshot" ? shots : recs;
 
-  /* Each file shows at once from the device and uploads behind it. A
-     screenshot for a feature card is named for that feature; dropped files
-     fill the empty feature cards in order. */
+  /* Each file shows at once from the device and uploads behind it. A file
+     for a feature card is named for that feature; more files, and dropped
+     ones, fill the empty feature cards in order, then land as extras. Files
+     from the spare card are always extras. */
   const add = (files: FileList | File[], forFeature: string | null = null) => {
     setError(null);
-    const open = features.filter((f) => !shotFor(f) && f !== forFeature);
-    const names = forFeature ? [forFeature, ...open] : open;
-    let list = Array.from(files);
-    if (kind === "screenshot" && features.length > 0) list = list.slice(0, names.length);
-    for (const [n, file] of list.entries()) {
-      const title = kind === "screenshot" && features.length > 0 ? names[n] : null;
+    const open = features.filter((f) => !fileFor(current, f) && f !== forFeature);
+    const names = forFeature === MORE ? [] : forFeature ? [forFeature, ...open] : open;
+    for (const [n, file] of Array.from(files).entries()) {
+      const title = names[n] ?? null;
       const check = checkMediaFile(file);
       if (!check.ok) {
         setError(check.error);
@@ -168,36 +173,49 @@ export function MediaSetup({
     boxShadow: `0 12px 28px color-mix(in srgb, ${accent} 34%, transparent)`,
   };
 
-  /* A slot: empty with a plus, or filled with the file and a popped check. */
-  const slot = (s: Slot | undefined, i: number, wide: boolean, feature: string | null = null) => (
-    <button
-      key={s?.url ?? `empty-${i}`}
-      type="button"
-      aria-label={feature ?? undefined}
-      onClick={() => {
-        if (s) return;
-        target.current = feature;
-        input.current?.click();
-      }}
-      className={`relative flex items-center justify-center overflow-hidden rounded-[22px] transition-transform duration-150 ${
-        wide ? "h-[300px] w-[169px]" : "h-[260px] w-[146px]"
-      } ${
-        s
-          ? "cursor-default border-none bg-ink-900 shadow-[0_10px_30px_rgba(15,23,42,0.14)] animate-om-bounce"
-          : "cursor-pointer border-2 border-dashed bg-white hover:-translate-y-1 active:scale-[0.97]"
-      }`}
-      style={s ? undefined : { borderColor: over ? accent : "#D5DEE8" }}
-    >
-      {s ? (
-        <>
+  /* A slot: empty with a plus, or filled with the file and a popped check.
+     A filled slot takes the shape of its own file, so nothing is cropped. */
+  const slot = (s: Slot | undefined, i: number, wide: boolean, feature: string | null = null) => {
+    const box = wide ? "h-[300px]" : "h-[260px]";
+    const fit = wide ? "max-h-[300px] max-w-[min(480px,84vw)]" : "max-h-[260px] max-w-[230px]";
+    if (!s) {
+      return (
+        <button
+          key={`empty-${i}`}
+          type="button"
+          aria-label={feature === MORE ? "Add more" : (feature ?? undefined)}
+          onClick={() => {
+            target.current = feature;
+            input.current?.click();
+          }}
+          className={`relative flex cursor-pointer items-center justify-center rounded-[22px] border-2 border-dashed bg-white transition-transform duration-150 hover:-translate-y-1 active:scale-[0.97] ${box} ${
+            wide ? "w-[169px]" : "w-[146px]"
+          }`}
+          style={{ borderColor: over ? accent : "#D5DEE8" }}
+        >
+          <span
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full"
+            style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, white)`, color: accent }}
+          >
+            <Plus size={22} strokeWidth={2.6} />
+          </span>
+        </button>
+      );
+    }
+    return (
+      <div key={s.url} className={`flex items-center justify-center ${box}`}>
+        <div
+          aria-label={feature ?? undefined}
+          className="relative overflow-hidden rounded-[6px] shadow-[0_10px_30px_rgba(15,23,42,0.14)] animate-om-bounce"
+        >
           {kind === "recording" && s.url.startsWith("blob:") ? (
-            <video src={s.url} muted playsInline className="h-full w-full object-cover" />
+            <video src={s.url} muted playsInline className={`block h-auto w-auto ${fit}`} />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={s.url} alt="" className="h-full w-full object-cover" />
+            <img src={s.url} alt="" className={`block h-auto w-auto ${fit}`} />
           )}
           <span
-            className={`absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center rounded-full ${
+            className={`absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full ${
               s.busy ? "bg-white/90" : "animate-om-check"
             }`}
             style={s.busy ? undefined : { backgroundColor: "#22C55E", color: "#FFFFFF" }}
@@ -205,17 +223,43 @@ export function MediaSetup({
             {s.busy ? <span className="om-spinner text-ink" /> : <Check size={15} strokeWidth={3.5} />}
             {s.busy ? null : <Burst colors={sparks} />}
           </span>
-        </>
-      ) : (
-        <span
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, white)`, color: accent }}
-        >
-          <Plus size={22} strokeWidth={2.6} />
-        </span>
-      )}
-    </button>
-  );
+        </div>
+      </div>
+    );
+  };
+
+  /* The cards of a screen: one per feature with its name under it, then the
+     extras, then a spare card so there is always room for one more. With no
+     features, plain cards. The row pages sideways so the screen never scrolls. */
+  const cards = (list: Slot[], wide: boolean, min: number) => {
+    const label = wide ? "w-[169px]" : "w-[146px]";
+    return (
+      <div className="max-w-full overflow-x-auto px-1 pb-3 pt-1">
+        <div className="mx-auto flex w-max items-start gap-4">
+          {features.length > 0 ? (
+            <>
+              {features.map((feature, i) => (
+                <div key={feature} className="flex flex-col items-center gap-2.5">
+                  {slot(fileFor(list, feature), i, wide, feature)}
+                  <span className={`text-[15px] font-bold leading-[1.3] tracking-[-0.2px] text-ink ${label}`}>
+                    {feature}
+                  </span>
+                </div>
+              ))}
+              {extrasOf(list).map((s, i) => slot(s, i, wide))}
+              {slot(undefined, features.length, wide, MORE)}
+            </>
+          ) : (
+            Array.from({ length: Math.max(min, list.length + 1) }, (_, i) =>
+              slot(list[i], i, wide, list[i] ? null : MORE),
+            )
+          )}
+        </div>
+      </div>
+    );
+  };
+  const filled = (list: Slot[]) =>
+    features.length > 0 ? features.every((f) => fileFor(list, f)) : list.length > 0;
 
   return (
     <div
@@ -260,7 +304,7 @@ export function MediaSetup({
         ref={input}
         type="file"
         accept={ACCEPT[kind]}
-        multiple={kind === "screenshot" && features.length === 0}
+        multiple
         className="hidden"
         onChange={(e) => {
           if (e.target.files) add(e.target.files, target.current);
@@ -278,25 +322,10 @@ export function MediaSetup({
             <h1 className="display m-0 text-[44px] font-bold leading-[1.05] tracking-[-1.4px] text-ink">
               Add {features.length || SHOT_SLOTS} screenshots of <span style={{ color: accent }}>{name}</span>
             </h1>
-            {features.length > 0 ? (
-              <div className="flex flex-wrap justify-center gap-4">
-                {features.map((feature, i) => (
-                  <div key={feature} className="flex w-[146px] flex-col items-center gap-2.5">
-                    {slot(shotFor(feature), i, false, feature)}
-                    <span className="text-[15px] font-bold leading-[1.3] tracking-[-0.2px] text-ink">{feature}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-wrap justify-center gap-4">
-                {Array.from({ length: Math.max(SHOT_SLOTS, shots.length) }, (_, i) => slot(shots[i], i, false))}
-              </div>
-            )}
+            {cards(shots, false, SHOT_SLOTS)}
             <button
               type="button"
-              disabled={
-                (features.length > 0 ? !features.every((f) => shotFor(f)) : shots.length === 0) || uploading
-              }
+              disabled={!filled(shots) || uploading}
               onClick={() => setStep("recording")}
               className={primary}
               style={primaryStyle}
@@ -310,14 +339,12 @@ export function MediaSetup({
         {step === "recording" ? (
           <>
             <h1 className="display m-0 text-[44px] font-bold leading-[1.05] tracking-[-1.4px] text-ink">
-              Add a screen recording
+              {features.length > 1 ? `Add ${features.length} screen recordings` : "Add a screen recording"}
             </h1>
-            <div className="flex flex-wrap justify-center gap-4">
-              {recs.length > 0 ? recs.map((s, i) => slot(s, i, true)) : slot(undefined, 0, true)}
-            </div>
+            {cards(recs, true, 1)}
             <button
               type="button"
-              disabled={recs.length === 0 || uploading}
+              disabled={!filled(recs) || uploading}
               onClick={() => setStep("done")}
               className={primary}
               style={primaryStyle}
