@@ -228,7 +228,7 @@ function BriefViewer({
         <div className="min-w-0 flex-1">
           <div className="truncate text-[21px] font-extrabold text-ink">{b.title || "Untitled"}</div>
           <div className="text-[13px] font-bold text-slate-400">
-            {b.type} · {b.kind === "Outline" ? "Outline" : "Template"} · {b.uses === 1 ? "1 post" : `${b.uses} posts`}
+            {b.type} · {b.kind === "Outline" ? "Outline" : "Guided"} · {b.uses === 1 ? "1 post" : `${b.uses} posts`}
           </div>
         </div>
       </div>
@@ -558,7 +558,7 @@ function BriefEditor({
           <div className="mb-3 flex items-center gap-2">
             <TypeTile type={d.type} size={28} />
             <span className="text-[13px] font-bold text-slate-400">
-              {d.type} · {d.kind === "Outline" ? "Outline" : "Template"}
+              {d.type} · {d.kind === "Outline" ? "Outline" : "Guided"}
             </span>
           </div>
           <div className="mb-3 flex items-end gap-2">
@@ -903,7 +903,7 @@ export function BriefsLibraryView({
           <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
             <Seg<Lane>
               options={[
-                { key: "Guided", label: "Templates", count: count("Guided") },
+                { key: "Guided", label: "Guided", count: count("Guided") },
                 { key: "Outline", label: "Outlines", count: count("Outline") },
               ]}
               value={lane}
@@ -989,7 +989,7 @@ export function BriefsLibraryView({
             </div>
           ) : (
             <Card pad={0} className="flex min-h-[240px] flex-1 items-center justify-center">
-              <span className="text-[15px] font-extrabold text-ink">{q || type !== "All" ? "No matches" : lane === "Guided" ? "No templates yet" : "No outlines yet"}</span>
+              <span className="text-[15px] font-extrabold text-ink">{q || type !== "All" ? "No matches" : lane === "Guided" ? "No guided briefs yet" : "No outlines yet"}</span>
             </Card>
           )}
         </>
