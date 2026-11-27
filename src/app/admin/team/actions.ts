@@ -342,3 +342,33 @@ export async function updateManagerAccess(
   revalidatePath("/admin", "layout");
   return { ok: true };
 }
+
+/* The "I'll manage it" option on the campaign manager setup step: the admin
+   runs the campaigns, so they show as an Active campaign manager on Team and
+   the step is done with nobody to invite. */
+export async function manageItMyself(renderedFor: string): Promise<TeamActionResult> {
+  if (mockMode()) {
+    MOCK_DATASET.company.onboarding.selfIsManager = true;
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  }
+
+  const { profile } = await getSessionProfile();
+  if (!isCompanyAdmin(profile) && !isPlatformAdmin(profile)) {
+    return { ok: false, error: "Company admins only." };
+  }
+  const companyId = profile?.active_company_id;
+  if (!companyId) return { ok: false, error: "No company on this account." };
+  if (isStaleCompany(companyId, renderedFor)) {
+    return { ok: false, error: STALE_COMPANY_ERROR };
+  }
+
+  const { error } = await createServiceClient()
+    .from("companies")
+    .update({ self_is_manager: true })
+    .eq("id", companyId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/admin", "layout");
+  return { ok: true };
+}

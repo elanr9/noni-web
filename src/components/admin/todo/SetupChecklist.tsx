@@ -2,7 +2,9 @@
 
 import { ArrowRight, Check, Lock, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+
+import { manageItMyself } from "@/app/admin/team/actions";
 
 import { LogoCropModal } from "@/components/company/LogoCropModal";
 import { COMPANY_LOGO_ACCEPT, validateCompanyLogo } from "@/lib/company-logo";
@@ -18,10 +20,13 @@ import type { SetupStep } from "@/lib/admin/setup";
    height, so there is no empty space below and nothing scrolls. A row is
    its title and nothing else. */
 export function SetupChecklist({
+  companyId,
   companyName,
   steps,
   doneCount,
 }: {
+  /** The company this card was rendered for. */
+  companyId: string;
   companyName: string;
   steps: SetupStep[];
   doneCount: number;
@@ -31,6 +36,19 @@ export function SetupChecklist({
   const logoInput = useRef<HTMLInputElement>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
+  const [selfError, setSelfError] = useState<string | null>(null);
+  const [selfPending, startSelf] = useTransition();
+
+  /* The manager step's small option: the admin runs the campaigns. */
+  const manageMyself = () => {
+    if (selfPending) return;
+    setSelfError(null);
+    startSelf(async () => {
+      const result = await manageItMyself(companyId);
+      if (result.ok) router.refresh();
+      else setSelfError(result.error);
+    });
+  };
 
   /* The logo step opens the file picker right here, then the crop. */
   const pickLogo = (file: File | undefined) => {
@@ -127,6 +145,21 @@ export function SetupChecklist({
                       }}
                     />
                   ) : null}
+                </span>
+              ) : isCurrent && s.key === "managers" ? (
+                <span className="flex flex-wrap items-center gap-4">
+                  {selfError ? <span className="text-[13px] font-semibold text-danger">{selfError}</span> : null}
+                  <button
+                    type="button"
+                    disabled={selfPending}
+                    onClick={manageMyself}
+                    className="cursor-pointer border-none bg-transparent p-0 text-[13.5px] font-bold text-slate-500 underline-offset-4 transition-colors duration-150 hover:text-ink hover:underline disabled:cursor-default disabled:opacity-50"
+                  >
+                    I&apos;ll manage it
+                  </button>
+                  <Pill icon={ArrowRight} loading={pending} onClick={() => go(s.href)}>
+                    {s.action}
+                  </Pill>
                 </span>
               ) : isCurrent ? (
                 <Pill

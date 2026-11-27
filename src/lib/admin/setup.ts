@@ -11,10 +11,9 @@
       screenshot or recording of the product.
    4. App: done once a company admin asked for the iPhone app invite
       (TestFlight while in beta) or signed in on the app.
-   5. Managers: done once at least one campaign manager is on the team
-      (self-as-manager rows count like any other). Omitted when the admin
-      runs the campaigns themselves (runBy "me"), and when the
-      onboarding count is 0.
+   5. Managers: done once at least one campaign manager is on the team,
+      or the admin runs the campaigns themselves (runBy "me", or the
+      "I'll manage it" option on the step).
    6. Creators: done once at least one creator is on the team.
    The company details are never a step: onboarding and the site scan
    settle them, and Noni fills the brain itself.
@@ -51,7 +50,7 @@ export interface SetupStep {
 }
 
 export interface SetupStatus {
-  /** Ordered steps; manager and creator steps are omitted at count 0. */
+  /** Ordered steps. */
   steps: SetupStep[];
   doneCount: number;
   remaining: number;
@@ -66,12 +65,9 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
   const billingDone =
     subscription.status === "active" || subscription.status === "trialing";
 
-  /* A company that does not do UGC yet still starts with one of each. */
-  /* Running the campaigns themselves: there is no manager to invite. */
+  /* Running the campaigns themselves: the admin is the manager. */
   const runsItThemselves = onboarding.runBy === "me" || onboarding.selfIsManager;
-  const showManagers = runsItThemselves ? false : onboarding.doesUgc ? onboarding.managerCount > 0 : true;
-  const showCreators = onboarding.doesUgc ? onboarding.creatorCount > 0 : true;
-  const managersDone = dataset.managers.length >= 1;
+  const managersDone = runsItThemselves || dataset.managers.length >= 1;
   const creatorsDone = dataset.creators.length >= 1;
 
   const steps: SetupStep[] = [
@@ -115,30 +111,22 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       action: "Get the app",
       href: "/admin/app",
     },
-    ...(showManagers
-      ? [
-          {
-            key: "managers" as const,
-            done: managersDone,
-            title: "Invite your first campaign manager",
-            short: "Manager",
-            action: "Invite a manager",
-            href: "/admin/team",
-          },
-        ]
-      : []),
-    ...(showCreators
-      ? [
-          {
-            key: "creators" as const,
-            done: creatorsDone,
-            title: "Invite your first creator",
-            short: "Creator",
-            action: "Invite a creator",
-            href: "/admin/team",
-          },
-        ]
-      : []),
+    {
+      key: "managers",
+      done: managersDone,
+      title: "Invite a campaign manager",
+      short: "Manager",
+      action: "Invite a manager",
+      href: "/admin/team?tab=managers",
+    },
+    {
+      key: "creators",
+      done: creatorsDone,
+      title: "Invite your first creator",
+      short: "Creator",
+      action: "Invite a creator",
+      href: "/admin/team?tab=creators",
+    },
   ];
 
   const keep: SetupStepKey[] = ["billing", "sales", "logo", "app"];

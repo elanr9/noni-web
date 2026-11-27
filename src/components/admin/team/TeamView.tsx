@@ -181,7 +181,10 @@ export function TeamView({
   managers,
   creators,
   managerAccess,
+  start = "Managers",
 }: {
+  /** The tab to open on; the onboarding steps link straight to theirs. */
+  start?: "Managers" | "Creators";
   /** The company this page was rendered for; the actions refuse when the
       account has since switched to another one. */
   companyId: string;
@@ -195,7 +198,7 @@ export function TeamView({
   const [accessError, setAccessError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   /* One group at a time, so the page never scrolls. */
-  const [tab, setTab] = useState<TeamTab>("Managers");
+  const [tab, setTab] = useState<TeamTab>(start);
 
   const toggle = (key: keyof ManagerAccess) => {
     if (pending) return;

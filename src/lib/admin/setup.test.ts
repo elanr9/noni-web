@@ -135,7 +135,7 @@ describe("deriveSetupStatus", () => {
     expect(status.steps.find((s) => s.key === "billing")?.done).toBe(true);
   });
 
-  it("omits the manager step entirely when the onboarding count is 0", () => {
+  it("keeps the manager step when the onboarding count is 0", () => {
     const status = deriveSetupStatus(
       withAnswers(MOCK_DATASET, { managerCount: 0 }),
     );
@@ -145,6 +145,7 @@ describe("deriveSetupStatus", () => {
       "logo",
       "media",
       "app",
+      "managers",
       "creators",
     ]);
   });
@@ -157,7 +158,7 @@ describe("deriveSetupStatus", () => {
       }),
     );
     expect(status.steps.find((s) => s.key === "managers")?.title).toBe(
-      "Invite your first campaign manager",
+      "Invite a campaign manager",
     );
     expect(status.steps.find((s) => s.key === "creators")?.title).toBe(
       "Invite your first creator",
@@ -222,9 +223,16 @@ describe("deriveSetupStatus when Noni runs the campaigns", () => {
     expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "logo", "app"]);
   });
 
-  it("drops the manager step when the admin runs it themselves", () => {
-    const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "me", doesUgc: false }));
-    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "logo", "media", "app", "creators"]);
+  it("marks the manager step done when the admin runs it themselves", () => {
+    const status = deriveSetupStatus(withAnswers(dataset({ managers: [] }), { runBy: "me", doesUgc: false }));
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "logo", "media", "app", "managers", "creators"]);
+    expect(status.steps.find((s) => s.key === "managers")?.done).toBe(true);
+  });
+
+  it("links each invite step to its own Team tab", () => {
+    const status = deriveSetupStatus(dataset());
+    expect(status.steps.find((s) => s.key === "managers")?.href).toBe("/admin/team?tab=managers");
+    expect(status.steps.find((s) => s.key === "creators")?.href).toBe("/admin/team?tab=creators");
   });
 
   it("keeps the manager step when someone on their team runs it", () => {

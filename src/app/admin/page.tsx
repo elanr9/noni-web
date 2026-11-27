@@ -21,6 +21,7 @@ export default async function AdminOnboardingPage() {
     <div>
       <PageHead title={`Hey ${firstName}.`} />
       <SetupChecklist
+        companyId={data.company.id}
         companyName={data.company.name}
         steps={setup.steps}
         doneCount={setup.doneCount}
