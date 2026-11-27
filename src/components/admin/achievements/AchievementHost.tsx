@@ -54,6 +54,8 @@ function stepTitle(step: AchievementStep): string {
       return "The app is on its way!";
     case "sales":
       return "Supabase and Stripe connected!";
+    case "logo":
+      return "Logo added!";
     case "media":
       return "Screenshots added!";
     case "managers":

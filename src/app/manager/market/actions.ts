@@ -1,5 +1,6 @@
 "use server";
 
+import { bulletOf, type CompanySnapshot, type SnapshotItem } from "@/lib/admin/brain-model";
 import { canManageCampaigns, getSessionProfile, isPlatformAdmin } from "@/lib/auth";
 import { callEdgeFunction } from "@/lib/edge";
 import {
@@ -97,7 +98,7 @@ export async function loadMarket(): Promise<Result<MarketData>> {
         .select("*")
         .eq("company_id", g.companyId)
         .order("created_at", { ascending: true }),
-      createServiceClient().from("companies").select("name, logo_path").eq("id", g.companyId).maybeSingle(),
+      createServiceClient().from("companies").select("name, logo_path, website").eq("id", g.companyId).maybeSingle(),
     ]);
     if (error) throw new Error(error.message);
     let listing = ((listings ?? []) as unknown as Listing[])[0] ?? null;
@@ -105,6 +106,22 @@ export async function loadMarket(): Promise<Result<MarketData>> {
       /* The campaign is written for the company the first time a manager looks. */
       const made = await supabase.rpc("ensure_marketplace_listing" as never);
       if (!made.error && made.data) listing = made.data as unknown as Listing;
+    }
+    if (listing && (!listing.tagline?.trim() || !listing.requirements?.trim())) {
+      /* Noni already knows what the company is and who it sells to: the
+         card's one line and who it wants come from the brain, never a form. */
+      const { data: survey } = await createServiceClient().from("brain_survey").select("snapshot").eq("company_id", g.companyId).maybeSingle();
+      const snap = ((survey as { snapshot?: CompanySnapshot | null } | null)?.snapshot ?? null) || null;
+      const live = (item: SnapshotItem | null | undefined) => (item && item.status !== "dismissed" ? item : null);
+      const sells = live(snap?.sells);
+      const audience = live(snap?.audience);
+      const fill: ListingPatch = {};
+      if (!listing.tagline?.trim() && sells) fill.tagline = bulletOf(sells, "sells").slice(0, 140);
+      if (!listing.requirements?.trim() && audience) fill.requirements = bulletOf(audience, "audience").slice(0, 1000);
+      if (Object.keys(fill).length) {
+        const saved = await supabase.rpc("save_marketplace_listing" as never, { p_id: listing.id, p_patch: fill } as never);
+        if (!saved.error && saved.data) listing = saved.data as unknown as Listing;
+      }
     }
     const [applicantCount, invitedCount, creators] = await Promise.all([
       countScope(listing?.id ?? null, "applicants"),
@@ -116,6 +133,7 @@ export async function loadMarket(): Promise<Result<MarketData>> {
       data: {
         companyName: (company as { name?: string } | null)?.name ?? "Your company",
         logoUrl: companyLogoUrl((company as { logo_path?: string | null } | null)?.logo_path),
+        website: (company as { website?: string | null } | null)?.website ?? null,
         listing,
         applicantCount,
         invitedCount,

@@ -74,6 +74,7 @@ describe("deriveSetupStatus", () => {
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
       "sales",
+      "logo",
       "media",
       "app",
       "managers",
@@ -81,10 +82,10 @@ describe("deriveSetupStatus", () => {
     ]);
   });
 
-  it("counts the mock dataset as 4 of 6 done (billing and sales pending)", () => {
+  it("counts the mock dataset as 4 of 7 done (billing, sales and logo pending)", () => {
     const status = deriveSetupStatus(MOCK_DATASET);
     expect(status.doneCount).toBe(4);
-    expect(status.remaining).toBe(2);
+    expect(status.remaining).toBe(3);
     expect(status.complete).toBe(false);
     expect(status.steps.find((s) => s.key === "billing")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(true);
@@ -141,6 +142,7 @@ describe("deriveSetupStatus", () => {
     expect(status.steps.map((s) => s.key)).toEqual([
       "billing",
       "sales",
+      "logo",
       "media",
       "app",
       "creators",
@@ -184,16 +186,16 @@ describe("deriveSetupStatus", () => {
         creatorCount: 0,
       }),
     );
-    expect(status.steps).toHaveLength(6);
+    expect(status.steps).toHaveLength(7);
     expect(status.steps.find((s) => s.key === "managers")?.done).toBe(false);
     expect(status.steps.find((s) => s.key === "creators")?.done).toBe(false);
   });
 
   it("completes and retires once every step is done", () => {
     const status = deriveSetupStatus(
-      dataset({ brainDocs: filledDocs, billing: completeBilling }),
+      dataset({ brainDocs: filledDocs, billing: completeBilling, company: { ...MOCK_DATASET.company, logoPath: "c/logo.png" } }),
     );
-    expect(status.doneCount).toBe(6);
+    expect(status.doneCount).toBe(7);
     expect(status.remaining).toBe(0);
     expect(status.complete).toBe(true);
   });
@@ -217,16 +219,16 @@ describe("deriveSetupStatus", () => {
 describe("deriveSetupStatus when Noni runs the campaigns", () => {
   it("asks only for the plan, the connections and the app", () => {
     const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "noni" }));
-    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "app"]);
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "logo", "app"]);
   });
 
   it("drops the manager step when the admin runs it themselves", () => {
     const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "me", doesUgc: false }));
-    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "media", "app", "creators"]);
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "logo", "media", "app", "creators"]);
   });
 
   it("keeps the manager step when someone on their team runs it", () => {
     const status = deriveSetupStatus(withAnswers(dataset(), { runBy: "team", doesUgc: false }));
-    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "media", "app", "managers", "creators"]);
+    expect(status.steps.map((s) => s.key)).toEqual(["billing", "sales", "logo", "media", "app", "managers", "creators"]);
   });
 });

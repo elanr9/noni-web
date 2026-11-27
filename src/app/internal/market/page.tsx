@@ -85,6 +85,7 @@ export default async function MarketPreview({ searchParams }: { searchParams: Pr
   const data: MarketData = {
     companyName: "Inkbound AI",
     logoUrl: null,
+    website: "https://www.inkbound.ai",
     listing,
     applicantCount: view === "applicants" ? 5 : 0,
     invitedCount: 1,

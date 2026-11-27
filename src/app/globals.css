@@ -52,6 +52,19 @@ body {
   scrollbar-width: none;
 }
 
+/* One screen, no scroll: the shell's scroll area is a size container and a
+   page that must fit takes its height less the page padding (30 + 72). */
+.page-scroll {
+  container-type: size;
+}
+
+@media (min-width: 1024px) {
+  .page-fit {
+    height: calc(100cqh - 102px);
+    min-height: 480px;
+  }
+}
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }

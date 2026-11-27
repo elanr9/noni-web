@@ -868,7 +868,7 @@ export function BriefsLibraryView({
   };
 
   return (
-    <div className="flex flex-col lg:h-[calc(100dvh-120px)] lg:min-h-[560px]">
+    <div className="page-fit flex flex-col">
       <PageHead
         title="Briefs"
         right={

@@ -208,6 +208,7 @@ export type MarketPage = { total: number; rows: MarketCreator[] };
 export type MarketData = {
   companyName: string;
   logoUrl: string | null;
+  website: string | null;
   listing: Listing | null;
   applicantCount: number;
   invitedCount: number;

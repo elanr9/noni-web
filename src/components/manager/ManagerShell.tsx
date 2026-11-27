@@ -246,7 +246,7 @@ export function ManagerShell({
             </div>
             <NotificationsBell />
           </div>
-          <div className="scrollbar-none flex-1 overflow-y-auto">
+          <div className="page-scroll scrollbar-none flex-1 overflow-y-auto">
             <div
               key={pathname}
               className="mx-auto w-full max-w-[1100px] px-4 pb-[72px] pt-[24px] animate-om-rise md:px-11 md:pt-[30px]"

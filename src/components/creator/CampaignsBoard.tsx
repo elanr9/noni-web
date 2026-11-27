@@ -193,7 +193,7 @@ export function CampaignsBoard({
             "kind" in it ? (
               <CampaignCard key={`${it.kind}-${it.company_id}-${it.application_id ?? ""}`} c={it} onOpen={() => setOpenCampaign(it)} />
             ) : (
-              <ListingCard key={it.id} l={it} mine={resume.niches ?? []} onOpen={() => setOpenListing(it)} />
+              <ListingCard key={it.id} l={it} onOpen={() => setOpenListing(it)} />
             ),
           )}
         </div>
@@ -278,15 +278,10 @@ function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
 const CARD =
   "flex h-full w-full cursor-pointer flex-col rounded-[20px] border border-line bg-white p-4 text-left transition-all duration-[160ms] ease-om hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md active:scale-[0.99]";
 
-const cardOf = (l: FeedListing): CardCampaign => ({ ...withTerms(l), logo_url: companyLogoUrl(l.logo_path) });
+const cardOf = (l: FeedListing): CardCampaign => ({ ...withTerms(l), logo_url: companyLogoUrl(l.logo_path), website: l.company_website });
 
-function ListingCard({ l, mine, onOpen }: { l: FeedListing; mine: string[]; onOpen: () => void }) {
-  const spots = spotsLabel(l);
-  const chips = [
-    ...(spots ? [{ label: spots }] : []),
-    ...l.niches.slice(0, 2).map((n) => ({ label: nicheLabel(n), on: mine.includes(n) })),
-  ];
-  return <ExploreCard c={cardOf(l)} chips={chips} onOpen={onOpen} />;
+function ListingCard({ l, onOpen }: { l: FeedListing; onOpen: () => void }) {
+  return <ExploreCard c={cardOf(l)} onOpen={onOpen} />;
 }
 
 function CampaignCard({ c, onOpen }: { c: CreatorCampaign; onOpen: () => void }) {

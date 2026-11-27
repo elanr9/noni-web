@@ -855,7 +855,7 @@ export function ScoutView({
   }
 
   return (
-    <div className="flex flex-col lg:h-[calc(100dvh-120px)] lg:min-h-[560px]">
+    <div className="page-fit flex flex-col">
       {head}
       {data.run && (running || data.run.status === "failed") ? (
         data.run.status === "failed" ? (

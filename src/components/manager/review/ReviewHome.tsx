@@ -266,7 +266,7 @@ export function ReviewHome({
 
   const total = posts.length + waiting.length + music.length + pendingAccounts.length;
   return (
-    <div className="flex flex-col lg:h-[calc(100dvh-120px)] lg:min-h-[560px]">
+    <div className="page-fit flex flex-col">
       <PageHead title="Review" right={total > 0 ? <Chip tone="blue">{total} waiting</Chip> : null} />
       <ElsewhereStrip />
 

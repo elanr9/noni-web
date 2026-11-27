@@ -5,6 +5,8 @@
       is set by the Noni team and does not gate the step.
    2. Connections: done once both Stripe (sales) and Supabase (sign-ups)
       are connected, so every post shows what it brought in.
+   2b. Logo: done once the company has uploaded its logo; creators see it
+      on the campaign card.
    3. Screenshots: done once the media library holds at least one
       screenshot or recording of the product.
    4. App: done once a company admin asked for the iPhone app invite
@@ -29,6 +31,7 @@ import type { AdminDataset } from "./types";
 
 export type SetupStepKey =
   | "billing"
+  | "logo"
   | "app"
   | "media"
   | "managers"
@@ -89,6 +92,14 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       href: "/admin/billing?step=sales",
     },
     {
+      key: "logo",
+      done: Boolean(dataset.company.logoPath),
+      title: "Upload your logo",
+      short: "Logo",
+      action: "Upload logo",
+      href: "/admin/brain",
+    },
+    {
       key: "media",
       done: dataset.company.mediaCount >= 1,
       title: "Add screenshots of your product",
@@ -130,7 +141,7 @@ export function deriveSetupStatus(dataset: AdminDataset): SetupStatus {
       : []),
   ];
 
-  const keep: SetupStepKey[] = ["billing", "sales", "app"];
+  const keep: SetupStepKey[] = ["billing", "sales", "logo", "app"];
   const shown = onboarding.runBy === "noni" ? steps.filter((s) => keep.includes(s.key)) : steps;
 
   const doneCount = shown.filter((s) => s.done).length;
