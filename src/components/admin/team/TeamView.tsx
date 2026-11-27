@@ -16,12 +16,10 @@ import type { ManagerAccess, Member, MemberRole } from "@/lib/admin/types";
 function InviteModal({
   role,
   companyId,
-  companyName,
   onClose,
 }: {
   role: MemberRole;
   companyId: string;
-  companyName: string;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -57,13 +55,8 @@ function InviteModal({
             <Send size={21} className="text-green" />
           </span>
           <div className="mt-3.5 text-[18px] font-bold tracking-[-0.4px] text-ink">
-            Invite sent
+            Invite sent to {sentTo}
           </div>
-          <p className="mx-0 mb-0 mt-2 text-[13.5px] font-semibold leading-[1.6] text-slate-400">
-            {sentTo} gets an email. When they sign in with it, Noni already
-            knows they&apos;re a {roleLabel} for {companyName}. No code, no
-            setup on their end.
-          </p>
           <div className="mt-[18px] flex justify-center gap-2">
             <Pill
               size="sm"
@@ -177,7 +170,6 @@ type TeamTab = (typeof TEAM_TABS)[number];
 
 export function TeamView({
   companyId,
-  companyName,
   managers,
   creators,
   managerAccess,
@@ -188,7 +180,6 @@ export function TeamView({
   /** The company this page was rendered for; the actions refuse when the
       account has since switched to another one. */
   companyId: string;
-  companyName: string;
   managers: Member[];
   creators: Member[];
   managerAccess: ManagerAccess;
@@ -273,7 +264,6 @@ export function TeamView({
         <InviteModal
           companyId={companyId}
           role={inviting}
-          companyName={companyName}
           onClose={() => setInviting(null)}
         />
       ) : null}

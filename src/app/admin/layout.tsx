@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { AchievementHost } from "@/components/admin/achievements/AchievementHost";
 import { AdminShell, type AdminSearchPerson } from "@/components/admin/AdminShell";
 import { TourHost } from "@/components/admin/tour/TourHost";
 import { SwitchCompanyGate } from "@/components/SwitchCompanyGate";
@@ -76,12 +75,6 @@ export default async function AdminLayout({
     >
       {children}
       <TourHost />
-      <AchievementHost
-        companyId={data.company.id}
-        companyName={data.company.name}
-        steps={setup.steps.map(({ key, done, title }) => ({ key, done, title }))}
-        complete={setup.complete}
-      />
     </AdminShell>
   );
 }

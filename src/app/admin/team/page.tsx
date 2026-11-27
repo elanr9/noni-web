@@ -14,7 +14,6 @@ export default async function AdminTeamPage({
     <TeamView
       start={(await searchParams).tab === "creators" ? "Creators" : "Managers"}
       companyId={data.company.id}
-      companyName={data.company.name}
       managers={data.managers}
       creators={data.creators}
       managerAccess={data.company.managerAccess}
