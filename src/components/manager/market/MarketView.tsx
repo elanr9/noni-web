@@ -461,7 +461,7 @@ function ListingEditor({
                 <NumberBox label="Per slideshow, $" value={slide} onChange={(v) => setSlide(v.slice(0, 4))} />
                 <NumberBox label="Per 1,000 views, $" value={per1k} onChange={(v) => setPer1k(v.slice(0, 3))} />
                 <NumberBox label="View pay cap, $" value={cap} onChange={(v) => setCap(v.slice(0, 5))} />
-                <NumberBox label="Views to get paid" value={minViews} onChange={(v) => setMinViews(v.slice(0, 6))} />
+                <NumberBox label="Min. views to get paid" value={minViews} onChange={(v) => setMinViews(v.slice(0, 6))} />
               </div>
             ) : (
               <>
@@ -786,7 +786,7 @@ function CampaignTab({
     { label: "Slideshow", value: usd(l.static_post_cents) },
     { label: "Per 1,000 views", value: usd(l.cents_per_1k_views) },
     { label: "View pay cap", value: usd(l.view_pay_cap_cents) },
-    ...(l.min_views > 0 ? [{ label: "Views to get paid", value: l.min_views.toLocaleString("en-US") }] : []),
+    ...(l.min_views > 0 ? [{ label: "Min. views to get paid", value: l.min_views.toLocaleString("en-US") }] : []),
     { label: "Posts", value: postsPerDayLabel(l).replace(/ posts? a day/, " a day") },
     ...(l.spots ? [{ label: "Creators wanted", value: String(l.spots) }] : []),
     { label: "Age", value: `${l.min_age}+` },

@@ -68,7 +68,7 @@ export function payLines(t: CampaignTerms): { value: string; label: string }[] {
     { value: usd(t.static_post_cents), label: "a slideshow" },
     { value: usd(t.cents_per_1k_views), label: "per 1,000 views" },
     { value: usd(t.view_pay_cap_cents), label: "view pay cap" },
-    ...(t.min_views > 0 ? [{ value: t.min_views.toLocaleString("en-US"), label: "views to get paid" }] : []),
+    ...(t.min_views > 0 ? [{ value: t.min_views.toLocaleString("en-US"), label: "min. views to get paid" }] : []),
   ];
 }
 
