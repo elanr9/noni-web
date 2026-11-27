@@ -1,5 +1,6 @@
 "use client";
 
+import { AgreementText } from "@/components/agreement/AgreementText";
 import {
   Check,
   ChevronLeft,
@@ -207,6 +208,8 @@ function CreatorCard({
               Accept
             </Pill>
           </>
+        ) : c.application_status === "offered" ? (
+          <Chip tone="amber">Signing</Chip>
         ) : c.application_status === "invited" ? (
           <Chip tone="blue">Invited {shortDay(c.applied_at) ?? ""}</Chip>
         ) : c.application_status === "applied" ? (
@@ -535,14 +538,12 @@ function CreatorModal({
   if (contract) {
     return (
       <Modal title={contract.title ?? "Agreement"} onClose={() => setContract(null)} width={620}>
-        <div className="max-h-[58vh] overflow-y-auto whitespace-pre-wrap rounded-[12px] bg-fill-quiet p-4 text-[13px] leading-[1.55] text-ink">
-          {contract.body}
-        </div>
+        <AgreementText body={contract.body ?? ""} className="max-h-[58vh] overflow-y-auto rounded-[12px] bg-fill-quiet p-4 text-[13px] leading-[1.55] text-ink" />
         <div className="mt-3 flex items-center justify-between gap-3 text-[13px] font-bold text-slate-500">
           <span>
-            Signed by {contract.signedName ?? name} {shortDay(contract.signedAt) ? `on ${shortDay(contract.signedAt)}` : ""}
+            {contract.signedAt ? `Signed by ${contract.signedName ?? name}${shortDay(contract.signedAt) ? ` on ${shortDay(contract.signedAt)}` : ""}` : "Not signed yet"}
           </span>
-          {c.application_id ? (
+          {c.application_id && contract.signedAt ? (
             <a href={`/agreements/${c.application_id}`} target="_blank" rel="noreferrer" className="text-blue-600 no-underline hover:underline">
               Signed copy
             </a>
@@ -659,9 +660,12 @@ function CreatorModal({
               Accept
             </Pill>
           </>
-        ) : c.application_status === "invited" && c.application_id ? (
+        ) : (c.application_status === "invited" || c.application_status === "offered") && c.application_id ? (
           <>
-            <Chip tone="blue">Invited</Chip>
+            <Chip tone={c.application_status === "offered" ? "amber" : "blue"}>{c.application_status === "offered" ? "Signing" : "Invited"}</Chip>
+            <Pill variant="ghost" size="sm" icon={FileSignature} onClick={() => void showContract()}>
+              Agreement
+            </Pill>
             <span className="flex-1" />
             <Pill variant="tint" icon={MessageCircle} onClick={() => setTalking(true)}>
               Message
@@ -941,7 +945,8 @@ export function MarketView({ initial, preview = false }: { initial: MarketData; 
     setTotal((t) => Math.max(0, t - 1));
     setCounts((k) => ({ ...k, applicants: Math.max(0, k.applicants - 1) }));
     setOpen(null);
-    flash(accept ? `${c.full_name?.split(" ")[0] ?? "They"} joined` : "Declined");
+    if (accept) setCounts((k) => ({ ...k, invited: k.invited + 1 }));
+    flash(accept ? "Agreement sent" : "Declined");
   };
 
   const invite = async (c: MarketCreator, message: string) => {

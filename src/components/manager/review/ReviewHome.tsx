@@ -257,7 +257,7 @@ export function ReviewHome({
       return;
     }
     setWaiting((all) => all.filter((x) => x.creator_id !== c.creator_id));
-    setToast(accept ? `${c.full_name?.split(" ")[0] ?? "They"} joined` : "Declined");
+    setToast(accept ? "Agreement sent" : "Declined");
     window.setTimeout(() => setToast(null), 1800);
   };
 

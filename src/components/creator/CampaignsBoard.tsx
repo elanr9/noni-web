@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, MessageCircle, X } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 
-import { leave, signAndApply, withdraw } from "@/app/campaigns/actions";
+import { apply, leave, signAgreement, withdraw } from "@/app/campaigns/actions";
+import { AgreementText } from "@/components/agreement/AgreementText";
 import { loadUnread } from "@/app/messages/actions";
 import { MessageThread } from "@/components/campaign/MessageThread";
 import {
@@ -63,7 +64,10 @@ export function CampaignsBoard({
 }) {
   const groups = useMemo(() => groupCampaigns(campaigns), [campaigns]);
   const [tab, setTab] = useState<Tab>(startTab);
-  const [mine, setMine] = useState<Mine>(groups.active.length === 0 && groups.applied.length > 0 ? "applied" : "active");
+  const [mine, setMine] = useState<Mine>(
+    /* Something to sign opens first. */
+    groups.applied.some((c) => c.kind !== "applied") || (groups.active.length === 0 && groups.applied.length > 0) ? "applied" : "active",
+  );
   const [forYou, setForYou] = useState(false);
   const [page, setPage] = useState(0);
   const [openListing, setOpenListing] = useState<FeedListing | null>(null);
@@ -289,11 +293,13 @@ function CampaignCard({ c, onOpen }: { c: CreatorCampaign; onOpen: () => void })
   const chip =
     c.kind === "invited"
       ? { tone: "purple" as const, label: "Invited you" }
-      : c.kind === "applied"
-        ? { tone: "amber" as const, label: "Applied" }
-        : c.kind === "past"
-          ? { tone: "grey" as const, label: pastLabel(c.application_status) }
-          : null;
+      : c.kind === "offered"
+        ? { tone: "green" as const, label: "Sign to start" }
+        : c.kind === "applied"
+          ? { tone: "amber" as const, label: "Applied" }
+          : c.kind === "past"
+            ? { tone: "grey" as const, label: pastLabel(c.application_status) }
+            : null;
   return (
     <button type="button" onClick={onOpen} className={CARD}>
       <div className="flex w-full items-center gap-3">
@@ -437,7 +443,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/* Apply or take an invite: read, then sign with your full name. */
+/* Applying is one press. Once the company accepts (or invites), the
+   agreement written for this creator is here to read and sign by name. */
 function useSign(l: FeedListing | null, name: string) {
   const router = useRouter();
   const [step, setStep] = useState<"view" | "sign" | "done">("view");
@@ -448,7 +455,8 @@ function useSign(l: FeedListing | null, name: string) {
     if (!l) return;
     setError(null);
     start(async () => {
-      const res = await signAndApply(l.id, signed, "");
+      const signing = (l.application_status === "offered" || l.application_status === "invited") && l.application_id;
+      const res = signing ? await signAgreement(l.application_id!, signed) : await apply(l.id);
       if (res.ok) {
         setStep("done");
         router.refresh();
@@ -462,7 +470,7 @@ function SignStep({ l, signed, setSigned }: { l: FeedListing; signed: string; se
   return (
     <div className="flex flex-col gap-4">
       <p className="m-0 text-[17px] font-bold text-ink">{l.contract_title || "Agreement"}</p>
-      <div className="max-h-[45vh] overflow-y-auto whitespace-pre-line rounded-[14px] bg-fill-quiet p-4 text-[14px] leading-[1.55] text-ink">{l.contract_body.trim()}</div>
+      <AgreementText body={l.contract_body} className="max-h-[45vh] overflow-y-auto rounded-[14px] bg-fill-quiet p-4 text-[14px] leading-[1.55] text-ink" />
       <label className="flex flex-col gap-[7px]">
         <span className="text-[13px] font-semibold text-slate-500">Full name</span>
         <input
@@ -479,8 +487,10 @@ function SignStep({ l, signed, setSigned }: { l: FeedListing; signed: string; se
 function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: string; missing: string[]; onClose: () => void }) {
   const s = useSign(l, name);
   const invited = l.application_status === "invited";
+  const offered = l.application_status === "offered";
+  const signing = invited || offered;
   const [talking, setTalking] = useState(false);
-  const blocked = missing.length > 0 && !invited;
+  const blocked = missing.length > 0 && !signing;
   return (
     <Panel
       onClose={onClose}
@@ -492,7 +502,7 @@ function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: str
         ) : s.step === "sign" ? (
           <div className="flex flex-col gap-2">
             <button type="button" disabled={s.busy || !s.signed.trim()} onClick={s.submit} className={PRIMARY}>
-              {s.busy ? "Signing" : invited ? "Sign and join" : "Sign and apply"}
+              {s.busy ? "Signing" : "Sign and join"}
             </button>
             {s.error ? <p className="m-0 text-center text-[13px] font-semibold text-danger">{s.error}</p> : null}
           </div>
@@ -500,16 +510,17 @@ function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: str
           <Link href="/profile" className={`${PRIMARY} no-underline`}>
             Add {missing.join(" and ")}
           </Link>
-        ) : l.spots_left === 0 && !invited ? (
+        ) : l.spots_left === 0 && !signing ? (
           <button type="button" disabled className={PRIMARY}>
             Full
           </button>
         ) : talking ? undefined : (
           <div className="flex flex-col gap-2">
-            <button type="button" onClick={() => s.setStep("sign")} className={PRIMARY}>
-              {invited ? "Join" : "Apply"}
+            <button type="button" disabled={s.busy} onClick={signing ? () => s.setStep("sign") : s.submit} className={PRIMARY}>
+              {signing ? "Sign agreement" : s.busy ? "Applying" : "Apply"}
             </button>
-            {invited && l.application_id ? (
+            {s.error ? <p className="m-0 text-center text-[13px] font-semibold text-danger">{s.error}</p> : null}
+            {signing && l.application_id ? (
               <button type="button" onClick={() => setTalking(true)} className={`${QUIET} gap-2`}>
                 <MessageCircle size={17} />
                 Messages
@@ -519,9 +530,9 @@ function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: str
         )
       }
     >
-      <PanelHead id={l.company_id} company={l.company_name} title={l.title} chip={invited ? <Pill tone="purple">Invited you</Pill> : null} />
+      <PanelHead id={l.company_id} company={l.company_name} title={l.title} chip={invited ? <Pill tone="purple">Invited you</Pill> : offered ? <Pill tone="green">Accepted</Pill> : null} />
       {s.step === "done" ? (
-        <Done label={invited ? "You are in" : "Applied"} />
+        <Done label={signing ? "You are in" : "Applied"} />
       ) : s.step === "sign" ? (
         <SignStep l={l} signed={s.signed} setSigned={s.setSigned} />
       ) : talking && l.application_id ? (
@@ -561,8 +572,8 @@ function CampaignPanel({ c, listing, name, missing, onClose }: { c: CreatorCampa
     };
   }, [threadId]);
 
-  // An invite is a listing to sign.
-  if (c.kind === "invited" && listing) return <ListingPanel l={listing} name={name} missing={missing} onClose={onClose} />;
+  // An invite or an accepted application is an agreement to sign.
+  if ((c.kind === "invited" || c.kind === "offered") && listing) return <ListingPanel l={listing} name={name} missing={missing} onClose={onClose} />;
 
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>) => {
     if (!confirm) {

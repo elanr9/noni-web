@@ -1,5 +1,6 @@
 "use client";
 
+import { AgreementText } from "@/components/agreement/AgreementText";
 import { Check, ChevronLeft, ChevronRight, FileSignature, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -270,14 +271,12 @@ export function ApplicantsLane({
 
       {signed ? (
         <Modal title={signed.title ?? "Agreement"} onClose={() => setSigned(null)} width={620}>
-          <div className="max-h-[58vh] overflow-y-auto whitespace-pre-wrap rounded-[12px] bg-fill-quiet p-4 text-[13px] leading-[1.55] text-ink">
-            {signed.body}
-          </div>
+          <AgreementText body={signed.body ?? ""} className="max-h-[58vh] overflow-y-auto rounded-[12px] bg-fill-quiet p-4 text-[13px] leading-[1.55] text-ink" />
           <div className="mt-3 flex items-center justify-between gap-3 text-[13px] font-bold text-slate-500">
             <span>
-              Signed by {signed.signedName ?? name} {shortDay(signed.signedAt) ? `on ${shortDay(signed.signedAt)}` : ""}
+              {signed.signedAt ? `Signed by ${signed.signedName ?? name}${shortDay(signed.signedAt) ? ` on ${shortDay(signed.signedAt)}` : ""}` : "Not signed yet"}
             </span>
-            {c.application_id ? (
+            {c.application_id && signed.signedAt ? (
               <a href={`/agreements/${c.application_id}`} target="_blank" rel="noreferrer" className="text-blue-600 no-underline hover:underline">
                 Signed copy
               </a>

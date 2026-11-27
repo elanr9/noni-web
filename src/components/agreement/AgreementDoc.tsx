@@ -1,5 +1,6 @@
 import type { SignedAgreement } from "@/lib/agreements";
 
+import { AgreementText } from "./AgreementText";
 import { PrintButton } from "./PrintButton";
 
 function stamp(iso: string): string {
@@ -36,7 +37,7 @@ export function AgreementDoc({ a }: { a: SignedAgreement }) {
         </div>
         <article className="rounded-[20px] border border-line bg-white p-8 print:rounded-none print:border-0 print:p-0">
           <h1 className="m-0 text-[24px] font-bold tracking-[-0.4px] text-ink">{a.title}</h1>
-          <div className="mt-6 whitespace-pre-wrap text-[14px] leading-[1.65] text-ink">{a.body}</div>
+          <AgreementText body={a.body} className="mt-6 text-[14px] leading-[1.65] text-ink" />
           <div className="mt-8 border-t border-line pt-6">
             <p className="m-0 text-[28px] italic leading-none text-ink" style={{ fontFamily: "ui-serif, Georgia, serif" }}>
               {a.signedName}

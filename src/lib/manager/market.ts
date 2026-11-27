@@ -8,7 +8,7 @@ import type { CampaignTerms } from "@/lib/campaign-terms";
 import { NICHES } from "@/lib/creator-profile";
 
 export type ListingStatus = "draft" | "open" | "paused" | "closed";
-export type ApplicationStatus = "invited" | "applied" | "accepted" | "declined" | "withdrawn";
+export type ApplicationStatus = "invited" | "applied" | "offered" | "accepted" | "declined" | "withdrawn";
 export type Gender = "female" | "male" | "nonbinary" | "undisclosed";
 export type Experience = "pro" | "some" | "new";
 export type MarketScope = "all" | "applicants" | "invited";

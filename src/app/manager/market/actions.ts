@@ -195,19 +195,29 @@ export async function decideApplication(applicationId: string, accept: boolean):
   return { ok: true, data: data as unknown as { status: string; start_date: string | null } };
 }
 
-/** The agreement exactly as this creator signed it. */
+/** This creator's agreement: as signed, as sent and waiting on a signature,
+    or (before the company accepts) the campaign's terms it will be written from. */
 export async function loadSignedContract(applicationId: string): Promise<Result<{ title: string | null; body: string | null; signedName: string | null; signedAt: string | null }>> {
   const g = await gate();
   if (!g.ok) return g;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("marketplace_applications" as never)
-    .select("contract_title, contract_body, signed_name, signed_at")
+    .select("listing_id, contract_title, contract_body, signed_name, signed_at")
     .eq("id", applicationId)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
-  const r = data as { contract_title: string | null; contract_body: string | null; signed_name: string | null; signed_at: string | null } | null;
+  const r = data as { listing_id: string; contract_title: string | null; contract_body: string | null; signed_name: string | null; signed_at: string | null } | null;
   if (!r) return { ok: false, error: "Not found." };
+  if (!r.contract_body) {
+    const { data: l } = await supabase
+      .from("marketplace_listings" as never)
+      .select("contract_title, contract_body")
+      .eq("id", r.listing_id)
+      .maybeSingle();
+    const listing = l as { contract_title: string | null; contract_body: string | null } | null;
+    return { ok: true, data: { title: listing?.contract_title ?? null, body: listing?.contract_body ?? null, signedName: null, signedAt: null } };
+  }
   return { ok: true, data: { title: r.contract_title, body: r.contract_body, signedName: r.signed_name, signedAt: r.signed_at } };
 }
 

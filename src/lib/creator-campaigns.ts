@@ -3,7 +3,7 @@
    app (rpc marketplace_feed, migration 155; rpc creator_campaigns, 162). */
 import type { CampaignTerms } from "@/lib/campaign-terms";
 
-export type ApplicationStatus = "invited" | "applied" | "accepted" | "declined" | "withdrawn";
+export type ApplicationStatus = "invited" | "applied" | "offered" | "accepted" | "declined" | "withdrawn";
 
 export type FeedListing = CampaignTerms & {
   logo_path: string | null;
@@ -39,7 +39,8 @@ export type FeedListing = CampaignTerms & {
   niche_overlap: number;
 };
 
-export type CampaignKind = "active" | "invited" | "applied" | "past";
+/* "offered": the company accepted and the agreement is waiting to be signed. */
+export type CampaignKind = "active" | "invited" | "applied" | "offered" | "past";
 
 export type CreatorCampaign = {
   kind: CampaignKind;
@@ -78,8 +79,8 @@ export function groupCampaigns(rows: CreatorCampaign[]): CampaignGroups {
       .filter((c) => c.kind === "active")
       .sort((a, b) => todo(b) - todo(a) || Number(b.is_active) - Number(a.is_active) || a.company_name.localeCompare(b.company_name)),
     applied: rows
-      .filter((c) => c.kind === "invited" || c.kind === "applied")
-      .sort((a, b) => Number(b.kind === "invited") - Number(a.kind === "invited") || when(b) - when(a)),
+      .filter((c) => c.kind === "invited" || c.kind === "applied" || c.kind === "offered")
+      .sort((a, b) => Number(b.kind !== "applied") - Number(a.kind !== "applied") || when(b) - when(a)),
     past: rows.filter((c) => c.kind === "past").sort((a, b) => when(b) - when(a)),
   };
 }

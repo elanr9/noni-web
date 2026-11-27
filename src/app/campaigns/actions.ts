@@ -31,10 +31,16 @@ async function run(fn: string, args: Record<string, unknown>, signing = false): 
   return { ok: true };
 }
 
-/** Sign the agreement and apply; on an invite this joins the company. */
-export async function signAndApply(listingId: string, signedName: string, note: string): Promise<ActionResult> {
+/** Apply to a campaign. Nothing is signed until the company accepts. */
+export async function apply(listingId: string, note = ""): Promise<ActionResult> {
+  return run("apply_to_listing", { p_listing_id: listingId, p_signed_name: null, p_note: note.trim() || null });
+}
+
+/** Sign the agreement written for this creator (after an accept or an invite)
+    and join the company. */
+export async function signAgreement(applicationId: string, signedName: string): Promise<ActionResult> {
   if (!signedName.trim()) return { ok: false, error: "Type your full name" };
-  return run("apply_to_listing", { p_listing_id: listingId, p_signed_name: signedName, p_note: note.trim() || null }, true);
+  return run("sign_creator_agreement", { p_application_id: applicationId, p_signed_name: signedName }, true);
 }
 
 export async function withdraw(applicationId: string): Promise<ActionResult> {
