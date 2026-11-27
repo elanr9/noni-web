@@ -55,7 +55,7 @@ function InviteModal({
             <Send size={21} className="text-green" />
           </span>
           <div className="mt-3.5 text-[18px] font-bold tracking-[-0.4px] text-ink">
-            Invite sent to {sentTo}
+            Invite sent!
           </div>
           <div className="mt-[18px] flex justify-center gap-2">
             <Pill
