@@ -30,8 +30,8 @@ import { Burst } from "@/components/admin/brain/BrainConfirm";
 import { Card, Chip, Field, Modal, PageHead, Pill, SortDropdown, TextArea } from "@/components/kit";
 import { NICHES } from "@/lib/creator-profile";
 import { CampaignCard, CompanyLogo, type CardCampaign } from "@/components/campaign/CampaignCard";
-import { saveCompanyLogo } from "@/app/admin/brain/actions";
-import { COMPANY_LOGO_ACCEPT, companyLogoUrl } from "@/lib/company-logo";
+import { LogoCropModal } from "@/components/company/LogoCropModal";
+import { COMPANY_LOGO_ACCEPT, companyLogoUrl, validateCompanyLogo } from "@/lib/company-logo";
 import { MessageThread } from "@/components/campaign/MessageThread";
 import { DEFAULT_TERMS, TERM_FLOORS, postsPerDayLabel, usd, withTerms } from "@/lib/campaign-terms";
 import {
@@ -331,7 +331,7 @@ function ListingEditor({
   const [contract, setContract] = useState(listing?.contract_body ?? "");
   const [open, setOpen] = useState(listing?.status === "open");
   const [busy, setBusy] = useState(false);
-  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
 
@@ -349,20 +349,11 @@ function ListingEditor({
   const title = listing?.title?.trim() || companyName;
   const card: CardCampaign = { ...terms, brand_color: t0.brand_color, company_name: companyName, title, tagline: tagline.trim() || null, logo_url: logoUrl, website };
 
-  const uploadLogo = async (f: File | undefined) => {
-    if (!f || logoBusy) return;
-    setLogoBusy(true);
-    setError(null);
-    const form = new FormData();
-    form.set("logo", f);
-    const r = await saveCompanyLogo(form);
-    setLogoBusy(false);
-    if (!r.ok) {
-      setError(r.error);
-      return;
-    }
-    const url = companyLogoUrl(r.path);
-    if (url) onLogo(url);
+  const pickLogo = (f: File | undefined) => {
+    if (!f) return;
+    const invalid = validateCompanyLogo(f);
+    setError(invalid);
+    if (!invalid) setLogoFile(f);
   };
 
   const save = async () => {
@@ -430,7 +421,7 @@ function ListingEditor({
               <>
                 <div className="flex items-center gap-3">
                   <CompanyLogo c={card} size={48} />
-                  <Pill variant="quiet" size="sm" icon={Upload} loading={logoBusy} onClick={() => file.current?.click()}>
+                  <Pill variant="quiet" size="sm" icon={Upload} onClick={() => file.current?.click()}>
                     {logoUrl ? "Change logo" : "Upload logo"}
                   </Pill>
                   <input
@@ -441,9 +432,20 @@ function ListingEditor({
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       e.target.value = "";
-                      void uploadLogo(f);
+                      pickLogo(f);
                     }}
                   />
+                  {logoFile ? (
+                    <LogoCropModal
+                      file={logoFile}
+                      onClose={() => setLogoFile(null)}
+                      onSaved={(path) => {
+                        setLogoFile(null);
+                        const url = companyLogoUrl(path);
+                        if (url) onLogo(url);
+                      }}
+                    />
+                  ) : null}
                 </div>
                 <Field label="One line" value={tagline} onChange={(e) => setTagline(e.target.value.slice(0, 140))} />
                 <TextArea label="Who you want" value={requirements} onChange={(e) => setRequirements(e.target.value.slice(0, 1000))} rows={3} />

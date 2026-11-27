@@ -11,7 +11,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
 import {
-  saveCompanyLogo,
 } from "@/app/admin/brain/actions";
 import {
   getBrainIngestStatus,
@@ -21,6 +20,7 @@ import {
   type BrainResult,
 } from "@/app/admin/brain/knowledge-actions";
 import { CompanyMark, useCompanies } from "@/components/CompanySwitcher";
+import { LogoCropModal } from "@/components/company/LogoCropModal";
 import { Card, Pill } from "@/components/kit";
 import {
   bulletOf,
@@ -324,7 +324,7 @@ export function BrainHome({
   const [starting, setStarting] = useState(false);
 
   const [logo, setLogo] = useState(logoPath);
-  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const logoRef = useRef<HTMLInputElement>(null);
   const { setActiveLogo } = useCompanies();
 
@@ -390,23 +390,14 @@ export function BrainHome({
   };
 
   const pickLogo = (file: File | null) => {
-    if (!file || logoBusy) return;
+    if (!file) return;
     const invalid = validateCompanyLogo(file);
     if (invalid) {
       setError(invalid);
       return;
     }
     setError(null);
-    setLogoBusy(true);
-    const formData = new FormData();
-    formData.set("logo", file);
-    void saveCompanyLogo(formData).then((result) => {
-      if (result.ok) {
-        setLogo(result.path);
-        setActiveLogo(result.path);
-      } else setError(result.error);
-      setLogoBusy(false);
-    });
+    setLogoFile(file);
   };
 
   return (
@@ -422,10 +413,10 @@ export function BrainHome({
           <CompanyMark name={companyName} logoPath={logo} size={46} />
           <span
             className={`absolute inset-0 flex items-center justify-center bg-ink/55 text-white transition-opacity duration-150 ${
-              logoBusy ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              "opacity-0 group-hover:opacity-100"
             }`}
           >
-            {logoBusy ? <span className="om-spinner" /> : <Camera size={16} />}
+            <Camera size={16} />
           </span>
         </button>
         <input
@@ -438,6 +429,17 @@ export function BrainHome({
             e.target.value = "";
           }}
         />
+        {logoFile ? (
+          <LogoCropModal
+            file={logoFile}
+            onClose={() => setLogoFile(null)}
+            onSaved={(path) => {
+              setLogoFile(null);
+              setLogo(path);
+              setActiveLogo(path);
+            }}
+          />
+        ) : null}
         <div className="min-w-0 flex-1">
           <h1 className="display m-0 text-[24px] font-bold leading-[1.1] tracking-[-0.6px] text-ink">
             {companyName}

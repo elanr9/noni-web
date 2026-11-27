@@ -4,7 +4,7 @@ import { ArrowRight, Check, Lock, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { saveCompanyLogo } from "@/app/admin/brain/actions";
+import { LogoCropModal } from "@/components/company/LogoCropModal";
 import { COMPANY_LOGO_ACCEPT, validateCompanyLogo } from "@/lib/company-logo";
 
 import { Card, Chip, Label, Pill } from "@/components/kit";
@@ -29,28 +29,15 @@ export function SetupChecklist({
   const { go, pending } = useNavigate();
   const router = useRouter();
   const logoInput = useRef<HTMLInputElement>(null);
-  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
 
-  /* The logo step opens the file picker right here; nothing to navigate to. */
-  const pickLogo = async (file: File | undefined) => {
-    if (!file || logoBusy) return;
+  /* The logo step opens the file picker right here, then the crop. */
+  const pickLogo = (file: File | undefined) => {
+    if (!file) return;
     const invalid = validateCompanyLogo(file);
-    if (invalid) {
-      setLogoError(invalid);
-      return;
-    }
-    setLogoError(null);
-    setLogoBusy(true);
-    const form = new FormData();
-    form.set("logo", file);
-    const result = await saveCompanyLogo(form);
-    setLogoBusy(false);
-    if (!result.ok) {
-      setLogoError(result.error);
-      return;
-    }
-    router.refresh();
+    setLogoError(invalid);
+    if (!invalid) setLogoFile(file);
   };
   const current = steps.findIndex((s) => !s.done);
 
@@ -116,7 +103,7 @@ export function SetupChecklist({
               ) : isCurrent && s.key === "logo" ? (
                 <span className="flex items-center gap-3">
                   {logoError ? <span className="text-[13px] font-semibold text-danger">{logoError}</span> : null}
-                  <Pill icon={Upload} loading={logoBusy} onClick={() => logoInput.current?.click()}>
+                  <Pill icon={Upload} onClick={() => logoInput.current?.click()}>
                     {s.action}
                   </Pill>
                   <input
@@ -127,9 +114,19 @@ export function SetupChecklist({
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       e.target.value = "";
-                      void pickLogo(f);
+                      pickLogo(f);
                     }}
                   />
+                  {logoFile ? (
+                    <LogoCropModal
+                      file={logoFile}
+                      onClose={() => setLogoFile(null)}
+                      onSaved={() => {
+                        setLogoFile(null);
+                        router.refresh();
+                      }}
+                    />
+                  ) : null}
                 </span>
               ) : isCurrent ? (
                 <Pill
