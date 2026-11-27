@@ -38,9 +38,10 @@ export async function apply(listingId: string, note = ""): Promise<ActionResult>
 
 /** Sign the agreement written for this creator (after an accept or an invite)
     and join the company. */
-export async function signAgreement(applicationId: string, signedName: string): Promise<ActionResult> {
+export async function signAgreement(applicationId: string, signedName: string, signature: string): Promise<ActionResult> {
   if (!signedName.trim()) return { ok: false, error: "Type your full name" };
-  return run("sign_creator_agreement", { p_application_id: applicationId, p_signed_name: signedName }, true);
+  if (!signature.trim()) return { ok: false, error: "Draw your signature" };
+  return run("sign_creator_agreement", { p_application_id: applicationId, p_signed_name: signedName, p_signature: signature }, true);
 }
 
 export async function withdraw(applicationId: string): Promise<ActionResult> {

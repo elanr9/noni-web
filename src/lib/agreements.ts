@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
-/* A signed agreement with its signature record. Row level security decides
+/* An agreement written for one creator, with its signature record once it
+   is signed. Row level security decides
    who may read it: the creator who signed, a manager of the company, or the
    platform account. Names are read with the service client after that. */
 
@@ -12,7 +13,10 @@ export interface SignedAgreement {
   version: number | null;
   sha256: string | null;
   signedName: string;
-  signedAt: string;
+  /** Null while it waits on the creator. */
+  signedAt: string | null;
+  /** The drawn signature: SVG path data in a 320 by 120 box. */
+  signature: string | null;
   signedIp: string | null;
   signedAgent: string | null;
   companyName: string;
@@ -27,7 +31,7 @@ export async function getSignedAgreement(id: string): Promise<SignedAgreement | 
   const { data } = await supabase
     .from("marketplace_applications" as never)
     .select(
-      "id, company_id, status, contract_title, contract_body, contract_version, contract_sha256, signed_name, signed_at, signed_ip, signed_user_agent, decided_by, decided_at",
+      "id, company_id, status, contract_title, contract_body, contract_version, contract_sha256, signed_name, signed_at, signature_svg, signed_ip, signed_user_agent, decided_by, decided_at, creator_id",
     )
     .eq("id", id)
     .maybeSingle();
@@ -41,17 +45,20 @@ export async function getSignedAgreement(id: string): Promise<SignedAgreement | 
     contract_sha256: string | null;
     signed_name: string | null;
     signed_at: string | null;
+    signature_svg: string | null;
+    creator_id: string;
     signed_ip: string | null;
     signed_user_agent: string | null;
     decided_by: string | null;
     decided_at: string | null;
   } | null;
-  if (!r || !r.signed_at || !r.contract_body) return null;
+  if (!r || !r.contract_body) return null;
 
   const service = createServiceClient();
-  const accepted = r.status === "accepted";
-  const [{ data: company }, { data: decider }] = await Promise.all([
+  const accepted = r.status === "accepted" || r.status === "offered";
+  const [{ data: company }, { data: creator }, { data: decider }] = await Promise.all([
     service.from("companies").select("name").eq("id", r.company_id).maybeSingle(),
+    service.from("profiles").select("full_name").eq("id", r.creator_id).maybeSingle(),
     accepted && r.decided_by
       ? service.from("profiles").select("full_name").eq("id", r.decided_by).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -63,8 +70,9 @@ export async function getSignedAgreement(id: string): Promise<SignedAgreement | 
     body: r.contract_body.trim(),
     version: r.contract_version,
     sha256: r.contract_sha256,
-    signedName: r.signed_name ?? "",
+    signedName: r.signed_name ?? (creator?.full_name as string | undefined) ?? "Creator",
     signedAt: r.signed_at,
+    signature: r.signed_at ? r.signature_svg : null,
     signedIp: r.signed_ip,
     signedAgent: r.signed_user_agent,
     companyName: (company?.name as string | undefined) ?? "Company",

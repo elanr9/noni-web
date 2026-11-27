@@ -11,12 +11,12 @@ function stamp(iso: string): string {
   })} UTC`;
 }
 
-/* The agreement exactly as it was signed, with the signature record under
-   it. Prints to a PDF. */
+/* The agreement as written for one creator, with the signature and its
+   record under it once signed. Prints to a PDF. */
 export function AgreementDoc({ a }: { a: SignedAgreement }) {
   const record: [string, string][] = [
     ["Creator", a.signedName],
-    ["Signed", stamp(a.signedAt)],
+    ["Signed", a.signedAt ? stamp(a.signedAt) : "Not signed yet"],
     ...(a.signedIp ? ([["IP address", a.signedIp]] as [string, string][]) : []),
     ...(a.signedAgent ? ([["Device", a.signedAgent]] as [string, string][]) : []),
     ["Company", a.companyName],
@@ -39,9 +39,17 @@ export function AgreementDoc({ a }: { a: SignedAgreement }) {
           <h1 className="m-0 text-[24px] font-bold tracking-[-0.4px] text-ink">{a.title}</h1>
           <AgreementText body={a.body} className="mt-6 text-[14px] leading-[1.65] text-ink" />
           <div className="mt-8 border-t border-line pt-6">
-            <p className="m-0 text-[28px] italic leading-none text-ink" style={{ fontFamily: "ui-serif, Georgia, serif" }}>
-              {a.signedName}
-            </p>
+            {a.signature ? (
+              <svg viewBox="0 0 320 120" role="img" aria-label={`Signature of ${a.signedName}`} className="block h-[90px] w-[240px] text-ink">
+                <path d={a.signature} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : a.signedAt ? (
+              <p className="m-0 text-[28px] italic leading-none text-ink" style={{ fontFamily: "ui-serif, Georgia, serif" }}>
+                {a.signedName}
+              </p>
+            ) : (
+              <span className="inline-flex rounded-full bg-amber-soft px-3 py-1 text-[12.5px] font-bold text-amber">Waiting on signature</span>
+            )}
             <dl className="mb-0 mt-5 grid grid-cols-[110px_minmax(0,1fr)] gap-x-4 gap-y-2 text-[12.5px]">
               {record.map(([k, v]) => (
                 <div key={k} className="contents">

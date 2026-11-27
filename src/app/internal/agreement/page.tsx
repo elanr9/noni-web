@@ -13,6 +13,7 @@ export default function AgreementPreview() {
         sha256: "9f2b6c1d4e7a8b3c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4",
         signedName: "Maya Chen",
         signedAt: "2026-11-24T18:42:00Z",
+        signature: "M24 78 L30 60 L38 44 L44 62 L50 84 L58 58 L66 40 L72 66 L80 86 L92 70 L104 62 L112 74 L122 80 L134 66 L146 58 L156 72 L170 82 L186 64 L198 52 L206 70 L220 84 L240 72 L262 66 L286 74",
         signedIp: "198.51.100.7",
         signedAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 19_1 like Mac OS X) Safari/605.1.15",
         companyName: "Inkbound AI",

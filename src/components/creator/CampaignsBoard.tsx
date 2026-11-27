@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState, useTransition, type ReactNode } from "rea
 
 import { apply, leave, signAgreement, withdraw } from "@/app/campaigns/actions";
 import { AgreementText } from "@/components/agreement/AgreementText";
+import { SignaturePad, isDrawn } from "@/components/agreement/SignaturePad";
 import { loadUnread } from "@/app/messages/actions";
 import { MessageThread } from "@/components/campaign/MessageThread";
 import {
@@ -449,6 +450,7 @@ function useSign(l: FeedListing | null, name: string) {
   const router = useRouter();
   const [step, setStep] = useState<"view" | "sign" | "done">("view");
   const [signed, setSigned] = useState(name);
+  const [signature, setSignature] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
   const submit = () => {
@@ -456,30 +458,34 @@ function useSign(l: FeedListing | null, name: string) {
     setError(null);
     start(async () => {
       const signing = (l.application_status === "offered" || l.application_status === "invited") && l.application_id;
-      const res = signing ? await signAgreement(l.application_id!, signed) : await apply(l.id);
+      const res = signing ? await signAgreement(l.application_id!, signed, signature) : await apply(l.id);
       if (res.ok) {
         setStep("done");
         router.refresh();
       } else setError(res.error);
     });
   };
-  return { step, setStep, signed, setSigned, error, busy, submit };
+  return { step, setStep, signed, setSigned, signature, setSignature, error, busy, submit };
 }
 
-function SignStep({ l, signed, setSigned }: { l: FeedListing; signed: string; setSigned: (v: string) => void }) {
+function SignStep({ l, signed, setSigned, signature, setSignature }: { l: FeedListing; signed: string; setSigned: (v: string) => void; signature: string; setSignature: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="m-0 text-[17px] font-bold text-ink">{l.contract_title || "Agreement"}</p>
-      <AgreementText body={l.contract_body} className="max-h-[45vh] overflow-y-auto rounded-[14px] bg-fill-quiet p-4 text-[14px] leading-[1.55] text-ink" />
+      <AgreementText body={l.contract_body} className="max-h-[32vh] overflow-y-auto rounded-[14px] bg-fill-quiet p-4 text-[14px] leading-[1.55] text-ink" />
       <label className="flex flex-col gap-[7px]">
         <span className="text-[13px] font-semibold text-slate-500">Full name</span>
         <input
           value={signed}
           onChange={(e) => setSigned(e.target.value)}
           autoComplete="name"
-          className="h-12 rounded-[14px] border border-line bg-white px-4 text-[17px] italic text-ink outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          className="h-12 rounded-[14px] border border-line bg-white px-4 text-[17px] text-ink outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
         />
       </label>
+      <div className="flex flex-col gap-[7px]">
+        <span className="text-[13px] font-semibold text-slate-500">Signature</span>
+        <SignaturePad value={signature} onChange={setSignature} />
+      </div>
     </div>
   );
 }
@@ -501,8 +507,8 @@ function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: str
           </button>
         ) : s.step === "sign" ? (
           <div className="flex flex-col gap-2">
-            <button type="button" disabled={s.busy || !s.signed.trim()} onClick={s.submit} className={PRIMARY}>
-              {s.busy ? "Signing" : "Sign and join"}
+            <button type="button" disabled={s.busy || !s.signed.trim() || !isDrawn(s.signature)} onClick={s.submit} className={PRIMARY}>
+              {s.busy ? "Submitting" : "Submit"}
             </button>
             {s.error ? <p className="m-0 text-center text-[13px] font-semibold text-danger">{s.error}</p> : null}
           </div>
@@ -534,7 +540,7 @@ function ListingPanel({ l, name, missing, onClose }: { l: FeedListing; name: str
       {s.step === "done" ? (
         <Done label={signing ? "You are in" : "Applied"} />
       ) : s.step === "sign" ? (
-        <SignStep l={l} signed={s.signed} setSigned={s.setSigned} />
+        <SignStep l={l} signed={s.signed} setSigned={s.setSigned} signature={s.signature} setSignature={s.setSignature} />
       ) : talking && l.application_id ? (
         <div className="flex h-[calc(100dvh-150px)] flex-col">
           <button type="button" onClick={() => setTalking(false)} className="mb-3 inline-flex cursor-pointer items-center gap-1 self-start border-0 bg-transparent p-0 text-[14px] font-bold text-slate-500 hover:text-ink">
