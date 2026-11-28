@@ -9,13 +9,14 @@ import {
   MessageCircle,
   Play,
   Plus,
+  RotateCw,
   Search,
   SlidersHorizontal,
   Undo2,
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 
 import { refreshScout, startScout, updateScoutCreator, writeScoutMessage } from "@/app/admin/scout/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
@@ -61,22 +62,33 @@ const TABS = [
 ] as const satisfies ReadonlyArray<{ key: string; label: string; has: readonly ScoutStatus[] }>;
 type TabKey = (typeof TABS)[number]["key"];
 
-/* Two full rows on a laptop (4 or 3 across); a phone pages eight. */
-function usePerPage(): number {
-  const [n, setN] = useState(8);
+/* The board never scrolls and never clips: on a laptop it measures the room
+   it has and shows as many full rows of cards as fit. A phone pages eight
+   and scrolls. */
+const CARD_MIN = 248;
+const GAP = 12;
+
+function useBoard(node: HTMLDivElement | null): { perPage: number; rows: number | null } {
+  const [board, setBoard] = useState<{ perPage: number; rows: number | null }>({ perPage: 8, rows: null });
   useEffect(() => {
-    const lg = window.matchMedia("(min-width: 1024px)");
-    const xl = window.matchMedia("(min-width: 1280px)");
-    const set = () => setN(xl.matches ? 8 : lg.matches ? 6 : 8);
-    set();
-    lg.addEventListener("change", set);
-    xl.addEventListener("change", set);
-    return () => {
-      lg.removeEventListener("change", set);
-      xl.removeEventListener("change", set);
+    if (!node) return;
+    const measure = () => {
+      const w = window.innerWidth;
+      const cols = w >= 1280 ? 4 : 3;
+      const rows = w < 1024 ? null : Math.max(1, Math.min(3, Math.floor((node.clientHeight + GAP) / (CARD_MIN + GAP))));
+      const perPage = rows === null ? 8 : cols * rows;
+      setBoard((b) => (b.rows === rows && b.perPage === perPage ? b : { perPage, rows }));
     };
-  }, []);
-  return n;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [node]);
+  return board;
 }
 
 function PlatformMark({ platform, size = 13 }: { platform: ScoutPlatform; size?: number }) {
@@ -180,17 +192,45 @@ function Stats({ c, lit, accent, wide = false }: { c: ScoutCreator; lit: "follow
         ]
       : []),
   ];
+  const known = cells.filter((x) => x.value);
+  if (!known.length) return null;
   return (
-    <div className={`grid gap-1.5 ${wide ? "grid-cols-3 sm:grid-cols-5" : "grid-cols-3"}`}>
-      {cells.map((x) => (
+    <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${known.length}, minmax(0, 1fr))` }}>
+      {known.map((x) => (
         <span key={x.key} className="flex min-w-0 flex-col rounded-[10px] bg-fill-quiet px-2 py-1.5">
           <span
             className="truncate text-[14px] font-bold tabular-nums leading-[1.25] text-ink"
             style={lit === x.key && x.value ? { color: accent } : undefined}
           >
-            {x.value || <span className="text-slate-300">·</span>}
+            {x.value}
           </span>
           <span className="truncate text-[10px] font-semibold leading-[1.3] text-slate-400">{x.label}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* The card's numbers on one line: the three Scout knows, never an empty
+   slot. One that does not fit wraps out of sight whole instead of cut off. */
+function StatLine({ c, lit, accent }: { c: ScoutCreator; lit: "followers" | "posts" | "engagement" | null; accent: string }) {
+  const cells = [
+    { key: "followers", value: c.followers !== null ? compact(c.followers) : "", label: "followers" },
+    { key: "posts", value: perWeek(c.posts_per_week), label: "a week" },
+    { key: "engagement", value: c.engagement_rate !== null ? `${c.engagement_rate}%` : "", label: "engaged" },
+    { key: "views", value: c.median_views !== null ? compact(c.median_views) : "", label: "views" },
+  ]
+    .filter((x) => x.value)
+    .slice(0, 3);
+  if (!cells.length) return null;
+  return (
+    <div className="flex h-[18px] flex-wrap items-baseline gap-x-3 overflow-hidden whitespace-nowrap text-[12px] font-semibold leading-[18px] text-slate-400">
+      {cells.map((x) => (
+        <span key={x.key} className="shrink-0">
+          <span className="text-[13.5px] font-bold tabular-nums text-ink" style={lit === x.key ? { color: accent } : undefined}>
+            {x.value}
+          </span>{" "}
+          {x.label}
         </span>
       ))}
     </div>
@@ -247,7 +287,7 @@ function CreatorCard({
 
   return (
     <Card pad={0} lift onClick={onOpen} className="relative flex h-full min-h-0 cursor-pointer flex-col overflow-hidden">
-      <div className="grid h-[150px] grid-cols-3 gap-1 p-1.5 pb-0 lg:h-auto lg:min-h-[72px] lg:flex-1">
+      <div className="grid h-[170px] min-h-0 grid-cols-3 gap-1 p-1.5 pb-0 lg:h-auto lg:flex-1">
         {covers.length
           ? covers.map((v) => <Cover key={v.url} url={v.url} cover={v.cover} views={v.views} className="h-full" />)
           : [0, 1, 2].map((i) => <span key={i} className="rounded-[10px] bg-fill-quiet" />)}
@@ -266,9 +306,9 @@ function CreatorCard({
           {rank !== null ? <Chip tone={scoreTone(rank)}>{rank}</Chip> : null}
         </div>
 
-        {c.source !== "link" ? <Stats c={c} lit={lit} accent={accent} /> : null}
+        {c.source !== "link" ? <StatLine c={c} lit={lit} accent={accent} /> : null}
 
-        <p className="m-0 line-clamp-2 min-h-[36px] text-[13px] font-semibold leading-[1.38] text-slate-600">
+        <p className="m-0 line-clamp-2 h-[36px] text-[13px] font-semibold leading-[18px] text-slate-600">
           {c.why ?? (c.source === "link" ? "Applied with your join link" : "")}
         </p>
 
@@ -736,6 +776,21 @@ function RunStrip({ data, accent }: { data: ScoutData; accent: string }) {
 
 /* ------------------------------------------------------------------ view */
 
+/* The search whose outcome note was closed, remembered in this browser. */
+const CLOSED_RUN = "scout-closed-run";
+const closedListeners = new Set<() => void>();
+function onClosedRun(f: () => void): () => void {
+  closedListeners.add(f);
+  return () => void closedListeners.delete(f);
+}
+function readClosedRun(): string | null {
+  try {
+    return window.localStorage.getItem(CLOSED_RUN);
+  } catch {
+    return null;
+  }
+}
+
 export function ScoutView({
   initial,
   companyId,
@@ -750,7 +805,8 @@ export function ScoutView({
 }) {
   const [data, setData] = useState(initial);
   const [tab, setTab] = useState<TabKey>("match");
-  const PER_PAGE = usePerPage();
+  const [boardNode, setBoardNode] = useState<HTMLDivElement | null>(null);
+  const { perPage: PER_PAGE, rows } = useBoard(boardNode);
   const [page, setPage] = useState(0);
   const [open, setOpen] = useState<string | null>(initialOpen);
   const [searching, setSearching] = useState(false);
@@ -759,6 +815,8 @@ export function ScoutView({
   const [filtering, setFiltering] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* The last search's outcome, shown small until it is closed. */
+  const closedRun = useSyncExternalStore(onClosedRun, readClosedRun, () => null);
 
   const accent = data.color ?? "#1BA6EE";
   const running = Boolean(data.run && ACTIVE_RUN.includes(data.run.status));
@@ -773,6 +831,23 @@ export function ScoutView({
     const t = window.setInterval(pull, 5000);
     return () => window.clearInterval(t);
   }, [running, pull]);
+
+  const last = data.run;
+  const outcome =
+    !last || running || closedRun === last.id
+      ? null
+      : last.status === "failed"
+        ? "Search stopped"
+        : last.status === "done" && (last.counts.matches ?? 0) === 0
+          ? "No one new"
+          : null;
+  const closeOutcome = () => {
+    if (!last) return;
+    try {
+      window.localStorage.setItem(CLOSED_RUN, last.id);
+    } catch {}
+    closedListeners.forEach((f) => f());
+  };
 
   const nFilters = filterCount(filters);
   const [finding, setFinding] = useState(false);
@@ -951,18 +1026,7 @@ export function ScoutView({
   return (
     <div className="page-fit flex flex-col">
       {head}
-      {data.run && (running || data.run.status === "failed") ? (
-        data.run.status === "failed" ? (
-          <Card pad={0} className="mb-4 flex items-center gap-3 px-5 py-3.5">
-            <span className="flex-1 text-[14px] font-semibold text-danger">That search stopped. Try again.</span>
-            <Pill size="sm" icon={Search} onClick={() => setSearching(true)} style={{ backgroundColor: accent, boxShadow: "none" }}>
-              Search again
-            </Pill>
-          </Card>
-        ) : (
-          <RunStrip data={data} accent={accent} />
-        )
-      ) : null}
+      {running ? <RunStrip data={data} accent={accent} /> : null}
 
       <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2">
         <div className="-mx-1 flex w-full min-w-0 gap-2 overflow-x-auto px-1 [scrollbar-width:none] lg:w-auto lg:flex-1">
@@ -984,6 +1048,31 @@ export function ScoutView({
         </div>
         <div className="flex w-full items-center gap-2 lg:w-auto">
           {error ? <span className="text-[13px] font-semibold text-danger">{error}</span> : null}
+          {outcome && !error ? (
+            <span
+              title={companyId ? (last?.error ?? undefined) : undefined}
+              className="inline-flex animate-om-pop items-center gap-1 whitespace-nowrap rounded-pill bg-fill-quiet py-1 pl-3.5 pr-1 text-[13px] font-bold text-slate-500"
+            >
+              {outcome}
+              <button
+                type="button"
+                aria-label="Search again"
+                disabled={finding}
+                onClick={() => void findMore()}
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-ink transition-transform hover:bg-white active:scale-90 disabled:opacity-40"
+              >
+                <RotateCw size={14} className={finding ? "animate-spin" : ""} />
+              </button>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={closeOutcome}
+                className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-slate-400 hover:bg-white hover:text-ink"
+              >
+                <X size={14} />
+              </button>
+            </span>
+          ) : null}
           <SortDropdown
             options={SCOUT_SORTS}
             value={sort}
@@ -1033,50 +1122,53 @@ export function ScoutView({
         </div>
       </div>
 
-      {shown.length ? (
-        <div
-          key={`${tab}-${sort}-${nFilters}-${typed}-${safePage}`}
-          className="grid min-h-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:auto-rows-[minmax(0,1fr)] lg:grid-cols-3 xl:grid-cols-4"
-        >
-          {shown.map((c, i) => (
-            <div key={c.id} className="h-full min-h-0 animate-om-pop" style={{ animationDelay: `${i * 35}ms` } as CSSProperties}>
-              <CreatorCard
-                c={c}
-                accent={accent}
-                link={joinUrl(origin, data.joinSlug, c.code)}
-                lit={SORT_STAT[sort]}
-                onOpen={() => setOpen(c.id)}
-                onMove={(s) => void move(c.id, s)}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <Card pad={0} className="flex min-h-[240px] flex-1 flex-col items-center justify-center gap-3">
-          <span className="text-[14px] font-semibold text-slate-400">
-            {nFilters || typed ? "No one matches." : running ? "Nothing here yet." : "Nothing here."}
-          </span>
-          {nFilters || typed ? (
-            <span className="flex items-center gap-2">
-              {running ? null : (
-                <Pill size="sm" icon={Search} loading={finding} onClick={() => void findMore()} style={{ backgroundColor: accent, boxShadow: "none" }}>
-                  Find more
-                </Pill>
-              )}
-              <Pill
-                size="sm"
-                variant="quiet"
-                onClick={() => {
-                  setFilters(NO_FILTERS);
-                  setQuery("");
-                }}
-              >
-                Clear
-              </Pill>
+      <div ref={setBoardNode} className="min-h-0 flex-1">
+        {shown.length ? (
+          <div
+            key={`${tab}-${sort}-${nFilters}-${typed}-${safePage}`}
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:h-full lg:grid-cols-3 xl:grid-cols-4"
+            style={rows ? { gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))` } : undefined}
+          >
+            {shown.map((c, i) => (
+              <div key={c.id} className="h-full min-h-0 animate-om-pop" style={{ animationDelay: `${i * 35}ms` } as CSSProperties}>
+                <CreatorCard
+                  c={c}
+                  accent={accent}
+                  link={joinUrl(origin, data.joinSlug, c.code)}
+                  lit={SORT_STAT[sort]}
+                  onOpen={() => setOpen(c.id)}
+                  onMove={(s) => void move(c.id, s)}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Card pad={0} className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3">
+            <span className="text-[14px] font-semibold text-slate-400">
+              {nFilters || typed ? "No one matches." : running ? "Nothing here yet." : "Nothing here."}
             </span>
-          ) : null}
-        </Card>
-      )}
+            {nFilters || typed ? (
+              <span className="flex items-center gap-2">
+                {running ? null : (
+                  <Pill size="sm" icon={Search} loading={finding} onClick={() => void findMore()} style={{ backgroundColor: accent, boxShadow: "none" }}>
+                    Find more
+                  </Pill>
+                )}
+                <Pill
+                  size="sm"
+                  variant="quiet"
+                  onClick={() => {
+                    setFilters(NO_FILTERS);
+                    setQuery("");
+                  }}
+                >
+                  Clear
+                </Pill>
+              </span>
+            ) : null}
+          </Card>
+        )}
+      </div>
 
       {openCreator ? (
         <CreatorModal
