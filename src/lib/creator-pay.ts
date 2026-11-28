@@ -7,8 +7,9 @@
 
    The rules:
    - A creator takes home $10 per video post and $5 per static (slideshow)
-     post once it is live and has 500 views, plus $1 for every full 1,000
-     views. A campaign can set its own higher rates (migration 163).
+     post once it is live and one platform's post alone (TikTok or
+     Instagram) has 500 views, plus $1 for every full 1,000 views across
+     both platforms combined (noni migration 182). A campaign can set its own higher rates (migration 163).
    - View pay is capped at $300 per post, and only views in the first 30
      days after posting count (checked daily).
    - The company's budget pays exactly what the creator earns, debited from
