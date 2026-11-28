@@ -130,6 +130,7 @@ You may:
 - Update certain profile information in the app
 - Disconnect Google or Apple sign-in by deleting your Noni account or contacting us
 - Disable push notifications in device settings
+- Delete your account in the app under Settings, Delete account, which removes your sign-in, profile, photo, and notification settings
 - Request account or data deletion by emailing **founders@usenoni.app**
 
 We will respond within a reasonable period and as required by applicable law.

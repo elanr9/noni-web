@@ -77,6 +77,9 @@ You agree not to:
 - Bypass access controls or rate limits
 - Use the Service to create or distribute deceptive, harmful, or unauthorized content
 - Interfere with other users’ use of Noni
+- Send or post content that is abusive, harassing, threatening, hateful, sexually explicit, or otherwise objectionable
+
+Noni has no tolerance for objectionable content or abusive users. You can report any message, campaign, or profile and block any person or company in the app. We review reports within 24 hours, remove content that breaks these Terms, and suspend or remove the account that sent it.
 
 ---
 

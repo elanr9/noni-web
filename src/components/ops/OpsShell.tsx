@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, FileText, Inbox, Radar,
+import { Briefcase, FileText, Flag, Inbox, Radar,
   CircleUserRound,
   Gauge,
   LayoutGrid,
@@ -35,6 +35,7 @@ const NAV = [
   { href: "/ops/users", label: "Users", icon: Users },
   { href: "/ops/applications", label: "Applications", icon: Inbox },
   { href: "/ops/invites", label: "Invites", icon: Send },
+  { href: "/ops/reports", label: "Reports", icon: Flag },
 ] as const;
 
 /* ── ⌘K search wiring ──────────────────────────────────────────────────
