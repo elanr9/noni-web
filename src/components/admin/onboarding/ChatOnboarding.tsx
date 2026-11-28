@@ -153,17 +153,17 @@ function UserMessage({ text }: { text: string }) {
   );
 }
 
-/** How old are you: a big number over a slider, 16 to 65+, then Continue. */
+/** How old are you: a big number over a slider, 18 to 65+, then Continue. */
 function AgePicker({ disabled, onPick }: { disabled: boolean; onPick: (age: number) => void }) {
   const [age, setAge] = useState(23);
-  const pct = ((age - 16) / (65 - 16)) * 100;
+  const pct = ((age - 18) / (65 - 18)) * 100;
   return (
     <div className="flex flex-col items-center gap-4 rounded-[28px] border-[1.5px] border-slate-200 bg-white px-6 pb-5 pt-4 shadow-[0_8px_30px_rgba(15,23,42,0.10)] animate-om-rise">
       <span className="text-[56px] font-extrabold leading-none tracking-[-2px] text-ink tabular-nums">{age >= 65 ? "65+" : age}</span>
       <div className="w-full">
         <input
           type="range"
-          min={16}
+          min={18}
           max={65}
           value={age}
           disabled={disabled}

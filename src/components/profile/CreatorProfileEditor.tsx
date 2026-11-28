@@ -64,7 +64,7 @@ export function CreatorProfileEditor({ initial, name, photo, startTab = "You" }:
   };
 
   const ageNum = age ? Number(age) : null;
-  const ageBad = ageNum !== null && (ageNum < 13 || ageNum > 100);
+  const ageBad = ageNum !== null && (ageNum < 18 || ageNum > 100);
   const badVideo = videos.some((v) => v.trim() !== "" && !isLink(v));
 
   const save = () => {
