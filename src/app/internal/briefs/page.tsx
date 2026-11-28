@@ -1,9 +1,11 @@
 import { ManagerShell } from "@/components/manager/ManagerShell";
-import { BriefsLibraryView } from "@/components/manager/briefs/library/BriefsLibraryView";
 import { newClip, type Brief, type BriefType } from "@/lib/manager/brief-library";
 
+import { BriefsPreviewClient } from "./BriefsPreviewClient";
+
 /* Dev preview of the manager Briefs library with sample briefs
-   (?view=empty|full&open=<id>). 404 in production. Actions need a session. */
+   (?view=empty|full&open=<id>). 404 in production. Upload brief runs on
+   canned posts; the other actions need a session. */
 
 const TITLES: [string, BriefType][] = [
   ["I wrote my whole essay in 10 minutes", "Talking Head"],
@@ -54,7 +56,7 @@ export default async function BriefsPreview({ searchParams }: { searchParams: Pr
         ];
   return (
     <ManagerShell companyName="Inkbound AI" name="Preview" people={[]} reviewCount={0}>
-      <BriefsLibraryView initial={briefs} companyId="preview" initialOpen={sp.open ?? null} />
+      <BriefsPreviewClient initial={briefs} initialOpen={sp.open ?? null} />
     </ManagerShell>
   );
 }

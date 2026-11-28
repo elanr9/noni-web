@@ -150,12 +150,29 @@ export type SaveBriefInput = {
   audio: BriefAudio | null;
   caption: string;
   tags: string[];
-  /** Long Text and imported posts save without an Outline twin, like the app. */
+  /** Long Text saves without an Outline twin, like the app. */
   noTwin?: boolean;
+  /** The one line the Outline twin carries, e.g. "Video on your 3 rules for keeping a fern alive". */
+  outlineNotes?: string;
 };
 
 /** One post the Upload brief reader listed. */
-export type PlannedPost = { index: number; title: string; type: BriefType; origin: "document" | "new"; angle: string; hook: string };
+export type PlannedPost = {
+  index: number;
+  title: string;
+  type: BriefType;
+  origin: "document" | "new";
+  angle: string;
+  hook: string;
+  /** What the document calls this post, so the writer finds it again. */
+  source?: string;
+  direction?: string;
+  /** The example video the brief points to for this post. */
+  link?: string;
+};
+
+/** A company library file the writer placed on a clip. */
+export type FillMedia = { src: string; poster: string | null; kind: "image" | "video"; label: string; dur: number };
 
 /** What brief-fill and brief-import answer for a guided post. */
 export type FillResponse = {
@@ -165,7 +182,9 @@ export type FillResponse = {
   caption?: string;
   tags?: string[];
   notes?: string;
-  clips?: { say?: string; onScreen?: string; cta?: boolean; shot?: string }[];
+  clips?: { say?: string; onScreen?: string; cta?: boolean; shot?: string; media?: FillMedia | null; green?: boolean }[];
+  /** One line for the Outline twin. */
+  outline_note?: string;
   hooks?: BriefAi["hooks"];
   warnings?: string[];
   questions?: string[];
@@ -174,12 +193,30 @@ export type FillResponse = {
   error?: string;
 };
 
+/** On-screen text as the app places it: percent of the 9:16 frame, size in px at a 300 wide frame. */
+function stText(text: string, o: { y?: number; size?: number } = {}) {
+  return { id: uid(), text, x: 50, y: 17, w: 60, size: 26, font: 0, color: "#FFFFFF", align: "center", style: "outline", spans: [], ...o };
+}
+
+/** A clip's first placed text follows its on-screen line, so an edit here shows in the app. */
+export function withOnScreen(c: BriefClip, onScreen: string): BriefClip {
+  const doc = c.doc as { texts?: { text: string }[] } | null;
+  if (!doc?.texts?.length) return { ...c, onScreen };
+  return { ...c, onScreen, doc: { ...doc, texts: [{ ...doc.texts[0], text: onScreen }, ...doc.texts.slice(1)] } };
+}
+
 /** A guided state from a brief-fill or brief-import answer (the app's guidedPlanOf). */
 export function guidedFromFill(res: FillResponse, base: GuidedState, type: BriefType): GuidedState {
   const clips = (res.clips ?? []).map((c) => {
     const extra = c.shot?.trim() ? { shot: c.shot.trim() } : {};
     const say = type === "Slideshow" || type === "Long Text" ? "" : (c.say ?? "");
-    return newClip(say, { onScreen: c.onScreen ?? "", cta: !!c.cta, ...extra });
+    const onScreen = c.onScreen ?? "";
+    // The close of a slideshow sits lower and smaller, as the app writes it.
+    if (type === "Slideshow" && c.cta) return newClip("", { onScreen, cta: true, doc: { texts: [stText(onScreen, { y: 22, size: 20 })], overlays: [] }, ...extra });
+    // A library screenshot or recording the writer chose is placed under the clip's text.
+    const m = c.media?.src && !(type === "Greenscreen" && !base.fullGreen && c.green) ? c.media : null;
+    const doc = m ? { texts: onScreen.trim() ? [stText(onScreen)] : [], overlays: [{ id: uid(), src: m.src, label: m.label, x: 50, y: 56, w: 62, kind: m.kind, poster: m.poster, dur: m.dur }] } : null;
+    return newClip(say, { onScreen, cta: !!c.cta, ...extra, ...(doc ? { doc } : {}) });
   });
   const green = type === "Greenscreen" && !base.fullGreen ? clips.map((c, i) => ({ ...c, green: i > 0 && !c.cta })) : clips;
   return {

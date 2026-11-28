@@ -24,9 +24,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import {
   deleteBrief,
   fillWithAi,
-  planImport,
   saveBriefs,
-  writeImportPost,
 } from "@/app/manager/briefs/library-actions";
 import { markLibraryItemUsed } from "@/app/manager/library/actions";
 import { Burst } from "@/components/admin/brain/BrainConfirm";
@@ -46,6 +44,7 @@ import {
   outlineSaveInput,
   timeAgo,
   uid,
+  withOnScreen,
   type Brief,
   type BriefKind,
   type BriefType,
@@ -54,7 +53,7 @@ import {
   type PlannedPost,
   type SaveBriefInput,
 } from "@/lib/manager/brief-library";
-import { createClient } from "@/lib/supabase/client";
+import { MAX_FILE_BYTES, MAX_SOURCES, UPLOAD_API, WARM_MS, WRITE_PARALLEL, type UploadApi } from "@/lib/manager/brief-import-client";
 
 /* Briefs: the library of templates and outlines creators work from, the
    same as the app's Briefs tab. One screen, no scroll: cards page like
@@ -362,15 +361,15 @@ function GuidedEditor({ type, g, setG }: { type: BriefType; g: GuidedState; setG
                     value={c.text}
                     onChange={(e) => set(i, { text: e.target.value })}
                     placeholder="What they say"
-                    rows={2}
+                    rows={3}
                     className="w-full resize-none rounded-[10px] border border-line px-3 py-2 text-[13.5px] font-semibold text-ink outline-none focus:border-blue-500"
                   />
                 ) : null}
                 <textarea
                   value={c.onScreen}
-                  onChange={(e) => set(i, { onScreen: e.target.value })}
+                  onChange={(e) => setG({ ...g, clips: g.clips.map((x, j) => (j === i ? withOnScreen(x, e.target.value) : x)) })}
                   placeholder="Text on screen"
-                  rows={2}
+                  rows={say ? 3 : 2}
                   className="w-full resize-none rounded-[10px] border border-line px-3 py-2 text-[13.5px] font-semibold text-ink outline-none focus:border-blue-500"
                 />
               </div>
@@ -607,193 +606,400 @@ function BriefEditor({
 
 /* ------------------------------------------------------------ upload */
 
-type Source = { id: string; kind: "file"; file: File };
-type Written = { index: number; status: "writing" | "done" | "failed"; input?: SaveBriefInput };
+/* Upload brief: add a document, watch its posts get listed and written,
+   open any of them to read and change it, then save the ones you keep.
+   Three views in one modal: pick, posts, review. The document decides how
+   many posts there are. */
+
+type ImportRow = {
+  post: PlannedPost;
+  status: "queued" | "writing" | "done" | "failed";
+  g: GuidedState | null;
+  lt: LongTextState | null;
+  /** The one line the Outline twin carries. */
+  outline: string;
+  picked: boolean;
+};
 
 const ACCEPT = ".pdf,.docx,.pptx,.xlsx,.rtf,.txt,.md,.csv,image/jpeg,image/png,image/webp";
-const MAX_FILE = 24 * 1024 * 1024;
+const ROWS_PER_PAGE = 6;
+const postsLabel = (n: number) => (n === 1 ? "1 post" : `${n} posts`);
 
-function UploadBrief({ companyId, onClose, onSaved }: { companyId: string; onClose: () => void; onSaved: (list: Brief[], ids: string[]) => void }) {
-  const [sources, setSources] = useState<Source[]>([]);
+function rowMeta(r: ImportRow): string {
+  if (r.post.type === "Long Text" || !r.g) return r.post.type;
+  const n = r.g.clips.length;
+  const unit = r.post.type === "Slideshow" ? "slide" : "clip";
+  return `${r.post.type}, ${n} ${unit}${n === 1 ? "" : "s"}`;
+}
+
+function UploadBrief({
+  companyId,
+  api = UPLOAD_API,
+  onClose,
+  onSaved,
+}: {
+  companyId: string;
+  api?: UploadApi;
+  onClose: () => void;
+  onSaved: (list: Brief[], ids: string[]) => void;
+}) {
+  const [files, setFiles] = useState<{ id: string; file: File }[]>([]);
   const [link, setLink] = useState("");
-  const [phase, setPhase] = useState<"pick" | "reading" | "writing" | "saving">("pick");
-  const [plan, setPlan] = useState<{ importId: string; summary: string; posts: PlannedPost[] } | null>(null);
-  const [written, setWritten] = useState<Written[]>([]);
+  const [stage, setStage] = useState<"pick" | "posts">("pick");
+  const [rows, setRows] = useState<ImportRow[]>([]);
+  const [planning, setPlanning] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notes, setNotes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [over, setOver] = useState(false);
+  const [page, setPage] = useState(0);
+  const [review, setReview] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
-  const addFiles = (files: FileList | null) => {
-    if (!files) return;
-    const next: Source[] = [];
-    for (const f of Array.from(files)) {
-      if (f.size > MAX_FILE) {
-        setError(`${f.name} is over 24 MB.`);
-        continue;
-      }
-      next.push({ id: uid(), kind: "file", file: f });
+  /* One upload at a time: a run that was left must not write into a newer one. */
+  const run = useRef(0);
+  const importId = useRef<string | null>(null);
+  const queue = useRef<PlannedPost[]>([]);
+  const active = useRef(0);
+  const warm = useRef<"cold" | "warming" | "warm">("cold");
+  const stop = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      run.current += 1;
+      stop.current?.abort();
+      if (importId.current) api.finish(importId.current);
+    },
+    [api],
+  );
+
+  const addFiles = (list: FileList | null) => {
+    if (!list) return;
+    setError(null);
+    const next: { id: string; file: File }[] = [];
+    for (const f of Array.from(list)) {
+      if (f.size > MAX_FILE_BYTES) setError(`${f.name} is over 24 MB.`);
+      else next.push({ id: uid(), file: f });
     }
-    setSources((s) => [...s, ...next].slice(0, 8));
+    setFiles((s) => [...s, ...next].slice(0, MAX_SOURCES));
+  };
+
+  const patch = (index: number, next: Partial<ImportRow>) => setRows((list) => list.map((r) => (r.post.index === index ? { ...r, ...next } : r)));
+
+  const writeOne = async (id: number, post: PlannedPost) => {
+    const to = importId.current;
+    if (run.current !== id || !to) return;
+    patch(post.index, { status: "writing" });
+    /* A write that drops is tried once more before the manager is asked to. */
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const res = await api.write(to, post);
+        if (run.current !== id) return;
+        if (post.type === "Long Text") {
+          patch(post.index, { status: "done", picked: true, lt: { title: (res.title || post.title).trim(), onScreen: (res.clips?.[0]?.onScreen ?? "").trim(), notes: LONG_TEXT_NOTES, doc: null } });
+        } else {
+          const g = guidedFromFill(res, { ...emptyGuided(), title: post.title, link: post.link ?? "" }, post.type);
+          patch(post.index, { status: "done", picked: true, g, outline: (res.outline_note ?? "").trim() });
+        }
+        return;
+      } catch {
+        if (run.current !== id) return;
+      }
+    }
+    patch(post.index, { status: "failed", picked: false });
+  };
+
+  /* Starts as many queued posts as there is room for. The first goes alone for a moment so the rest read what it cached. */
+  const pump = (id: number) => {
+    if (run.current !== id || !importId.current) return;
+    const begin = (post: PlannedPost) => {
+      active.current += 1;
+      void writeOne(id, post).finally(() => {
+        active.current -= 1;
+        pump(id);
+      });
+    };
+    if (warm.current === "cold") {
+      const first = queue.current.shift();
+      if (!first) return;
+      warm.current = "warming";
+      window.setTimeout(() => {
+        warm.current = "warm";
+        pump(id);
+      }, WARM_MS);
+      begin(first);
+      return;
+    }
+    if (warm.current === "warming") return;
+    while (active.current < WRITE_PARALLEL && queue.current.length) begin(queue.current.shift()!);
   };
 
   const read = async () => {
     const url = link.trim();
-    if (!sources.length && !url) {
+    if (!files.length && !url) {
       setError("Add a file or a link.");
       return;
     }
+    run.current += 1;
+    const id = run.current;
+    importId.current = null;
+    queue.current = [];
+    active.current = 0;
+    warm.current = "cold";
+    stop.current = new AbortController();
     setError(null);
-    setPhase("reading");
+    setNotes([]);
+    setRows([]);
+    setPage(0);
+    setReview(null);
+    setPlanning(true);
+    setStage("posts");
+    let seen = 0;
     try {
-      const supabase = createClient();
-      const files = await Promise.all(
-        sources.map(async (s) => {
-            const safe = s.file.name.replace(/[^A-Za-z0-9._-]+/g, "-").slice(-80) || "file";
-            const path = `${companyId}/${uid()}-${safe}`;
-            const { error: upErr } = await supabase.storage.from("brief-imports").upload(path, s.file, { contentType: s.file.type || "application/octet-stream" });
-            if (upErr) throw new Error(`${s.file.name} did not upload.`);
-            return { path, name: s.file.name, mime: s.file.type };
-        }),
-      );
-      const r = await planImport({ files, links: url ? [url] : [] });
-      if (!r.ok) throw new Error(r.error);
-      setPlan(r.data);
-      setPhase("writing");
-      const state: Written[] = r.data.posts.map((p) => ({ index: p.index, status: "writing" }));
-      setWritten(state);
-      /* Four at a time, like the app. */
-      let next = 0;
-      const lane = async () => {
-        while (next < r.data.posts.length) {
-          const post = r.data.posts[next];
-          next += 1;
-          const w = await writeImportPost(r.data.importId, post.index);
-          setWritten((list) =>
-            list.map((x) => {
-              if (x.index !== post.index) return x;
-              if (!w.ok) return { ...x, status: "failed" };
-              const id = uid();
-              if (post.type === "Long Text") {
-                const onScreen = (w.data.clips?.[0]?.onScreen ?? "").trim();
-                return { ...x, status: "done", input: longTextSaveInput(id, { title: (w.data.title || post.title).trim(), onScreen, notes: LONG_TEXT_NOTES, doc: null }) };
-              }
-              const g = guidedFromFill(w.data, { ...emptyGuided(), title: post.title }, post.type);
-              return { ...x, status: "done", input: { ...guidedSaveInput(id, post.type, g), noTwin: true } };
-            }),
-          );
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(4, r.data.posts.length) }, lane));
+      await api.plan(companyId, files.map((f) => f.file), url, {
+        signal: stop.current.signal,
+        onSkipped: (reasons) => run.current === id && setNotes(reasons),
+        onPost: (post) => {
+          if (run.current !== id) return;
+          seen += 1;
+          setRows((list) => (list.some((r) => r.post.index === post.index) ? list : [...list, { post, status: "queued", g: null, lt: null, outline: "", picked: true }]));
+          queue.current.push(post);
+          pump(id);
+        },
+        onReady: (to) => {
+          if (run.current !== id) return;
+          importId.current = to;
+          pump(id);
+        },
+      });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "That did not work. Try again.");
-      setPhase("pick");
+      if (run.current !== id) return;
+      /* Posts already found and writable are kept; with none, back to the start with the reason. */
+      if (!seen || !importId.current) {
+        run.current += 1;
+        setError(e instanceof Error && e.message ? e.message : "That did not work. Try again.");
+        setStage("pick");
+      }
+    } finally {
+      if (run.current === id) setPlanning(false);
     }
   };
 
-  const done = written.filter((w) => w.status === "done" && w.input);
-  const stillWriting = written.some((w) => w.status === "writing");
+  const retry = (post: PlannedPost) => {
+    patch(post.index, { status: "queued" });
+    queue.current.push(post);
+    pump(run.current);
+  };
+
+  const done = rows.filter((r) => r.status === "done");
+  const chosen = done.filter((r) => r.picked);
+  const working = planning || rows.some((r) => r.status === "queued" || r.status === "writing");
+  const settled = rows.filter((r) => r.status === "done" || r.status === "failed").length;
 
   const saveAll = async () => {
-    setPhase("saving");
-    const inputs = done.map((w) => w.input!);
-    const r = await saveBriefs(inputs);
-    if (!r.ok) {
-      setError(r.error);
-      setPhase("writing");
+    if (saving || !chosen.length) return;
+    setSaving(true);
+    setError(null);
+    const inputs: SaveBriefInput[] = chosen.map((r) =>
+      r.lt ? longTextSaveInput(uid(), r.lt) : { ...guidedSaveInput(uid(), r.post.type, r.g!), outlineNotes: r.outline || undefined },
+    );
+    const res = await saveBriefs(inputs);
+    if (!res.ok) {
+      setError(res.error);
+      setSaving(false);
       return;
     }
-    onSaved(r.data, inputs.map((i) => i.id));
+    run.current += 1;
+    onSaved(res.data, inputs.map((i) => i.id));
   };
 
+  /* ---- review: one written post at a time, changed in place ---- */
+  const at = review === null ? -1 : done.findIndex((r) => r.post.index === review);
+  if (stage === "posts" && at >= 0) {
+    const r = done[at];
+    const last = at >= done.length - 1;
+    const go = (to: number) => setReview(done[Math.max(0, Math.min(done.length - 1, to))].post.index);
+    const title = r.lt ? r.lt.title : r.g!.title;
+    const setTitle = (t: string) => (r.lt ? patch(r.post.index, { lt: { ...r.lt, title: t } }) : patch(r.post.index, { g: { ...r.g!, title: t } }));
+    return (
+      <Modal title="" onClose={onClose} width={760}>
+        <div className="mb-4 flex items-center gap-2 pr-10">
+          <Pill variant="ghost" size="sm" icon={ChevronLeft} onClick={() => setReview(null)}>
+            Posts
+          </Pill>
+          <span className="flex-1" />
+          <button type="button" aria-label="Previous post" disabled={at === 0} onClick={() => go(at - 1)} className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-fill-quiet text-slate-500 disabled:cursor-default disabled:opacity-35">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="min-w-[64px] text-center text-[13.5px] font-extrabold tabular-nums text-ink">
+            {at + 1} of {done.length}
+          </span>
+          <button type="button" aria-label="Next post" disabled={last} onClick={() => go(at + 1)} className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-fill-quiet text-slate-500 disabled:cursor-default disabled:opacity-35">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+        <div key={r.post.index} className={`animate-om-fade ${r.picked ? "" : "opacity-50"}`}>
+          <div className="mb-3 flex items-end gap-3">
+            <TypeTile type={r.post.type} size={40} />
+            <div className="flex-1">
+              <Field label="Title" value={title} onChange={(e) => setTitle(e.target.value.slice(0, 140))} />
+            </div>
+          </div>
+          {r.lt ? (
+            <TextArea label="On screen" value={r.lt.onScreen} onChange={(e) => patch(r.post.index, { lt: { ...r.lt!, onScreen: e.target.value } })} rows={8} />
+          ) : (
+            <GuidedEditor type={r.post.type} g={r.g!} setG={(g) => patch(r.post.index, { g })} />
+          )}
+        </div>
+        <div className="mt-5 flex items-center gap-2">
+          <Pill
+            variant="quiet"
+            icon={r.picked ? X : Check}
+            onClick={() => {
+              const keep = !r.picked;
+              patch(r.post.index, { picked: keep });
+              if (!keep && !last) go(at + 1);
+            }}
+          >
+            {r.picked ? "Skip" : "Keep"}
+          </Pill>
+          <span className="flex-1" />
+          <Pill icon={last ? Check : ChevronRight} onClick={() => (last ? setReview(null) : go(at + 1))}>
+            {last ? "Done" : "Next"}
+          </Pill>
+        </div>
+      </Modal>
+    );
+  }
+
+  /* ---- posts: listed the moment they are found, written at the same time ---- */
+  if (stage === "posts") {
+    const reading = !rows.length;
+    const pages = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
+    const safePage = Math.min(page, pages - 1);
+    const shown = rows.slice(safePage * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE + ROWS_PER_PAGE);
+    const heading = reading ? "Reading brief" : working ? `Writing ${postsLabel(rows.length)}` : `${postsLabel(done.length)} ready`;
+    const progress = !working ? 1 : reading ? 0.08 : 0.12 + (planning ? 0.7 : 0.84) * (settled / rows.length);
+    return (
+      <Modal title={heading} onClose={onClose} width={560}>
+        <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-fill-quiet">
+          <div className={`h-full rounded-full transition-[width] duration-500 ${working ? "bg-blue-500" : "bg-green"}`} style={{ width: `${Math.round(progress * 100)}%` }} />
+        </div>
+        {notes.map((n) => (
+          <div key={n} className="mb-2 text-[13px] font-semibold text-danger">
+            {n}
+          </div>
+        ))}
+        <div className="flex flex-col gap-1.5" style={{ minHeight: ROWS_PER_PAGE * 62 }}>
+          {shown.map((r) => {
+            const ready = r.status === "done";
+            const title = (r.lt ? r.lt.title : r.g?.title) || r.post.title;
+            return (
+              <div key={r.post.index} className={`flex animate-om-rise items-center gap-3 rounded-[12px] border border-line bg-white py-2 pl-3 pr-2 ${ready && !r.picked ? "opacity-50" : ""}`}>
+                <button type="button" disabled={!ready} onClick={() => setReview(r.post.index)} className={`flex min-w-0 flex-1 items-center gap-3 text-left ${ready ? "cursor-pointer" : "cursor-default"}`}>
+                  <TypeTile type={r.post.type} size={36} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-extrabold text-ink">{title}</span>
+                    <span className={`block truncate text-[12px] font-semibold ${r.status === "failed" ? "text-danger" : "text-slate-400"}`}>{r.status === "failed" ? "Not written" : ready ? rowMeta(r) : r.post.type}</span>
+                  </span>
+                </button>
+                {r.status === "failed" ? (
+                  <Pill variant="quiet" size="sm" onClick={() => retry(r.post)}>
+                    Retry
+                  </Pill>
+                ) : ready ? (
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={r.picked}
+                    aria-label={`Keep ${title}`}
+                    onClick={() => patch(r.post.index, { picked: !r.picked })}
+                    className={`flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-transform active:scale-90 ${r.picked ? "animate-om-pop bg-blue-600 text-white" : "border-2 border-line-strong bg-white text-transparent"}`}
+                  >
+                    <Check size={15} strokeWidth={3} />
+                  </button>
+                ) : (
+                  <span className="mr-1.5 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
+                )}
+              </div>
+            );
+          })}
+          {planning ? <div className="h-[54px] animate-pulse rounded-[12px] bg-fill-quiet" /> : null}
+          {reading ? <div className="h-[54px] animate-pulse rounded-[12px] bg-fill-quiet" /> : null}
+        </div>
+        {error ? <div className="mt-3 text-[13px] font-semibold text-danger">{error}</div> : null}
+        <div className="mt-4 flex items-center gap-2">
+          {pages > 1 ? (
+            <>
+              <button type="button" aria-label="Previous" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-fill-quiet text-slate-500 disabled:cursor-default disabled:opacity-35">
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[13px] font-bold tabular-nums text-slate-400">
+                {safePage + 1} of {pages}
+              </span>
+              <button type="button" aria-label="Next" disabled={safePage >= pages - 1} onClick={() => setPage(safePage + 1)} className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-fill-quiet text-slate-500 disabled:cursor-default disabled:opacity-35">
+                <ChevronRight size={16} />
+              </button>
+            </>
+          ) : null}
+          <span className="flex-1" />
+          <Pill icon={Check} loading={saving} disabled={working || !chosen.length} onClick={() => void saveAll()}>
+            {working ? (reading ? "Reading" : `${settled} of ${rows.length} written`) : chosen.length ? `Save ${postsLabel(chosen.length)}` : "Pick a post"}
+          </Pill>
+        </div>
+      </Modal>
+    );
+  }
+
+  /* ---- pick: what to read ---- */
   return (
     <Modal title="Upload brief" onClose={onClose} width={520}>
-      {phase === "pick" || phase === "reading" ? (
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            disabled={phase === "reading"}
-            onClick={() => input.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setOver(true);
-            }}
-            onDragLeave={() => setOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setOver(false);
-              addFiles(e.dataTransfer.files);
-            }}
-            className={`flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-ops-md border border-dashed px-4 py-10 text-[13.5px] font-bold transition-colors ${
-              over ? "border-blue-500 bg-blue-50 text-blue-700" : "border-line-strong bg-white text-slate-500 hover:border-blue-300 hover:bg-fill-quiet"
-            }`}
-          >
-            <span className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-              <Upload size={18} />
-            </span>
-            PDF, Word, slides, sheets or photos
-          </button>
-          <input ref={input} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => addFiles(e.target.files)} />
-          {sources.length ? (
-            <div className="flex flex-wrap gap-1.5">
-              {sources.map((s) => (
-                <span key={s.id} className="flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-[12.5px] font-bold text-blue-700">
-                  {s.file.name}
-                  <button type="button" aria-label="Remove" onClick={() => setSources((l) => l.filter((x) => x.id !== s.id))} className="cursor-pointer">
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          ) : null}
-          <Field label="Or a Google Doc or Notion link" value={link} onChange={(e) => setLink(e.target.value)} type="url" />
-          {error ? <div className="text-[13px] font-semibold text-danger">{error}</div> : null}
-          <div className="mt-2 flex justify-end gap-2">
-            <Pill variant="quiet" onClick={onClose}>
-              Cancel
-            </Pill>
-            <Pill icon={Sparkles} loading={phase === "reading"} onClick={() => void read()}>
-              {phase === "reading" ? "Reading" : "Read brief"}
-            </Pill>
+      <div className="flex flex-col gap-3">
+        <button
+          type="button"
+          onClick={() => input.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setOver(true);
+          }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setOver(false);
+            addFiles(e.dataTransfer.files);
+          }}
+          className={`flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-ops-md border border-dashed px-4 py-10 text-[13.5px] font-bold transition-colors ${
+            over ? "border-blue-500 bg-blue-50 text-blue-700" : "border-line-strong bg-white text-slate-500 hover:border-blue-300 hover:bg-fill-quiet"
+          }`}
+        >
+          <span className="mb-1 flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+            <Upload size={18} />
+          </span>
+          PDF, Word, slides, sheets or photos
+        </button>
+        <input ref={input} type="file" multiple accept={ACCEPT} className="hidden" onChange={(e) => addFiles(e.target.files)} />
+        {files.length ? (
+          <div className="flex flex-wrap gap-1.5">
+            {files.map((s) => (
+              <span key={s.id} className="flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-[12.5px] font-bold text-blue-700">
+                {s.file.name}
+                <button type="button" aria-label="Remove" onClick={() => setFiles((l) => l.filter((x) => x.id !== s.id))} className="cursor-pointer">
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
           </div>
+        ) : null}
+        <Field label="Or a Google Doc or Notion link" value={link} onChange={(e) => setLink(e.target.value)} type="url" />
+        {error ? <div className="text-[13px] font-semibold text-danger">{error}</div> : null}
+        <div className="mt-2 flex justify-end gap-2">
+          <Pill variant="quiet" onClick={onClose}>
+            Cancel
+          </Pill>
+          <Pill icon={Sparkles} disabled={!files.length && !link.trim()} onClick={() => void read()}>
+            Write posts
+          </Pill>
         </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {plan?.summary ? <p className="m-0 text-[13.5px] font-medium leading-[1.45] text-slate-600">{plan.summary}</p> : null}
-          <div className="flex max-h-[46vh] flex-col gap-1.5 overflow-y-auto pr-1">
-            {plan?.posts.map((p) => {
-              const w = written.find((x) => x.index === p.index);
-              return (
-                <div key={p.index} className="flex items-center gap-3 rounded-[12px] border border-line bg-white px-3 py-2.5">
-                  <TypeTile type={p.type} size={28} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[14px] font-extrabold text-ink">{w?.input?.title || p.title}</div>
-                    <div className="truncate text-[12px] font-semibold text-slate-400">{p.type}</div>
-                  </div>
-                  {w?.status === "done" ? (
-                    <Check size={17} className="text-green" />
-                  ) : w?.status === "failed" ? (
-                    <span className="text-[12px] font-bold text-danger">Failed</span>
-                  ) : (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          {error ? <div className="text-[13px] font-semibold text-danger">{error}</div> : null}
-          <div className="mt-2 flex items-center justify-end gap-2">
-            <span className="flex-1 text-[13px] font-bold text-slate-400">
-              {done.length} of {plan?.posts.length ?? 0} written
-            </span>
-            <Pill variant="quiet" onClick={onClose}>
-              Cancel
-            </Pill>
-            <Pill icon={Check} loading={phase === "saving"} disabled={stillWriting || done.length === 0} onClick={() => void saveAll()}>
-              {stillWriting ? "Writing" : `Save ${done.length}`}
-            </Pill>
-          </div>
-        </div>
-      )}
+      </div>
     </Modal>
   );
 }
@@ -805,11 +1011,14 @@ export function BriefsLibraryView({
   companyId,
   initialOpen = null,
   seed = null,
+  uploadApi,
 }: {
   initial: Brief[];
   companyId: string;
   initialOpen?: string | null;
   seed?: BriefSeed | null;
+  /** Dev preview only: the Upload brief calls, replaced with canned ones. */
+  uploadApi?: UploadApi;
 }) {
   const [briefs, setBriefs] = useState(initial);
   const [lane, setLane] = useState<Lane>("Guided");
@@ -1043,6 +1252,7 @@ export function BriefsLibraryView({
       {uploading ? (
         <UploadBrief
           companyId={companyId}
+          api={uploadApi}
           onClose={() => setUploading(false)}
           onSaved={(next, ids) => {
             setUploading(false);
