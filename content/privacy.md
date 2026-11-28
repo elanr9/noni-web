@@ -36,7 +36,7 @@ Depending on how you sign up and what you provide, we may collect:
 
 Before a creator signs an agreement or is paid, we collect their legal name, date of birth, and home address, and a confirmation that they work as an independent contractor. We use these to form the agreement, pay the creator, and meet tax reporting duties. Companies and other users never see them.
 
-- **Identity check.** A government ID and a selfie are submitted directly to Stripe, our identity verification provider, on Stripe's own page. Noni receives the result (verified or not, and whether the name matches) and does not receive or store the ID image or the selfie.
+- **Identity check.** A government ID, a selfie, and for US creators a Social Security Number are submitted directly to Stripe, our identity verification provider, on Stripe's own page. Noni receives the result (verified or not, and whether the name matches) and does not receive or store the ID image, the selfie, or the Social Security Number.
 - **Bank and tax details.** Bank account details and the tax form (W-9 or W-8BEN, including a Social Security Number or other taxpayer ID) are submitted directly to Mercury, our banking partner. Noni does not receive or store the Social Security Number or the bank account number.
 
 ### 2.2 Information from Google Sign-In
