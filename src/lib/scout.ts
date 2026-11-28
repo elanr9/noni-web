@@ -77,6 +77,8 @@ export type ScoutRun = {
     tiktok_queries?: string[];
     tiktok_hashtags?: string[];
     instagram_hashtags?: string[];
+    /** Account searches: who people are, by name and bio. */
+    account_queries?: string[];
   };
   status: ScoutRunStatus;
   counts: { posts?: number; accounts?: number; shortlisted?: number; vetted?: number; matches?: number };

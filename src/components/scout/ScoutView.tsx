@@ -734,7 +734,7 @@ function Counter({ value, label }: { value: number; label: string }) {
 function RunStrip({ data, accent }: { data: ScoutData; accent: string }) {
   const r = data.run!;
   const step = stepOf(data);
-  const terms = [...(r.plan.tiktok_queries ?? []), ...(r.plan.tiktok_hashtags ?? []).map((h) => `#${h}`), ...(r.plan.instagram_hashtags ?? []).map((h) => `#${h}`)];
+  const terms = [...(r.plan.account_queries ?? []), ...(r.plan.tiktok_queries ?? []), ...(r.plan.tiktok_hashtags ?? []).map((h) => `#${h}`), ...(r.plan.instagram_hashtags ?? []).map((h) => `#${h}`)];
   const unique = [...new Set(terms)];
   return (
     <Card pad={0} className="mb-4 flex shrink-0 flex-col gap-4 px-5 py-3.5 md:flex-row md:items-center md:gap-6">
