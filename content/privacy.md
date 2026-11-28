@@ -32,6 +32,13 @@ Depending on how you sign up and what you provide, we may collect:
 - Role in the product (for example, creator or admin)
 - Onboarding answers (for example, experience, availability, how you heard about us)
 
+### 2.1.1 Legal and payout details for creators
+
+Before a creator signs an agreement or is paid, we collect their legal name, date of birth, and home address, and a confirmation that they work as an independent contractor. We use these to form the agreement, pay the creator, and meet tax reporting duties. Companies and other users never see them.
+
+- **Identity check.** A government ID and a selfie are submitted directly to Stripe, our identity verification provider, on Stripe's own page. Noni receives the result (verified or not, and whether the name matches) and does not receive or store the ID image or the selfie.
+- **Bank and tax details.** Bank account details and the tax form (W-9 or W-8BEN, including a Social Security Number or other taxpayer ID) are submitted directly to Mercury, our banking partner. Noni does not receive or store the Social Security Number or the bank account number.
+
 ### 2.2 Information from Google Sign-In
 
 If you choose **Sign in with Google**, Google shares with us basic account information needed to create and maintain your Noni account. This typically includes your **name**, **email address**, and **profile picture** (subject to your Google account settings and the scopes you approve).
@@ -107,6 +114,7 @@ We may share information with:
 
 - **Service providers** that help us run Noni (for example hosting, authentication, storage, analytics, push notifications, media processing, and social posting infrastructure), under obligations to protect the data
 - **Brand / company admins** inside your workspace, so they can manage campaigns, review submissions, and operate the product
+- **Stripe and Mercury**, to verify a creator's identity, pay them, and collect their tax form
 - **Platforms you authorize** when content is posted or accounts are connected
 - **Professional advisors** or authorities when required by law or to protect rights, safety, and security
 - A buyer or successor if FieldVision AI is involved in a merger, acquisition, financing, or sale of assets
